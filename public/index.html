@@ -1,0 +1,146 @@
+<html>
+	<head>
+		<title>Experiment Time!</title>
+	</head>
+	<script src="https://cdn.jsdelivr.net/npm/gpu.js@latest/dist/gpu-browser.js"></script>
+	<style>
+		canvas {
+			border:1px solid #fa0;
+		}
+	</style>
+<body>
+	<div id="main"></div>
+
+</body>
+
+	<script type="module">
+
+	// import CameraView from "https://demo.scantek.io/sdk/dev/class_camera_view.mjs"
+	import filter from "./js/filters.js"
+	import Camera from "./js/video.js"
+	
+	const camera = new Camera({
+		facing: "environment",
+		allowIR: false,
+		resolution: "FHD",
+		audio: false,
+	})
+	
+	document.body.appendChild(camera);
+	camera.start()
+	
+
+	// if('undefined' == typeof window.__log) {
+	// 	// make sure we have our console wrapper if this is called without scantek_bootstrap.js
+	// 	if('function' == typeof window.console.log) window.__log = console.log;
+	// 	if('function' == typeof window.console.debug) window.__debug = console.debug;
+	// 	if('function' == typeof window.console.error) window.__error = console.error;
+	// 	if('function' == typeof window.console.warn) window.__warn = console.warn;
+	// }
+
+
+	const main = document.getElementById("main");
+	const canvas0 = document.createElement("canvas")
+	const canvas1 = document.createElement("canvas")
+	const image = new Image()
+	const ctx0 = canvas0.getContext("2d")
+	const ctx1 = canvas1.getContext("2d")
+	let w,h
+	
+	// ctx0.demote();
+	
+	image.src = "sample.webp"
+	image.addEventListener("load", e=>{
+		console.log("loaded image")
+		main.appendChild(image)
+		w=image.width,h=image.height
+		
+		canvas1.style.height = canvas0.style.height = h+"px";
+		canvas1.style.width = canvas0.style.width = w+"px";
+		console.log(`Image ${w}x${h}`)
+		canvas0.height = canvas1.height = h
+		canvas0.width = canvas1.width = w
+		
+		main.appendChild(canvas0)
+		main.appendChild(canvas1)
+		image.style.display = "none"
+		
+		let t = []
+		t.push(["start",performance.now()])
+		ctx0.drawImage(image, 0,0);
+		t.push(["draw to canvas", performance.now()])
+		let pixels = ctx0.getImageData(0,0,w,h)
+		t.push(["getImageData", performance.now()])
+		const contrast = filter.contrast_b(pixels, 1.5);
+		t.push(["filter.contrast", performance.now()])
+		ctx1.putImageData(contrast, 0, 0);
+		t.push(["putImageData", performance.now()])
+		
+		const timings = {}
+		for(let i=1,l=t.length;i<l;i++) {
+			timings[t[i][0]] = t[i][1] - t[i-1][1]
+		}
+		console.log("JS CONTRAST Timings", timings);
+		
+	})
+	
+	
+	const video = camera.video
+	const canvas = camera.canvas
+	const ctx = camera.context
+	const frameStack = []
+	window.canvas = canvas0
+	
+	
+	const loop = (()=>{
+		
+		let frames=0,fps=0
+		let startTime = performance.now();
+		let t0, t1, t2
+		let inflight = false;
+		
+		return async()=>{
+			if(inflight) window.requestAnimationFrame(loop);
+			inflight = true;
+		
+			frames++
+			let time = performance.now();
+			if(time>startTime+1000) {
+				startTime = time;
+				fps = frames;
+				frames = 0
+			}
+			
+			t0=performance.now();
+			// ctx0.drawImage(video, 0,0);
+			t1=performance.now();
+			// ctx0.getImageData(0,0, canvas0.width,canvas0.height);
+			try {
+				const bitmap = await createImageBitmap(video);
+				// result = await detector(bitmap)
+				frameStack.push(bitmap);
+				if(frameStack.length>6) frameStack.shift(); // drop the oldest frame
+				
+			} catch(e) {
+				// console.warn(e)
+			}
+			t2=performance.now();
+			
+			inflight = false;
+			
+			ctx.clearRect(0,0,canvas.width, canvas.height);
+			ctx.fillText(`testing ${frames}, ${fps}`,20,20)
+			ctx.fillText(`video copy to imagedata ${t2-t1}ms`,20,40)
+			window.requestAnimationFrame(loop)
+		}
+	})()
+	
+	video.addEventListener("loadeddata", ()=>{
+		canvas0.width = video.videoWidth
+		canvas0.height = video.videoHeight
+		loop()
+	}, {once:true});
+	// window.requestAnimationFrame(loop)
+
+	</script>
+</html>

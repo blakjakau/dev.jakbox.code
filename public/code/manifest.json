@@ -1,0 +1,46 @@
+{
+  "short_name": "Code",
+  "name": "Code",
+  "icons": [
+    {
+      "src": "/code/images/code-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/code/images/code-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+
+  ],
+  "start_url": "/code/index.html",
+  "display_override": ["standalone", "minimal-ui"],
+  "display": "standalone",
+  "scope": "/code/",
+  "theme_color": "#0077bb",
+  "background_color": "#ffffff",
+  "shortcuts": [
+    {
+      "name": "Open last project",
+      "short_name": "last",
+      "description": "Open Coder with the last active project file",
+      "url": "/code/index.html?open=last",
+      "icons": [{ "src": "/code/images/code-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "description": "Super light code editing in your brower",
+  "screenshots": [
+    {
+      "src": "/code/images/coder-screen.png",
+      "type": "image/png",
+      "sizes": "720x540"
+    }
+  ],
+  "protocol_handlers": [
+  {
+    "protocol": "text",
+    "url": "/code/index.html?open=%s"
+  }
+]
+}

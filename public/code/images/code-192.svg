@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" xmlns:bx="https://boxy-svg.com">
+  <defs>
+    <bx:grid x="0" y="0" width="1" height="1"/>
+  </defs>
+  <g id="logo">
+    <g fill="none">
+      <rect x="1.416" y="1.475" width="28.937" height="28.784" rx="95.833" ry="95.833" style=""/>
+    </g>
+    <g fill="currentColor" style="" transform="matrix(0.151687, 0, 0, 0.151687, 1.201211, 1.251262)">
+      <polygon points="154.486 139.635 113.592 98.394 154.528 55.992 164.634 66.638 132.971 98.432 164.286 129.423" transform="matrix(-1, 0, 0, -1, 278.226006, 195.626991)"/>
+      <polygon points="69.279 55.965 27.777 97.206 69.322 139.608 79.578 128.962 47.443 97.168 79.225 66.177"/>
+    </g>
+  </g>
+</svg>

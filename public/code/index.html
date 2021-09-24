@@ -1,0 +1,49 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="manifest" href="/code-dev/manifest.json">
+	
+    <!--<link rel='stylesheet' href='/material-icons.woff2' media='screen,projection' type='text/css'>-->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto:wght@300;400&display=swap" rel="stylesheet">
+    
+    <link href="css/elements.css" rel="stylesheet">
+	<link href="css/main.css" rel="stylesheet" />
+	
+	<script src="ace/ace.js" type="text/javascript" charset="utf-8"></script>
+	<script src="ace/ext-language_tools.js"></script>
+    
+    
+    <script type="text/javascript" src="js/elements.js" ></script>
+    <script type="text/javascript">window.elements=window.__ui</script>
+	<script type="text/javascript">
+		/* Only register a service worker if it's supported */
+		if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/code/service-worker.js'); }
+	</script>
+	<style> :root { --theme: #0077bb!important; } </style>
+</head>
+<body>
+	<ui-actionbar id="menu" hook="top" slim style="top: 0px; bottom: auto;">
+		<ui-inline id="logo"><img src="images/code-192-simple.svg" style="color: #fff" height="32px"> Code</ui-inline>
+		<!--<ui-button>File</ui-button>-->
+		<!--<ui-button>Edit</ui-button>-->
+		<!--<ui-button>Tools</ui-button>-->
+		<!--<ui-button>Project</ui-button>-->
+	</ui-actionbar>
+	
+	
+	<ui-actionbar id="statusbar" slim hook="bottom">
+		<ui-button icon="settings" hook=right onclick="editor.execCommand('showSettingsMenu', window.ui.updateThemeAndMode )"></ui-button>
+		<ui-button id="theme_select" hook=right></ui-button>
+		<ui-button  id="mode_select" hook=right></ui-button>
+	</ui-actionbar>
+	
+	
+	<script type="module" src="js/main.mjs"></script>
+</body>
+</html>

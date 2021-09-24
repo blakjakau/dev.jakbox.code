@@ -1,0 +1,28 @@
+{
+  "name": "code.jakbox.net",
+  "version": "0.0.1",
+  "description": "WPA code editor built around ACE",
+  "main": "index.mjs",
+  "scripts": {
+    "start": "PORT=8083 nodemon index.mjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@bitbucket.org/jakbox/code.git"
+  },
+  "nodemonConfig": {
+    "verbose": false,
+    "ignore": [
+      "node_modules/*",
+      "public/*"
+    ]
+  },
+  "author": "Jason Grima",
+  "license": "UNLICENSED",
+  "homepage": "https://bitbucket.org/jakbox/code#readme",
+  "dependencies": {
+    "express": "^4.17.1",
+    "idb-keyval": "^5.0.5"
+  }
+}

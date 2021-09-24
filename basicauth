@@ -1,0 +1,3 @@
+#!/usr/local/bin/node
+const basicAuth = require("./includes/basicauth.js");
+basicAuth.cli();

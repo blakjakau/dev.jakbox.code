@@ -1,0 +1,254 @@
+:root {
+	--theme: #00aabb;
+	--light: #eee;
+	--mid: #cdcdcd;
+	/*--dark: #272822;*/
+	--dark: #384144;
+	--animRate:250ms;
+	--tabRadius: 4px 4px 0 0;
+	--tabHeight: 37px;
+	--menuHeight: 34px;
+	--statusHeight: 34px;
+	--editorTop: calc(var(--tabHeight) + var(--menuHeight) + 2px);
+	--ui-icon-color: var(--mid);
+}
+
+#ace_settingsmenu {
+	top: var(--editorTop);
+	bottom: var(--menuHeight);
+}
+tr.ace_optionsMenuEntry { line-height:2em };
+
+button { border:0; }
+
+body {
+	font-family:roboto, arial, sans;
+	font-size:13px;
+    overflow: hidden;
+	background:var(--light);
+	margin:0; padding:0;
+}
+
+ui-action-bar #logo {
+	margin-left:8px;
+}
+
+#ui_editor {
+	opacity:1;
+	transition:opacity 333ms;
+    margin: 0;
+    position: absolute;
+    top: var(--editorTop);
+    bottom: var(--statusHeight);
+    left: 0;
+    right: 0;
+    line-height:1.3em;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+.ace_scrollbar::-webkit-scrollbar {
+	width: .66em; height: .66em;
+}
+
+.ace_scrollbar-v::-webkit-scrollbar-track {
+	box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+}
+
+.ace_scrollbar::-webkit-scrollbar-thumb {
+	background-color: darkgrey;
+	border-radius:4px;
+}
+
+#ui_editor.loading {
+	opacity:0;
+}
+
+#ui_thumbstrip {
+	
+	opacity:1;
+	transition:opacity 333ms;
+    margin: 0;
+    position: absolute;
+    top: var(--editorTop);
+    bottom: 24;
+    width:128;
+    right: 0;
+    line-height:1.2em;
+    display:none;
+}
+
+#ui_thumbstrip.loading {
+	opacity:0;
+}
+
+
+header {
+	background: var(--theme);
+}
+
+header>* {
+	display:inline-block;
+}
+
+header button {
+	font-weight:bold;
+	background: var(--theme);
+	height:30px;
+	margin:3px 0;
+	pointer-events:none;
+	border-right:1px solid rgba(0,0,0,0.75);
+	margin-right:5px;
+}
+
+header button img {
+	height:32px;
+	vertical-align:middle;
+	margin-top:-4px;
+}
+
+header nav {
+	/*font-family:roboto, arial, sans;*/
+	color:var(--light); }
+
+ui-actionbar#menu {
+	z-index:6;
+	background: var(--theme);;
+}
+ui-actionbar#menu ui-inline:first-of-type {
+	color:#000;
+	border-right: 1px solid rgba(0,0,0,0.5);
+	padding-right:8px;
+}
+
+ui-actionbar#menu ui-inline:first-of-type img {
+	margin-top: -4px;
+}
+
+ui-actionbar[slim]#tabs,
+ui-actionbar[slim]#fileActions {
+	padding:5px 0 0 0;
+}
+
+ui-actionbar#menu ui-button {
+	color:#fff
+}
+
+ui-actionbar#menu ui-panel ui-button {
+	color:#444
+}
+
+#tabs {
+	position:absolute;
+	top:var(--menuHeight) !important;
+	left:0;
+	right:0;
+	background: var(--dark);
+	display:flex;
+	overflow-x: auto;
+}
+
+#tabs item {
+	display:inline-block;
+	/*min-width:128px;*/
+	height:calc(var(--tabHeight) -4);
+	background: var(--mid);
+	border-radius:var(--tabRadius);
+	margin:0px 1px;
+	padding:0 24px 0 5px;
+	line-height:var(--tabHeight);
+}
+
+#files {
+	z-index:5;
+	opacity:0;
+	background:var(--light);
+	position:absolute;
+	width:256;
+	left:-256;
+	top:var(--menuHeight) !important;
+	bottom: var(--statusHeight);
+	overflow:auto;
+}
+
+#tabs, #files, #ui_editor {
+	transition:left var(--animRate), right var(--animRate), opacity var(--animRate);
+}
+
+#statusbar {
+	position:absolute;
+	left:0;
+	right:0;
+	bottom:0 !important;
+	top:auto !important;
+	z-index:6;
+}
+
+#statusbar #cursor_pos {
+	margin-left: 8px;
+}
+
+.showFiles #tabs,
+.showFiles #ui_editor {
+	left:256;
+}
+.showFiles #files {
+	opacity:1;
+	left: 0;
+}
+
+.showThumb #ui_editor {
+	right:128;
+}
+	
+	
+#omni {
+	position:fixed;
+	z-index:10;
+	width:300px;
+	height:90px;
+	left:50%;
+	top:0px;
+	margin-left:-150px;
+	border-radius:4px;
+	box-shadow: 0px 5px 10px rgba(0,0,0,0.25);
+	background:#fff;
+	
+	transition: transform 200ms ease-in-out, opacity 200ms ease-in-out;
+	transform: scale(1,0);
+	opacity:0;
+}
+
+#omni.active {
+    transform: scale(1,1);
+    opacity:1;
+}
+
+#omni ui-block {
+	text-align:center;
+	padding:4px 8px;
+}
+
+#omni ui-block:first-of-type {
+	font-size:1.5em;
+}
+#omni ui-inline {
+	text-align:center;
+}
+
+#omni ui-input {
+	display:block;
+	box-sizing: border-box;
+	width:100%;
+	padding:4px 16px;
+}
+
+#omni ui-input input {
+	width:100%;
+	border:none;
+	border-bottom:2px solid var(--theme);
+	outline:none;
+	font-size: 1.3em;
+}
+@media (max-width:799px) {
+	.showFiles #ui_editor { left: 0; }
+}
