@@ -137,7 +137,7 @@ const uiManager = {
 					if(reg instanceof RegExp) {
 						if(next) editor.gotoLine(editor.getCursorPosition().row+2)
 				// 		if(prev) editor.findPrevious({needle: reg, regExp:true})
-						editor.find(reg, { backwards: prev }) 
+						editor.find(reg) 
 					}
 				break;
 				case "goto": editor.gotoLine(val); break;
@@ -318,7 +318,7 @@ const uiManager = {
 		} else {
 			switch(mode) {
 				case "find":omni.input.value = ""; omni.input.setSelectionRange(0,0); break;
-				case "regex":omni.input.value = "//"; omni.input.setSelectionRange(1,1); break;
+				case "regex":omni.input.value = "/"; omni.input.setSelectionRange(1,1); break;
 				case "goto":omni.input.value = ":"; omni.input.setSelectionRange(1,1); break;
 				case "lookup":omni.input.value = "@"; omni.input.setSelectionRange(1,1); break;
 			}
