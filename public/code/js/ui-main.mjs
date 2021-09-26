@@ -112,11 +112,11 @@ const uiManager = {
 		thumbElement.classList.add("loading")
 		
 		omni = new Panel()
-		omni.append(new elements.Block("Omni box"))
+		omni.titleElement = new elements.Block("Omni box")
 		omni.input = new elements.Input();
 		omni.input.value = ""
 		omni.stack = [];
-		omni.perform = (e, next=false)=>{
+		omni.perform = (e, next=false, prev=false)=>{
 			let val = omni.input.value
 			let mode = "";
 			if(val.substr(0,1)==":") { mode = "goto" }
@@ -132,22 +132,26 @@ const uiManager = {
 			switch(mode) {
 				case "regex":
 					let reg
+					if(val.substr(val.length-1,1)!=="/") val+="/"
 					try { eval(`reg = new RegExp(${val});`) } catch(e) { console.warn("incomplete or invalid regex")}
 					if(reg instanceof RegExp) {
 						if(next) editor.gotoLine(editor.getCursorPosition().row+2)
-						editor.find(reg) 
+				// 		if(prev) editor.findPrevious({needle: reg, regExp:true})
+						editor.find(reg, { backwards: prev }) 
 					}
 				break;
 				case "goto": editor.gotoLine(val); break;
 				case "find":
-					if(!next) editor.find("");
+					if(prev) { return editor.findPrevious({needle: val}); }
+					if(next) { return editor.findNext({needle: val}); }
+					editor.find("")
 					editor.find(val);
 				break;
 			}
 
 		}
 		omni.input.addEventListener("keyup", e=>{
-			console.log(e.code, omni.stackPos, omni.stack.length)
+			console.debug(e.code, omni.stackPos, omni.stack.length)
 			
 			
 			if(e.code == "ArrowUp") {
@@ -171,26 +175,29 @@ const uiManager = {
 
 			if(e.code == "Escape") {
 				uiManager.hideOmnibox()
-				editor.find("")
 				editor.focus();
 			}
+			
 			if(e.code == "Enter") {
 				if(e.ctrlKey) {
-					omni.perform(e, true)
-				} else {
 					uiManager.hideOmnibox()
 					editor.focus();
-					// if(omni.stack.length<1 && omni.stack.indexOf(omni.input.value)<omni.stack.length-1) {
-						omni.stack.push(omni.input.value)
-					// }
-					while(omni.stack.length>10) { omni.stack.shift() }
+					omni.stack.push(omni.input.value)
+					// truncate the omni stakc to the last X items
+					while(omni.stack.length>20) { omni.stack.shift() }
+				} else if(e.shiftKey) {
+				    omni.perform(e, false, true)
+				} else {
+					omni.perform(e, true)
 				}
 			}
 			
 		})
 		omni.input.addEventListener("input", omni.perform )
+		omni.prepend(omni.titleElement)
 		omni.append(omni.input)
-		omni.append(new elements.Block("Find &nbsp;&nbsp; /RegEx/ &nbsp;&nbsp; :Goto &nbsp;&nbsp; <strike>@Lookup</strike>"))
+		omni.append(new elements.Block(`<acronym title='CTRL+F'>Find</acronym> &nbsp;&nbsp; <acronym title='CTRL+SHIFT+F'>/RegEx</acronym> &nbsp;&nbsp; 
+		    <acronym title='CTRL+G'>:Goto</acronym> &nbsp;&nbsp; <acronym title='CTRL+P (Not implemented)'><strike>@Lookup</strike></acronym>`))
 		omni.setAttribute("id", "omni")
 		omni.setAttribute("omni", "true")
 		
@@ -207,19 +214,23 @@ const uiManager = {
 		window.editor = editor = ace.edit(editorID);
 		window.thumbStrip =	thumbstrip = ace.edit(thumbID)
 		ace.require("ace/keyboard/sublime")
-		// ace.require("ace/ext/")
-		// ace.require("ace/ext/searchbox")
-		
-		editor.setKeyboardHandler( options.keyboard )
-		editor.setTheme(options.theme)
-		
-		// editor.session.setMode(options.mode)
-		editor.commands.removeCommand('find');
-		editor.setOptions(defaultOptions)
-		
-		
-		window.thumbstrip = thumbstrip = ace.edit("ui_thumbstrip")
-		thumbstrip.setKeyboardHandler("ace/keyboard/sublime")
+    	ace.require("ace/etc/keybindings_menu")
+    	// ace.require("ace/ext/")
+    	// ace.require("ace/ext/searchbox")
+    	
+    	editor.setKeyboardHandler( options.keyboard )
+    	editor.setTheme(options.theme)
+    	
+    	// editor.session.setMode(options.mode)
+    	editor.commands.removeCommand('find');
+    	editor.commands.removeCommand('removetolineendhard');
+    	editor.commands.removeCommand('removetolinestarthard');
+    	
+    	editor.setOptions(defaultOptions)
+    	
+    	
+    	window.thumbstrip = thumbstrip = ace.edit("ui_thumbstrip")
+    	thumbstrip.setKeyboardHandler("ace/keyboard/sublime")
 		thumbstrip.setTheme("ace/theme/code")
 		thumbstrip.session.setMode("ace/mode/javascript")
 	
@@ -302,12 +313,14 @@ const uiManager = {
 				case "find": omni.input.setSelectionRange(0,omni.input.value.length); break;
 				case "regex": omni.input.setSelectionRange(1,omni.input.value.length-1); break;
 				case "goto": omni.input.setSelectionRange(1,omni.input.value.length); break;
+				case "lookup": omni.input.setSelectionRange(1,omni.input.value.length); break;
 			}
 		} else {
 			switch(mode) {
 				case "find":omni.input.value = ""; omni.input.setSelectionRange(0,0); break;
 				case "regex":omni.input.value = "//"; omni.input.setSelectionRange(1,1); break;
 				case "goto":omni.input.value = ":"; omni.input.setSelectionRange(1,1); break;
+				case "lookup":omni.input.value = "@"; omni.input.setSelectionRange(1,1); break;
 			}
 		}
 		omni.last = mode
