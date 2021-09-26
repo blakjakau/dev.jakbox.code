@@ -34,7 +34,7 @@ ui-action-bar #logo {
 }
 #tabs {
     box-sizing: border-box;
-    border-bottom:4px solid var(--theme);
+    border-bottom:2px solid var(--theme);
 }
 
 ui-tab-item:not([active])::after { 

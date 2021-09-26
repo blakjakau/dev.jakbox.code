@@ -611,8 +611,12 @@ class TabBar extends Block {
 		    e.preventDefault();
 		    e.dataTransfer.dropEffect = "move";
 		    
-		    const last = this._tabs[this._tabs.length-1]
-		    
+		    let last = this._tabs[this._tabs.length-1]
+		    if(last == this.movingItem) {
+		        if(this.length<2) { return }
+		        last = this._tabs[this._tabs.length-2]
+		    }
+
 		    if(e.layerX > last.offsetLeft + last.offsetWidth) {
 		        this._tabs.forEach(tab=>{ tab.style.marginLeft = ""})
 		        this.dropTarget = last
