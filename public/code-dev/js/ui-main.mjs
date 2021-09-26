@@ -179,12 +179,19 @@ const uiManager = {
 			}
 			
 			if(e.code == "Enter") {
+			    if(omni.last === "goto") {
+			        uiManager.hideOmnibox()
+					editor.focus();
+					omni.stack.push(omni.input.value)
+					return
+			    }
 				if(e.ctrlKey) {
 					uiManager.hideOmnibox()
 					editor.focus();
 					omni.stack.push(omni.input.value)
 					// truncate the omni stakc to the last X items
 					while(omni.stack.length>20) { omni.stack.shift() }
+					
 				} else if(e.shiftKey) {
 				    omni.perform(e, false, true)
 				} else {

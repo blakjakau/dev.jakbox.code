@@ -1,14 +1,14 @@
 
 // TODO: top priority
+// --- drag+drop tabs on the tabbar
+// --- disable live autocomplete
+// --- set text baseValue at load and save, use it for change tracking
+// --- Add "notSupported" page for firefox/brave other browsers that don't support the FileAPI
+// --- add "CTRL+N" to create a new file/untitlted document
 // menus context / file
-// disable live autocomplete
 // look at restoring workspace during app load?
 // find out why useSoftTabs isn't disbling with its setting
-// trag+drop tabs on the tabbar
 // link tab status to file view?
-// ---- set text baseValue at load and save, use it for change tracking
-// ---- Add "notSupported" page for firefox/brave other browsers that don't support the FileAPI
-// ---- add "CTRL+N" to create a new file/untitlted document
 
 import ui from './ui-main.mjs'
 // import elements from "../elements/elements.mjs"
@@ -196,18 +196,16 @@ tabBar.click = event=>{
 	thumbStrip.clearSelection();
 	thumbStrip.gotoLine(editor.getCursorPosition().row+1)
 	ui.updateThemeAndMode()
+	editor.focus()
 }
 
 tabBar.close = event=>{
 	const tab = event.tab
-	
 	if(tab.changed) {
 		if(!confirm("This file has unsaved changes, are you sure?")) {
 			return
 		}
 	}
-	
-	
 	tabBar.remove(tab)
 	if(tabBar.tabs.length==0) {
 		defaultTab()

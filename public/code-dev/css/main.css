@@ -32,6 +32,27 @@ body {
 ui-action-bar #logo {
 	margin-left:8px;
 }
+#tabs {
+    box-sizing: border-box;
+    border-bottom:4px solid var(--theme);
+}
+
+ui-tab-item:not([active])::after { 
+    display:inline-block;
+    position:absolute;
+    width:1px;
+    height:20px;
+    margin-top:4px;
+    /*vertical-align:middle;*/
+    content: '';
+    overflow:hidden;
+    background-color:var(--mid);
+}
+
+/*ui-tab-item[active] + ui-tab-item::after { opacity:0; }*/
+
+ui-tabbar[slim]>ui-tab-item { background:none; color: var(--light); border: 0px; }
+ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme); border-radius: 4px 4px 0 0; border:0px; }
 
 #ui_editor {
 	opacity:1;
