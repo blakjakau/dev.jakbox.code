@@ -5,6 +5,10 @@
 // look at restoring workspace during app load?
 // find out why useSoftTabs isn't disbling with its setting
 // trag+drop tabs on the tabbar
+// link tab status to file view?
+// ---- set text baseValue at load and save, use it for change tracking
+// ---- Add "notSupported" page for firefox/brave other browsers that don't support the FileAPI
+// ---- add "CTRL+N" to create a new file/untitlted document
 
 import ui from './ui-main.mjs'
 // import elements from "../elements/elements.mjs"
@@ -80,38 +84,45 @@ const editor = ui.editor
 const thumbs = ui.thumb
 const fileActions = ui.fileActions;
 const fileList = ui.fileList;
-const tabList = ui.tabList;
+const tabBar = ui.tabBar;
 
 const saveFile = async (text, handle)=>{
-    const tab = tabList.activeTab
+    const tab = tabBar.activeTab
 	const writable = await handle.createWritable()
 	await writable.write(text)
 	await writable.close()
 	tab.changed = false
-// 	console.debug("content written to file")
 }
 
+const execCommandCloseActiveTab = async ()=>{
+    const tab = tabBar.activeTab
+    tab.close.click()
+}
 const execCommandSave = async ()=>{
-	const config = tabList.activeTab.config
+	const config = tabBar.activeTab.config
 	if(config.handle) {
-		saveFile(editor.getValue(), config.handle);
+		const text = editor.getValue();
+		await saveFile(text, config.handle)
+		config.session.baseValue = text
 	} else {
 		const newHandle = await window.showSaveFilePicker().catch(console.warn)
 		if(!newHandle) { alert("File NOT saved"); return }
 		config.handle = newHandle;
 		config.name = newHandle.name
-		tabList.activeTab.text = config.name
-		saveFile(editor.getValue(), config.handle)
+		tabBar.activeTab.text = config.name
+		const text = editor.getValue();
+		await saveFile(text, config.handle)
+		config.session.baseValue = text
 	}
 }
 
 const execCommandSaveAs = async ()=>{
-	const config = tabList.activeTab.config
+	const config = tabBar.activeTab.config
 	const newHandle = await window.showSaveFilePicker().catch(console.warn)
 	if(!newHandle) { alert("File NOT saved"); return }
 	config.handle = newHandle
 	config.name = newHandle.name
-	tabList.activeTab.text = config.name
+	tabBar.activeTab.text = config.name
 	saveFile(editor.getValue(), config.handle)
 }
 
@@ -121,12 +132,27 @@ const execCommandOpen = async ()=>{
 	fileList.open(newHandle[0])
 }
 
+const execCommandNewFile = async ()=>{
+    const srcTab = tabBar.activeTab
+    const mode = srcTab.config?.mode?.mode||""
+    const folder = srcTab.config?.folder||undefined
+	const newSession = ace.createEditSession("", mode)
+	newSession.baseValue = ""
+	
+	const tab = tabBar.add({name: "untitled", 
+	    mode: { mode: mode}, session: newSession, 
+	    folder: folder})
+	    
+	editor.setSession(newSession)
+	tab.click();
+}
+
 fileList.unlock = verifyPermission
 fileList.open = async (handle)=>{
 	
 	// don't add a new tab if the file is already open in a tab
-	for(let i=0,l=tabList.tabs.length; i<l; i++) {
-		let tab = tabList.tabs[i]
+	for(let i=0,l=tabBar.tabs.length; i<l; i++) {
+		let tab = tabBar.tabs[i]
 		if(tab.config.handle === handle) {
 			console.warn("File already open")
 			tab.click();
@@ -147,21 +173,23 @@ fileList.open = async (handle)=>{
 		}
 	}
 	
-	if(tabList.tabs.length==1 && editor.getValue() == "") {
-		tabList.remove(tabList.tabs[0]);
+	if(tabBar.tabs.length==1 && editor.getValue() == "") {
+		tabBar.remove(tabBar.tabs[0]);
 	}
 	
 	const newSession = ace.createEditSession(text, fileMode.mode)
+	newSession.baseValue = text
+	
 	editor.setSession(newSession)
 	thumbstrip.setValue(editor.getValue())
 	thumbStrip.clearSelection();
 	thumbStrip.gotoLine(0)
 	
-	const tab = tabList.add({name: file.name, mode: fileMode, session: newSession, handle: handle, folder:handle.container})
+	const tab = tabBar.add({name: file.name, mode: fileMode, session: newSession, handle: handle, folder:handle.container})
 	tab.click();
 }
 
-tabList.click = event=>{
+tabBar.click = event=>{
 	const tab = event.tab
 	editor.setSession(tab.config.session)
 	thumbStrip.setValue(editor.getValue())
@@ -170,7 +198,7 @@ tabList.click = event=>{
 	ui.updateThemeAndMode()
 }
 
-tabList.close = event=>{
+tabBar.close = event=>{
 	const tab = event.tab
 	
 	if(tab.changed) {
@@ -180,8 +208,8 @@ tabList.close = event=>{
 	}
 	
 	
-	tabList.remove(tab)
-	if(tabList.tabs.length==0) {
+	tabBar.remove(tab)
+	if(tabBar.tabs.length==0) {
 		defaultTab()
 	}
 	tab.config.session.destroy()
@@ -189,7 +217,7 @@ tabList.close = event=>{
 
 const defaultTab = ()=>{
 	const defaultSession = ace.createEditSession("", "")
-	const tab = tabList.add({name: "untitled", mode: {mode:""}, session: defaultSession})
+	const tab = tabBar.add({name: "untitled", mode: {mode:""}, session: defaultSession})
 	editor.setSession(defaultSession)
 	tab.click();
 }
@@ -282,7 +310,7 @@ editor.commands.addCommand({
     name: 'next-buffer',
     bindKey: { win:'Ctrl+Tab',mac:'Ctrl+Tab' },
     exec: ()=>{
-    	tabList.next()
+    	tabBar.next()
     }
 });
 
@@ -290,7 +318,7 @@ editor.commands.addCommand({
     name: 'prev-buffer',
     bindKey: { win:'Ctrl+Shift+Tab',mac:'Ctrl+Shift+Tab' },
     exec: ()=>{
-    	tabList.prev()
+    	tabBar.prev()
     }
 });
 
@@ -314,6 +342,7 @@ editor.commands.addCommand({
 });
 
 document.addEventListener("keydown", e=>{
+	const cancelEvent = ()=>{ e.preventDefault(); e.stopPropagation() }
 	const ctrl = e.ctrlKey
 	const shift = e.shiftKey
 	
@@ -325,9 +354,18 @@ document.addEventListener("keydown", e=>{
 	if(ctrl || shift) { // this is probably some command keystroke!
 		// console.log(e)
 		switch(e.code) {
+		    case "KeyW":
+		        if(!ctrl) return
+		        cancelEvent();
+		        return execCommandCloseActiveTab()
+		    case "KeyN":
+		        if(!ctrl) return
+		        cancelEvent()
+                return execCommandNewFile()
+            break;
 			case "KeyS":
 				if(!ctrl) return
-				e.preventDefault(); e.stopPropagation();
+				cancelEvent()
 				if(ctrl && shift) {
 					return execCommandSaveAs()
 				} else if (ctrl) {
@@ -336,28 +374,22 @@ document.addEventListener("keydown", e=>{
 			break;
 			case "KeyO":
 			    if(!ctrl) return
-				e.preventDefault(); e.stopPropagation();
+				cancelEvent()
 				return execCommandOpen()
 			break;
-			
-			// case "KeyR":
-			// 	if(!ctrl) return
-			// 	e.preventDefault(); e.stopPropagation();
-			// 	window.ui.omnibox("regex");
-			// break;
 			case "KeyG":
 				if(!ctrl) return
-				e.preventDefault(); e.stopPropagation();
-				window.ui.omnibox("goto");
+				cancelEvent()
+				window.ui.omnibox("goto")
 			break;
 			case "KeyF":
 				if(!ctrl) return
-				e.preventDefault(); e.stopPropagation();
+				cancelEvent()
 				
 				if(shift) {
-					window.ui.omnibox("regex");
+					window.ui.omnibox("regex")
 				} else {
-					window.ui.omnibox("find");
+					window.ui.omnibox("find")
 				}
 			break;
 			break;

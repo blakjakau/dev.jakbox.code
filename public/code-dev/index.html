@@ -22,8 +22,20 @@
 	<script type="text/javascript" src="js/elements.js" ></script>
 	<script type="text/javascript">window.elements=window.__ui</script>
 	<script type="text/javascript">
-		/* Only register a service worker if it's supported */
-		if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/code-dev/service-worker.js'); }
+	    const notSupported = []
+	    
+	    /* Only show the page if we have support for File System Access API */
+		if(!('showDirectoryPicker' in window)) { notSupported.push("FilesAPI"); }
+		if(!('serviceWorker' in navigator)) { notSupported.push("ServiceWorker"); }
+		
+		if(notSupported.length > 0) {
+		    console.log(notSupported)
+		    sessionStorage.setItem("notSupported", JSON.stringify(notSupported));
+            window.location.href = "./notSupported.html"
+		} else {
+    		/* Only register a service worker if it's supported */
+    		if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/code-dev/service-worker.js'); }
+		}
 	</script>
 	<style> :root { --theme: #00aabb!important; } </style>
 </head>

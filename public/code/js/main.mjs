@@ -3,6 +3,12 @@
 // menus context / file
 // disable live autocomplete
 // look at restoring workspace during app load?
+// find out why useSoftTabs isn't disbling with its setting
+// trag+drop tabs on the tabbar
+// link tab status to file view?
+// ---- set text baseValue at load and save, use it for change tracking
+// ---- Add "notSupported" page for firefox/brave other browsers that don't support the FileAPI
+// ---- add "CTRL+N" to create a new file/untitlted document
 
 import ui from './ui-main.mjs'
 // import elements from "../elements/elements.mjs"
@@ -86,20 +92,27 @@ const saveFile = async (text, handle)=>{
 	await writable.write(text)
 	await writable.close()
 	tab.changed = false
-// 	console.debug("content written to file")
 }
 
+const execCommandCloseActiveTab = async ()=>{
+    const tab = tabList.activeTab
+    tab.close.click()
+}
 const execCommandSave = async ()=>{
 	const config = tabList.activeTab.config
 	if(config.handle) {
-		saveFile(editor.getValue(), config.handle);
+		const text = editor.getValue();
+		await saveFile(text, config.handle)
+		config.session.baseValue = text
 	} else {
 		const newHandle = await window.showSaveFilePicker().catch(console.warn)
 		if(!newHandle) { alert("File NOT saved"); return }
 		config.handle = newHandle;
 		config.name = newHandle.name
 		tabList.activeTab.text = config.name
-		saveFile(editor.getValue(), config.handle)
+		const text = editor.getValue();
+		await saveFile(text, config.handle)
+		config.session.baseValue = text
 	}
 }
 
@@ -117,6 +130,21 @@ const execCommandOpen = async ()=>{
 	const newHandle = await window.showOpenFilePicker().catch(console.warn)
 	if(!newHandle) { return }
 	fileList.open(newHandle[0])
+}
+
+const execCommandNewFile = async ()=>{
+    const srcTab = tabList.activeTab
+    const mode = srcTab.config?.mode?.mode||""
+    const folder = srcTab.config?.folder||undefined
+	const newSession = ace.createEditSession("", mode)
+	newSession.baseValue = ""
+	
+	const tab = tabList.add({name: "untitled", 
+	    mode: { mode: mode}, session: newSession, 
+	    folder: folder})
+	    
+	editor.setSession(newSession)
+	tab.click();
 }
 
 fileList.unlock = verifyPermission
@@ -150,6 +178,8 @@ fileList.open = async (handle)=>{
 	}
 	
 	const newSession = ace.createEditSession(text, fileMode.mode)
+	newSession.baseValue = text
+	
 	editor.setSession(newSession)
 	thumbstrip.setValue(editor.getValue())
 	thumbStrip.clearSelection();
@@ -312,6 +342,7 @@ editor.commands.addCommand({
 });
 
 document.addEventListener("keydown", e=>{
+	const cancelEvent = ()=>{ e.preventDefault(); e.stopPropagation() }
 	const ctrl = e.ctrlKey
 	const shift = e.shiftKey
 	
@@ -323,9 +354,18 @@ document.addEventListener("keydown", e=>{
 	if(ctrl || shift) { // this is probably some command keystroke!
 		// console.log(e)
 		switch(e.code) {
+		    case "KeyW":
+		        if(!ctrl) return
+		        cancelEvent();
+		        return execCommandCloseActiveTab()
+		    case "KeyN":
+		        if(!ctrl) return
+		        cancelEvent()
+                return execCommandNewFile()
+            break;
 			case "KeyS":
 				if(!ctrl) return
-				e.preventDefault(); e.stopPropagation();
+				cancelEvent()
 				if(ctrl && shift) {
 					return execCommandSaveAs()
 				} else if (ctrl) {
@@ -334,28 +374,28 @@ document.addEventListener("keydown", e=>{
 			break;
 			case "KeyO":
 			    if(!ctrl) return
-				e.preventDefault(); e.stopPropagation();
+				cancelEvent()
 				return execCommandOpen()
 			break;
 			
 			// case "KeyR":
 			// 	if(!ctrl) return
-			// 	e.preventDefault(); e.stopPropagation();
+			// 	cancelEvent();
 			// 	window.ui.omnibox("regex");
 			// break;
 			case "KeyG":
 				if(!ctrl) return
-				e.preventDefault(); e.stopPropagation();
-				window.ui.omnibox("goto");
+				cancelEvent()
+				window.ui.omnibox("goto")
 			break;
 			case "KeyF":
 				if(!ctrl) return
-				e.preventDefault(); e.stopPropagation();
+				cancelEvent()
 				
 				if(shift) {
-					window.ui.omnibox("regex");
+					window.ui.omnibox("regex")
 				} else {
-					window.ui.omnibox("find");
+					window.ui.omnibox("find")
 				}
 			break;
 			break;

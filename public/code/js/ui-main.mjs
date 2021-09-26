@@ -255,7 +255,8 @@ const uiManager = {
 			cursorpos.innerHTML = `${pos.col}:${pos.row}`;
 			
 			// check if the buffer has edits
-			tabList.activeTab.changed = !!(editor.getSession().$undoManager.$undoStack.length>0)
+// 			tabList.activeTab.changed = !!(editor.getSession().$undoManager.$undoStack.length>0)
+			tabList.activeTab.changed = (editor.getValue() != tabList.activeTab?.config?.session?.baseValue)
 		})
 
 		return
