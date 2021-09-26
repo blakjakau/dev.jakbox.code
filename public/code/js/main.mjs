@@ -84,10 +84,10 @@ const editor = ui.editor
 const thumbs = ui.thumb
 const fileActions = ui.fileActions;
 const fileList = ui.fileList;
-const tabList = ui.tabList;
+const tabBar = ui.tabBar;
 
 const saveFile = async (text, handle)=>{
-    const tab = tabList.activeTab
+    const tab = tabBar.activeTab
 	const writable = await handle.createWritable()
 	await writable.write(text)
 	await writable.close()
@@ -95,11 +95,11 @@ const saveFile = async (text, handle)=>{
 }
 
 const execCommandCloseActiveTab = async ()=>{
-    const tab = tabList.activeTab
+    const tab = tabBar.activeTab
     tab.close.click()
 }
 const execCommandSave = async ()=>{
-	const config = tabList.activeTab.config
+	const config = tabBar.activeTab.config
 	if(config.handle) {
 		const text = editor.getValue();
 		await saveFile(text, config.handle)
@@ -109,7 +109,7 @@ const execCommandSave = async ()=>{
 		if(!newHandle) { alert("File NOT saved"); return }
 		config.handle = newHandle;
 		config.name = newHandle.name
-		tabList.activeTab.text = config.name
+		tabBar.activeTab.text = config.name
 		const text = editor.getValue();
 		await saveFile(text, config.handle)
 		config.session.baseValue = text
@@ -117,12 +117,12 @@ const execCommandSave = async ()=>{
 }
 
 const execCommandSaveAs = async ()=>{
-	const config = tabList.activeTab.config
+	const config = tabBar.activeTab.config
 	const newHandle = await window.showSaveFilePicker().catch(console.warn)
 	if(!newHandle) { alert("File NOT saved"); return }
 	config.handle = newHandle
 	config.name = newHandle.name
-	tabList.activeTab.text = config.name
+	tabBar.activeTab.text = config.name
 	saveFile(editor.getValue(), config.handle)
 }
 
@@ -133,13 +133,13 @@ const execCommandOpen = async ()=>{
 }
 
 const execCommandNewFile = async ()=>{
-    const srcTab = tabList.activeTab
+    const srcTab = tabBar.activeTab
     const mode = srcTab.config?.mode?.mode||""
     const folder = srcTab.config?.folder||undefined
 	const newSession = ace.createEditSession("", mode)
 	newSession.baseValue = ""
 	
-	const tab = tabList.add({name: "untitled", 
+	const tab = tabBar.add({name: "untitled", 
 	    mode: { mode: mode}, session: newSession, 
 	    folder: folder})
 	    
@@ -151,8 +151,8 @@ fileList.unlock = verifyPermission
 fileList.open = async (handle)=>{
 	
 	// don't add a new tab if the file is already open in a tab
-	for(let i=0,l=tabList.tabs.length; i<l; i++) {
-		let tab = tabList.tabs[i]
+	for(let i=0,l=tabBar.tabs.length; i<l; i++) {
+		let tab = tabBar.tabs[i]
 		if(tab.config.handle === handle) {
 			console.warn("File already open")
 			tab.click();
@@ -173,8 +173,8 @@ fileList.open = async (handle)=>{
 		}
 	}
 	
-	if(tabList.tabs.length==1 && editor.getValue() == "") {
-		tabList.remove(tabList.tabs[0]);
+	if(tabBar.tabs.length==1 && editor.getValue() == "") {
+		tabBar.remove(tabBar.tabs[0]);
 	}
 	
 	const newSession = ace.createEditSession(text, fileMode.mode)
@@ -185,11 +185,11 @@ fileList.open = async (handle)=>{
 	thumbStrip.clearSelection();
 	thumbStrip.gotoLine(0)
 	
-	const tab = tabList.add({name: file.name, mode: fileMode, session: newSession, handle: handle, folder:handle.container})
+	const tab = tabBar.add({name: file.name, mode: fileMode, session: newSession, handle: handle, folder:handle.container})
 	tab.click();
 }
 
-tabList.click = event=>{
+tabBar.click = event=>{
 	const tab = event.tab
 	editor.setSession(tab.config.session)
 	thumbStrip.setValue(editor.getValue())
@@ -198,7 +198,7 @@ tabList.click = event=>{
 	ui.updateThemeAndMode()
 }
 
-tabList.close = event=>{
+tabBar.close = event=>{
 	const tab = event.tab
 	
 	if(tab.changed) {
@@ -208,8 +208,8 @@ tabList.close = event=>{
 	}
 	
 	
-	tabList.remove(tab)
-	if(tabList.tabs.length==0) {
+	tabBar.remove(tab)
+	if(tabBar.tabs.length==0) {
 		defaultTab()
 	}
 	tab.config.session.destroy()
@@ -217,7 +217,7 @@ tabList.close = event=>{
 
 const defaultTab = ()=>{
 	const defaultSession = ace.createEditSession("", "")
-	const tab = tabList.add({name: "untitled", mode: {mode:""}, session: defaultSession})
+	const tab = tabBar.add({name: "untitled", mode: {mode:""}, session: defaultSession})
 	editor.setSession(defaultSession)
 	tab.click();
 }
@@ -310,7 +310,7 @@ editor.commands.addCommand({
     name: 'next-buffer',
     bindKey: { win:'Ctrl+Tab',mac:'Ctrl+Tab' },
     exec: ()=>{
-    	tabList.next()
+    	tabBar.next()
     }
 });
 
@@ -318,7 +318,7 @@ editor.commands.addCommand({
     name: 'prev-buffer',
     bindKey: { win:'Ctrl+Shift+Tab',mac:'Ctrl+Shift+Tab' },
     exec: ()=>{
-    	tabList.prev()
+    	tabBar.prev()
     }
 });
 
@@ -377,12 +377,6 @@ document.addEventListener("keydown", e=>{
 				cancelEvent()
 				return execCommandOpen()
 			break;
-			
-			// case "KeyR":
-			// 	if(!ctrl) return
-			// 	cancelEvent();
-			// 	window.ui.omnibox("regex");
-			// break;
 			case "KeyG":
 				if(!ctrl) return
 				cancelEvent()

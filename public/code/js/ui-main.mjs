@@ -25,7 +25,7 @@ const defaultOptions = {
 
 var editor, thumbstrip;
 var editorElement, thumbElement
-var menu, tabList, openDir;
+var menu, tabBar, openDir;
 var files, fileActions, fileList;
 var statusbar;
 var statusTheme, statusMode;
@@ -85,11 +85,11 @@ const uiManager = {
 			}
 		})
 		
-		tabList = new elements.TabBar();
-		tabList.type = "tabs"
-		tabList.setAttribute("id", "tabs");
-		tabList.setAttribute("slim", "true");
-		tabList.append(openDir)
+		tabBar = new elements.TabBar();
+		tabBar.type = "tabs"
+		tabBar.setAttribute("id", "tabs");
+		tabBar.setAttribute("slim", "true");
+		tabBar.append(openDir)
 		
 		
 		statusbar = document.querySelector("#statusbar")
@@ -197,7 +197,7 @@ const uiManager = {
 
 		
 		document.body.appendChild(menu)
-		document.body.appendChild(tabList)
+		document.body.appendChild(tabBar)
 		document.body.appendChild(statusbar)
 		document.body.appendChild(thumbElement)
 		document.body.appendChild(editorElement)
@@ -255,8 +255,8 @@ const uiManager = {
 			cursorpos.innerHTML = `${pos.col}:${pos.row}`;
 			
 			// check if the buffer has edits
-// 			tabList.activeTab.changed = !!(editor.getSession().$undoManager.$undoStack.length>0)
-			tabList.activeTab.changed = (editor.getValue() != tabList.activeTab?.config?.session?.baseValue)
+// 			tabBar.activeTab.changed = !!(editor.getSession().$undoManager.$undoStack.length>0)
+			tabBar.activeTab.changed = (editor.getValue() != tabBar.activeTab?.config?.session?.baseValue)
 		})
 
 		return
@@ -325,7 +325,7 @@ const uiManager = {
 	get fileActions() { return fileActions },
 	get files() { return files },
 	get fileList() { return fileList },
-	get tabList() { return tabList },
+	get tabBar() { return tabBar },
 }
 
 setTimeout(()=>{
