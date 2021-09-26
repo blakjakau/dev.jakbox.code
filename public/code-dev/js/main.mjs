@@ -288,6 +288,13 @@ editor.commands.addCommand({
     	window.ui.omnibox("goto");
     }
 });
+editor.commands.addCommand({
+    name: 'lookup',
+    bindKey: { win:'Ctrl-L',mac:'Ctrl-L' },
+    exec: ()=>{
+    	window.ui.omnibox("lookup");
+    }
+});
 
 // editor.commands.addCommand({
 //     name: 'goto',
@@ -362,7 +369,6 @@ document.addEventListener("keydown", e=>{
 		        if(!ctrl) return
 		        cancelEvent()
                 return execCommandNewFile()
-            break;
 			case "KeyS":
 				if(!ctrl) return
 				cancelEvent()
@@ -371,28 +377,27 @@ document.addEventListener("keydown", e=>{
 				} else if (ctrl) {
 					return execCommandSave()
 				}
-			break;
 			case "KeyO":
 			    if(!ctrl) return
 				cancelEvent()
 				return execCommandOpen()
-			break;
 			case "KeyG":
 				if(!ctrl) return
 				cancelEvent()
 				window.ui.omnibox("goto")
-			break;
 			case "KeyF":
 				if(!ctrl) return
 				cancelEvent()
-				
 				if(shift) {
-					window.ui.omnibox("regex")
+					return window.ui.omnibox("regex")
 				} else {
-					window.ui.omnibox("find")
+					return window.ui.omnibox("find")
 				}
-			break;
-			break;
+		    case "KeyL":
+		        if(!ctrl) return
+		        cancelEvent();
+		        return window.ui.omnibox("lookup")
+
 		}
 	}
 })
