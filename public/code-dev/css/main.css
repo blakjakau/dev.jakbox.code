@@ -17,7 +17,7 @@
 	top: var(--editorTop);
 	bottom: var(--menuHeight);
 }
-tr.ace_optionsMenuEntry { line-height:2em };
+tr.ace_optionsMenuEntry { line-height:1.5em; font-size:14px; }
 
 button { border:0; }
 

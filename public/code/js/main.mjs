@@ -1,14 +1,17 @@
-
 // TODO: top priority
 // --- drag+drop tabs on the tabbar
 // --- disable live autocomplete
 // --- set text baseValue at load and save, use it for change tracking
 // --- Add "notSupported" page for firefox/brave other browsers that don't support the FileAPI
 // --- add "CTRL+N" to create a new file/untitlted document
-// menus context / file
-// look at restoring workspace during app load?
+// --- menus context / file
+// bind theme and mode menus
+// create "about" panel
 // find out why useSoftTabs isn't disbling with its setting
 // link tab status to file view?
+// implement @lookup in omnibox
+// look at restoring workspace during app load?
+
 
 import ui from './ui-main.mjs'
 // import elements from "../elements/elements.mjs"
@@ -92,6 +95,29 @@ const saveFile = async (text, handle)=>{
 	await writable.write(text)
 	await writable.close()
 	tab.changed = false
+}
+
+const execCommandAbout = ()=>{ setTimeout(()=>{alert("Code v0.1 by Jason Grima (code@jakbox.net)")}, 400) }
+const execCommandAddFolder = ()=>{ fileOpen.click(); }
+const execCommandToggleFolders = ()=>{ ui.toggleFiles() }
+
+const execCommandRemoveAllFolders = ()=>{ 
+    setTimeout(async ()=>{
+        const l = app.folders.length
+        if(l==0) {
+            alert("You don't have any folders in your workspace");
+        } else {
+            if(confirm(`Are you sure you want to remove ${l} folder${l>1?"s":""} from your workspace?`)) {
+                while(app.folders.length>0) { app.folders.pop() }
+                ui.showFolders()
+                await set("appConfig", app);
+            }
+        }
+    }, 400)
+}
+
+const execCommandRefreshFolders = ()=>{ 
+    
 }
 
 const execCommandCloseActiveTab = async ()=>{
@@ -243,7 +269,7 @@ fileAccess.on("click", async ()=>{
 	}
 })
 
-fileOpen.icon = "add";
+fileOpen.icon = "create_new_folder";
 fileOpen.title = "Add Folder to Workspace"
 fileActions.append(fileOpen);
 
@@ -273,47 +299,65 @@ fileOpen.on("click", async ()=>{
 
 editor.commands.addCommand({
     name: 'find',
-    bindKey: { win:'Ctrl-F',mac:'Ctrl-F' },
+    bindKey: { win:'Ctrl-F',mac:'Command-F' },
     exec: ()=>{
     	window.ui.omnibox("find");
     }
 });
 
 editor.commands.addCommand({
+    name: 'find-next',
+    bindKey: { win:'F3',mac:'F3' },
+    exec: ()=>{
+    	editor.execCommand("findnext")
+    }
+});
+
+editor.commands.addCommand({
+    name: 'collapselines',
+    bindKey: { win:'Ctrl-Shift-J',mac:'Command-Shift-J' },
+    exec: ()=>{
+    	editor.execCommand("joinlines")
+    }
+});
+
+
+editor.commands.addCommand({
+    name: 'find-regex',
+    bindKey: { win:'Ctrl-Shift-F',mac:'Command-Shift-F' },
+    exec: ()=>{
+    	window.ui.omnibox("regex");
+    }
+});
+
+editor.commands.addCommand({
     name: 'goto',
-    bindKey: { win:'Ctrl-G',mac:'Ctrl-G' },
+    bindKey: { win:'Ctrl-G',mac:'Command-G' },
     exec: ()=>{
     	window.ui.omnibox("goto");
     }
 });
 editor.commands.addCommand({
     name: 'lookup',
-    bindKey: { win:'Ctrl-L',mac:'Ctrl-L' },
+    bindKey: { win:'Ctrl-L',mac:'Command-L' },
     exec: ()=>{
     	window.ui.omnibox("lookup");
     }
 });
 
 // editor.commands.addCommand({
-//     name: 'goto',
-//     bindKey: { win:'Ctrl-R',mac:'Ctrl-R' },
+//     name: 'reference',
+//     bindKey: { win:'Ctrl-R',mac:'Command-R' },
 //     exec: ()=>{
-//     	console.warn("GOTO not implemented")
+//     	console.warn("REFERENCE not implemented")
 //     }
 //     // editor.commands.byName['find'].exec
 // });
 
-editor.commands.addCommand({
-    name: 'find-next',
-    bindKey: { win:'F3',mac:'F3' },
-    exec: ()=>{
-    	editor.execCommand("find-next")
-    }
-});
 
 editor.commands.addCommand({
     name: 'next-buffer',
-    bindKey: { win:'Ctrl+Tab',mac:'Ctrl+Tab' },
+    bindKey: { win:'Ctrl+Tab',mac:'Command+Tab' },
     exec: ()=>{
     	tabBar.next()
     }
@@ -321,7 +365,7 @@ editor.commands.addCommand({
 
 editor.commands.addCommand({
     name: 'prev-buffer',
-    bindKey: { win:'Ctrl+Shift+Tab',mac:'Ctrl+Shift+Tab' },
+    bindKey: { win:'Ctrl+Shift+Tab',mac:'Command+Shift+Tab' },
     exec: ()=>{
     	tabBar.prev()
     }
@@ -329,21 +373,66 @@ editor.commands.addCommand({
 
 
 editor.commands.addCommand({
+    name: 'newFile',
+    bindKey: { win:'Ctrl+N',mac:'Command+N' },
+    exec: execCommandNewFile
+});
+
+editor.commands.addCommand({
     name: 'openFile',
-    bindKey: { win:'Ctrl+O',mac:'Ctrl+O' },
+    bindKey: { win:'Ctrl+O',mac:'Command+O' },
     exec: execCommandOpen
 });
 
 editor.commands.addCommand({
     name: 'saveFile',
-    bindKey: { win:'Ctrl+S',mac:'Ctrl+S' },
+    bindKey: { win:'Ctrl+S',mac:'Command+S' },
     exec: execCommandSave
 });
 
 editor.commands.addCommand({
     name: 'saveFileAs',
-    bindKey: { win:'Ctrl+Shift+S',mac:'Ctrl+Shift+S' },
+    bindKey: { win:'Ctrl+Shift+S',mac:'Command+Shift+S' },
     exec: execCommandSaveAs
+});
+
+editor.commands.addCommand({
+    name: "showEditorSettings",
+    exec: ()=>{
+        console.log("show settings menu")
+        editor.execCommand('showSettingsMenu', window.ui.updateThemeAndMode )
+    }
+})
+
+editor.commands.addCommand({
+    name: 'closeFile',
+    bindKey: { win:'Ctrl+W',mac:'Command+W' },
+    exec: execCommandCloseActiveTab
+});
+
+editor.commands.addCommand({
+    name: 'toggleFolders',
+    exec: execCommandToggleFolders
+});
+
+editor.commands.addCommand({
+    name: 'addFolder',
+    exec: execCommandAddFolder
+});
+
+editor.commands.addCommand({
+    name: 'refeshFolders',
+    exec: execCommandRefreshFolders
+});
+
+editor.commands.addCommand({
+    name: 'removeAllFolders',
+    exec: execCommandRemoveAllFolders
+});
+
+editor.commands.addCommand({
+    name: 'showAbout',
+    exec: execCommandAbout
 });
 
 document.addEventListener("keydown", e=>{
@@ -382,7 +471,7 @@ document.addEventListener("keydown", e=>{
 			case "KeyG":
 				if(!ctrl) return
 				cancelEvent()
-				window.ui.omnibox("goto")
+				return window.ui.omnibox("goto")
 			case "KeyF":
 				if(!ctrl) return
 				cancelEvent()
@@ -391,14 +480,23 @@ document.addEventListener("keydown", e=>{
 				} else {
 					return window.ui.omnibox("find")
 				}
-		    case "KeyL":
-		        if(!ctrl) return
-		        cancelEvent();
-		        return window.ui.omnibox("lookup")
-
+		  //  case "KeyR":
+		  //      if(!ctrl) return
+		  //      cancelEvent();
+		  //      return window.ui.omnibox("lookup")
 		}
 	}
 })
+
+window.ui.command = (c)=>{
+    let target = "editor", command=c;
+    if(c.indexOf(":")>-1) { let bits = c.split(":"); target=bits[0], command=bits[1] }
+    if(target=="editor") {
+        editor.focus(); editor.execCommand(command)
+    } else {
+        editor.execCommand(command)
+    }
+}
 
 setTimeout(()=>{
 	ui.editorElement.classList.remove("loading");

@@ -190,7 +190,7 @@ effect-ripple {
 effect-ripple[active] {
 	opacity:0;
 	transform: scale(40,40);
-	animation: ripple 500ms;
+	animation: ripple 330ms;
 	/*animation-fill-mode: forwards;*/
 	/*transition: all 300ms linear;*/
 }
@@ -457,6 +457,64 @@ ui-icon {
   /* Support for IE. */
   font-feature-settings: 'liga';
 }
+
+ui-menu {
+    position:absolute;
+    left:0px; top:0px;
+    transition: opacity 200ms ease-in-out;
+    z-index:10;
+    background:var(--ui-pri-bg);
+    color:var(--ui-pri-fg);
+    box-shadow: 0 3px 5px rgba(0,0,0,0.25);
+    border-radius: 0px 2px 4px 4px;
+    overflow-y:auto;
+}
+
+ui-menu:not([active]) {
+    display:none;
+}
+
+ui-menu ui-menu-item {
+    position:relative;
+    cursor:pointer;
+    min-height:36px;
+    line-height:42px;
+    padding:0 16px;
+    display:block;
+    white-space: nowrap;
+}
+
+ui-menu ui-menu-item ui-inline {
+    vertical-align:middle;
+}
+ui-menu ui-menu-item ui-inline[hook="right"] {
+    opacity:0.5;
+    margin-left:25px;
+}
+ui-menu ui-menu-item:hover {
+    background:var(--ui-sec-bg);
+    color:var(--ui-sec-fg);
+} 
+
+ui-menu ui-menu-item ui-icon {
+    margin-left: -8px;
+    width:24px;
+    min-height:36px;
+    line-height: 32px;
+    font-size:20px;
+    vertical-align:middle;
+    color:var(--ui-sec-bg);
+}
+
+ui-menu ui-menu-item:hover ui-icon {
+    color:var(--ui-pri-fg);
+    opacity:0.5;
+}
+
+ui-menu-item:first-child { border-radius: 0 2px 0 0; }
+ui-menu-item:last-child { border-radius: 0 0 4px 4px; }
+
+ui-menu-split { display:block; height:1px; background: var(--ui-sec-bg); width:96%; margin:2px auto;}
 
 @keyframes ripple {
   0% {

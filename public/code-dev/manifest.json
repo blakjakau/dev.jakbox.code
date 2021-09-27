@@ -26,15 +26,20 @@
       "short_name": "last",
       "description": "Open Code with the last active project file",
       "url": "/code-dev/index.html?open=last",
-      "icons": [{ "src": "/code-dev/images/code-192-p.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/code-dev/images/code-192.png", "sizes": "192x192" }]
     }
   ],
   "description": "Super light code editing in your brower",
   "screenshots": [
     {
-      "src": "/code-dev/images/coder-screen.png",
+      "src": "images/screen-small-720x540.png",
       "type": "image/png",
-      "sizes": "720x538"
+      "sizes": "720x540"
+    },
+    {
+      "src": "images/screen-mid-1024x662.png",
+      "type": "image/png",
+      "sizes": "1024x662"
     }
   ],
   "protocol_handlers": [

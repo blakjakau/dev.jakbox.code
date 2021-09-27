@@ -42,19 +42,69 @@
 <body>
 	<ui-actionbar id="menu" hook="top" slim style="top: 0px; bottom: auto;">
 	    <ui-inline id="logo"><img src="images/code-192-simple.svg" style="color: #fff" height="32px"> Code DEV</ui-inline>
-	    <!--<ui-button>File</ui-button>-->
-	    <!--<ui-button>Edit</ui-button>-->
-	    <!--<ui-button>Tools</ui-button>-->
-	    <!--<ui-button>Project</ui-button>-->
+	    <ui-button id="menu_file">File</ui-button>
+	    <ui-button id="menu_edit">Edit</ui-button>
+	    <ui-button id="menu_project">Folders</ui-button>
+	    <ui-button id="menu_settings">Settings</ui-button>
 	</ui-actionbar>
-	
-	
+
 	<ui-actionbar id="statusbar" slim hook="bottom">
-	    <ui-button icon="settings" hook=right onclick="editor.execCommand('showSettingsMenu', window.ui.updateThemeAndMode )"></ui-button>
+	    <ui-button id="settings" icon="settings" hook=right onclick="editor.execCommand('showEditorSettings')"></ui-button>
 	    <ui-button id="theme_select" hook=right></ui-button>
 	    <ui-button  id="mode_select" hook=right></ui-button>
 	</ui-actionbar>
 	
+	<ui-menu attachTo="#menu_file" onclick="(e)=>{editor.execCommand(e)}">
+	    <ui-menu-item command="newFile" icon="note_add" keyTag="Ctrl-N">New File</ui-menu-item>
+	    <ui-menu-item command="openFile" keyTag="Ctrl-O">Open File</ui-menu-item>
+	    <ui-menu-split></ui-menu-split>
+	    <ui-menu-item command="saveFile" icon="save" keyTag="Ctrl-S">Save File</ui-menu-item>
+	    <ui-menu-item command="saveFileAs" keyTag="Ctrl-Shift-S">Save File As ...</ui-menu-item>
+	    <ui-menu-split></ui-menu-split>
+	    <!--<ui-menu-item>Save All</ui-menu-item>-->
+	    <ui-menu-item command="closeFile" icon="close" keyTag="Ctrl-W">Close File</ui-menu-item>
+	    <!--<ui-menu-item>Exit</ui-menu-item>-->
+    </ui-menu>
+
+	<ui-menu attachTo="#menu_edit" onclick="(e)=>{ window.ui.command(e) }">
+	    <ui-menu-item command="undo" icon="undo" keyTag="Ctrl-Z">Undo</ui-menu-item>
+	    <ui-menu-item command="redo" icon="redo" keyTag="Ctrl-Y">Redo</ui-menu-item>
+	    <!--<ui-menu-split></ui-menu-split>-->
+	    <!--<ui-menu-item command="cut" icon="content_cut" keyTag="Ctrl-X">Cut</ui-menu-item>-->
+	    <!--<ui-menu-item command="copy" icon="content_copy" keyTag="Ctrl-C">Copy</ui-menu-item>-->
+	    <!--<ui-menu-item command="paste" icon="content_paste" keyTag="Ctrl-V">Paste</ui-menu-item>-->
+	    <ui-menu-split></ui-menu-split>
+	    <ui-menu-item command="app:find" icon="search" keyTag="Ctrl-F">Find</ui-menu-item>
+	    <ui-menu-item command="app:find-next" keyTag="F3">Find Next</ui-menu-item>
+	    <ui-menu-item command="app:find-regex" keyTag="Ctrl-Shift-F">Find (Regex)</ui-menu-item>
+	    <ui-menu-split></ui-menu-split>
+	    <ui-menu-item command="app:goto" keyTag="Ctrl-G">Goto Line</ui-menu-item>
+	    <ui-menu-split></ui-menu-split>
+	    <ui-menu-item command="splitIntoLines" keyTag="Ctrl-Shift-L">Cursor per line of selection</ui-menu-item>
+	    <!--<ui-menu-split></ui-menu-split>-->
+	    <!--<ui-menu-item command="joinlines" keyTag="Ctrl-Shift-J">Join lines</ui-menu-item>-->
+	    <ui-menu-split></ui-menu-split>
+	    <ui-menu-item command="indent" icon="format_indent_increase" keyTag="Ctrl-]">Indent Selection</ui-menu-item>
+	    <ui-menu-item command="outdent" icon="format_indent_decrease" keyTag="Ctrl-[">Outdent Selection</ui-menu-item>
+	    <ui-menu-split></ui-menu-split>
+	    <ui-menu-item command="togglecomment" icon="short_text" keyTag="Ctrl-/">Toggle Comment</ui-menu-item>
+	    <ui-menu-item command="toggleBlockComment" icon="notes" keyTag="Ctrl-Shift-/">Toggle Block Comment</ui-menu-item>
+    </ui-menu>
+
+	<ui-menu attachTo="#menu_project" onclick="(e)=>{editor.focus(); editor.execCommand(e)}">
+	    <ui-menu-item command="toggleFolders" icon="menu_open">Toggle File List</ui-menu-item>
+	    <ui-menu-split></ui-menu-split>
+	    <ui-menu-item command="addFolder" icon="create_new_folder">Add Folder</ui-menu-item>
+	    <ui-menu-item command="refreshFolders" icon="refresh">Refresh Folders</ui-menu-item>
+	    <ui-menu-item command="removeAllFolders" icon="close">Remove All Folders</ui-menu-item>
+    </ui-menu>
+
+	<ui-menu attachTo="#menu_settings" onclick="(e)=>{editor.focus(); editor.execCommand(e)}">
+	    <ui-menu-item command="showEditorSettings" icon="settings">Editor Settings</ui-menu-item>
+	    <ui-menu-split></ui-menu-split>
+	    <ui-menu-item command="showAbout" icon="info">About Code</ui-menu-item>
+    </ui-menu>
+
 	<script type="module" src="js/main.mjs"></script>
 </body>
 </html>

@@ -40,7 +40,7 @@ async function readAndOrderDirectory(handle) {
 
 class Element extends HTMLElement {
 	constructor(content) {
-		super();
+		super(content);
 		if(isset(content)) this.innerHTML = content;
 		this.on = this.addEventListener;
 		this.off = this.removeEventListener
@@ -665,6 +665,7 @@ class TabBar extends Block {
 		if(!isFunction(v)) throw new Error("click must be a function");
 		this._click = v
 	}
+	
 	get activeIndex() {
 		for(let i=0,l=this._tabs.length;i<l;i++) {
 			if(this._tabs[i].getAttribute("active")!==null) {
@@ -716,7 +717,6 @@ class TabBar extends Block {
 		}
 		
 		tab.onpointerup = event=>{
-			console.log(event.which)
 			if(event.which==2) {
 				event.stopPropagation();
 				event.tab = tab
@@ -758,28 +758,6 @@ class TabBar extends Block {
 	}
 }
 
-
-class Menu extends Panel {
-	constructor(content) {
-		super(content);
-	}
-	
-	connectedCallback() {
-		super.connectedCallback.apply(this)
-	}
-	
-	set options(v) {
-		
-	}
-	
-	showAt(element) {
-		if(!(element instanceof HTMLElement)) { throw new Error("showAt requires an HTMLElement in the current DOM") }
-		
-		this.setAttribute("visible", "true");
-	}
-}
-
-
 // file selection list, takes an array of file/folder handles and produces a directory tree
 // lazily loads subfolders on request
 
@@ -810,9 +788,13 @@ class FileList extends ContentFill {
 	
 	get open() { return this._open }
 	
+	refreshAll() {
+	    
+	}
+	
 	_render(base, tree) {
 		const codeFiles = "json js mjs c cpp h hpp css html".split(" ")
-		const imageFiles = "jpg jpeg gif tiff png ico bmp".split(" ")
+		const imageFiles = "jpg jpeg gif tiff png ico bmp webp webm".split(" ")
 		if(base.empty) { base.empty() }
 		tree.forEach(item=>{
 			if(item.kind=="directory") {
@@ -1114,6 +1096,119 @@ class FileUploadList extends ContentFill {
 	}
 }
 
+
+const getWindowY = (e)=>{ let y = e.offsetTop; return (e.parentNode instanceof HTMLElement)?(y + getWindowY(e.parentNode)):y }
+const getWindowX = (e)=>{ let x = e.offsetLeft; return (e.parentNode instanceof HTMLElement)?(x + getWindowX(e.parentNode)):x }
+
+const getPosition = (el)=>{
+    let x = getWindowX(el)
+    let y = getWindowY(el)
+    return {
+        x: x,
+        y: y,
+        w: el.offsetWidth,
+        h: el.offsetHeight
+    }
+}
+
+let MenuOpen = false
+let CurrentMenu = null
+class Menu extends Panel {
+	constructor(content) {
+		super(content);
+	}
+	
+	connectedCallback() {
+		super.connectedCallback.apply(this)
+		const origin = this.getAttribute("showAt")
+		if(origin) {
+		    const el = document.querySelector(origin)
+		    this.showAt(el)
+		}
+		const attach = this.getAttribute("attachTo")
+// 		console.log("attach to", attach)
+		if(attach) {
+		    const el = document.querySelector(attach)
+		  //  console.log("attached to", attach, el)
+		    if(el) { el.addEventListener("click", ()=>{ 
+		        if(MenuOpen && CurrentMenu == this) return
+		        setTimeout(()=>{ MenuOpen = false; this.showAt(el) } )
+		    })}
+		    if(el) { el.addEventListener("pointerover", ()=>{ 
+		        if(MenuOpen && CurrentMenu == this) return
+		        if(MenuOpen) { el.focus(); el.click() }
+		    })}
+		}
+		
+		const click = this.getAttribute("onclick")
+		if(click) { this._click = eval(click);	}
+	}
+	
+	set click(v) {
+		if(!isFunction(v)) throw new Error("click must be a function");
+		this._click = v
+	}
+	
+	click(command) {
+	    if("function"==typeof this._click) {
+	        this._click(command)
+	    }
+	}
+	
+	showAt(element) {
+	   // const self = this
+		if(!(element instanceof HTMLElement)) { throw new Error("showAt requires an HTMLElement in the current DOM") }
+	    const p  = getPosition(element)
+	    this.style.left = p.x
+	    this.style.top = p.y+p.h
+        this.style.maxHeight = `calc(100vh - ${p.y+p.h+8}px)`
+        setTimeout(()=>{
+            if(p.x + this.offsetWidth > window.innerWidth) { this.style.left = p.x+p.w  - this.offsetWidth }
+            if(p.y + p.h + this.offsetHeight > window.innerHeight) { 
+                if(this.offsetHeight < window.innerHeight) {
+                    this.style.top = p.y  - this.offsetHeight
+                    this.style.maxHeight = `calc(100vh - ${window.innerHeight - (p.y+8)}px)`
+                } else {
+                }
+            }
+        })
+		setTimeout(()=>{
+		    let clicked = false;
+		    MenuOpen = true
+		    CurrentMenu = this
+			this.addEventListener("click", ()=>{ clicked = true; MenuOpen = false; setTimeout(()=>{this.removeAttribute("active")},333) }, {once:true});
+			document.addEventListener("click", ()=>{  if(!clicked && MenuOpen) {  setTimeout(()=>{this.removeAttribute("active"); MenuOpen = false}) } }, {once:true});
+		});
+		this.setAttribute("active", "true")
+	}
+}
+
+class MenuItem extends Button {
+	constructor(content) {
+		super();
+		this._icon = new Icon()
+		this._tag = new Inline()
+		this.addEventListener("click", ()=>{
+		    if(this.getAttribute("command")) {
+		        this.parentElement.click(this.getAttribute("command"))
+		    }
+		})
+	}
+	
+	connectedCallback() {
+		super.connectedCallback.apply(this)
+		
+	    this._icon.innerHTML = this.getAttribute("icon")
+		this._tag.innerHTML = this.getAttribute("keyTag")
+		this._tag.hook = "right"
+
+		this.prepend(this._icon)
+		this.append(this._tag)
+	}
+}
+
+
+
 // custom element MUST be registered, or the browser will throw an exception on constructor()
 customElements.define("ui-element", Element);
 customElements.define("ui-inline", Inline);
@@ -1123,6 +1218,7 @@ customElements.define("ui-content-fill", ContentFill);
 customElements.define("ui-actionbar", ActionBar);
 customElements.define("ui-tabbar", TabBar);
 customElements.define("ui-menu", Menu);
+customElements.define("ui-menu-item", MenuItem);
 customElements.define("ui-button", Button);
 customElements.define("ui-button-counter", CounterButton);
 customElements.define("ui-file-list", FileList);
@@ -1149,14 +1245,19 @@ const ui = {
 	
 	"TabBar": TabBar,
 	"TabItem": TabItem,
+	
 	"ActionBar": ActionBar,
 	
 	"Button": Button,
-	"Menu": Menu,
 	"CounterButton": CounterButton,
 	"Panel": Panel,
+	
+	"Menu": Menu,
+	"MenuItem": MenuItem,
+	
 	"FileList": FileList,
 	"FileListItem": FileItem,
+	
 	"FileUploadList": FileUploadList
 }
 window.__ui = ui;

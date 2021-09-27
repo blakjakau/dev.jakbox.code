@@ -448,8 +448,8 @@ var optionGroups = {
             type: "number",
             defaultValue: 12,
             defaults: [
-                {caption: "11px", value: 11},
-                {caption: "13px", value: 13},
+                {caption: "12px", value: 12},
+                {caption: "14px", value: 14},
                 {caption: "16px", value: 16}
             ]
         },
@@ -615,8 +615,8 @@ var OptionPanel = function(editor, element) {
             ["tr", null, ["td", {colspan: 2}, ""]],
             ["tr", null, ["td", {colspan: 2}, ""]],
             ["tr", null, ["td", {colspan: 2}, ""]],
-            ["tr", null, ["td", {colspan: 2}, "ACE editor v " + config.version + " [modified]"]],
-            ["tr", null, ["td", {colspan: 2}, "Code v " + window.code.version]]
+            // ["tr", null, ["td", {colspan: 2}, "ACE editor v " + config.version + " [modified]"]],
+            // ["tr", null, ["td", {colspan: 2}, "Code v " + window.code.version]]
         ], this.container);
     };
     
