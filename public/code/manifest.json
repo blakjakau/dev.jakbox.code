@@ -24,7 +24,7 @@
     {
       "name": "Open last project",
       "short_name": "last",
-      "description": "Open Coder with the last active project file",
+      "description": "Open Code with the last active project file",
       "url": "/code/index.html?open=last",
       "icons": [{ "src": "/code/images/code-192.png", "sizes": "192x192" }]
     }
@@ -32,15 +32,14 @@
   "description": "Super light code editing in your brower",
   "screenshots": [
     {
-      "src": "/code/images/coder-screen.png",
+      "src": "images/screen-small-720x540.png",
       "type": "image/png",
       "sizes": "720x540"
+    },
+    {
+      "src": "images/screen-mid-1024x662.png",
+      "type": "image/png",
+      "sizes": "1024x662"
     }
-  ],
-  "protocol_handlers": [
-  {
-    "protocol": "text",
-    "url": "/code/index.html?open=%s"
-  }
-]
+  ]
 }

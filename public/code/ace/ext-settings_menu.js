@@ -615,8 +615,8 @@ var OptionPanel = function(editor, element) {
             ["tr", null, ["td", {colspan: 2}, ""]],
             ["tr", null, ["td", {colspan: 2}, ""]],
             ["tr", null, ["td", {colspan: 2}, ""]],
-            ["tr", null, ["td", {colspan: 2}, "ACE editor v " + config.version + " [modified]"]],
-            ["tr", null, ["td", {colspan: 2}, "Code v " + window.code.version]]
+            // ["tr", null, ["td", {colspan: 2}, "ACE editor v " + config.version + " [modified]"]],
+            // ["tr", null, ["td", {colspan: 2}, "Code v " + window.code.version]]
         ], this.container);
     };
     

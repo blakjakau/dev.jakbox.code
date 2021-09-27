@@ -3,7 +3,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-	<link rel="manifest" href="/code-dev/manifest.json">
+	<link rel="manifest" href="/code/manifest.json">
 	
     <!--<link rel='stylesheet' href='/material-icons.woff2' media='screen,projection' type='text/css'>-->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
@@ -34,14 +34,14 @@
             window.location.href = "./notSupported.html"
 		} else {
     		/* Only register a service worker if it's supported */
-    		if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/code-dev/service-worker.js'); }
+    		if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/code/service-worker.js'); }
 		}
 	</script>
 	<style> :root { --theme: #0077bb!important; } </style>
 </head>
 <body>
 	<ui-actionbar id="menu" hook="top" slim style="top: 0px; bottom: auto;">
-	    <ui-inline id="logo"><img src="images/code-192-simple.svg" style="color: #fff" height="32px"> Code DEV</ui-inline>
+	    <ui-inline id="logo"><img src="images/code-192-simple.svg" style="color: #fff" height="32px"> Code </ui-inline>
 	    <ui-button id="menu_file">File</ui-button>
 	    <ui-button id="menu_edit">Edit</ui-button>
 	    <ui-button id="menu_project">Folders</ui-button>

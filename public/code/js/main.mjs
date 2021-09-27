@@ -97,7 +97,7 @@ const saveFile = async (text, handle)=>{
 	tab.changed = false
 }
 
-const execCommandAbout = ()=>{ setTimeout(()=>{alert("Code v0.1 by Jason Grima (code@jakbox.net)")}, 400) }
+const execCommandAbout = ()=>{ setTimeout(()=>{alert("Code v0.2.1 by Jason Grima (code@jakbox.net)")}, 400) }
 const execCommandAddFolder = ()=>{ fileOpen.click(); }
 const execCommandToggleFolders = ()=>{ ui.toggleFiles() }
 
