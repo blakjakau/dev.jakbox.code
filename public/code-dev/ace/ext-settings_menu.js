@@ -519,26 +519,26 @@ var optionGroups = {
         "Show Indent Guides": {
             path: "displayIndentGuides"
         },
-        "Persistent Scrollbar": [{
-            path: "hScrollBarAlwaysVisible"
-        }, {
-            path: "vScrollBarAlwaysVisible"
-        }],
+        // "Persistent Scrollbar": [{
+        //     path: "hScrollBarAlwaysVisible"
+        // }, {
+        //     path: "vScrollBarAlwaysVisible"
+        // }],
         "Animate scrolling": {
             path: "animatedScroll"
         },
-        // "Show Gutter": {
-        //     path: "showGutter"
-        // },
-        // "Show Line Numbers": {
-        //     path: "showLineNumbers"
-        // },
+        "Show Gutter": {
+            path: "showGutter"
+        },
+        "Show Line Numbers": {
+            path: "showLineNumbers"
+        },
         // "Relative Line Numbers": {
         //     path: "relativeLineNumbers"
         // },
-        // "Fixed Gutter Width": {
-        //     path: "fixedWidthGutter"
-        // },
+        "Fixed Gutter Width": {
+            path: "fixedWidthGutter"
+        },
         "Show Print Margin": [{
             path: "showPrintMargin"
         }, {

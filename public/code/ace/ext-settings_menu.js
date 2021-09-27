@@ -448,8 +448,8 @@ var optionGroups = {
             type: "number",
             defaultValue: 12,
             defaults: [
-                {caption: "11px", value: 11},
-                {caption: "13px", value: 13},
+                {caption: "12px", value: 12},
+                {caption: "14px", value: 14},
                 {caption: "16px", value: 16}
             ]
         },
@@ -481,13 +481,13 @@ var optionGroups = {
         //         { caption : "Mark begin and end", value : "markbeginend" }
         //     ]
         // },
-        // "Soft Tabs": [{
-        //     path: "useSoftTabs"
-        // }, {
-        //     path: "tabSize",
-        //     type: "number",
-        //     values: [2, 3, 4, 8, 16]
-        // }],
+        "Soft Tabs": [{
+            path: "useSoftTabs"
+        }, {
+            path: "tabSize",
+            type: "number",
+            values: [2, 3, 4, 8, 16]
+        }],
         "Overscroll": {
             type: "buttonBar",
             path: "scrollPastEnd",
@@ -519,26 +519,26 @@ var optionGroups = {
         "Show Indent Guides": {
             path: "displayIndentGuides"
         },
-        "Persistent Scrollbar": [{
-            path: "hScrollBarAlwaysVisible"
-        }, {
-            path: "vScrollBarAlwaysVisible"
-        }],
+        // "Persistent Scrollbar": [{
+        //     path: "hScrollBarAlwaysVisible"
+        // }, {
+        //     path: "vScrollBarAlwaysVisible"
+        // }],
         "Animate scrolling": {
             path: "animatedScroll"
         },
-        // "Show Gutter": {
-        //     path: "showGutter"
-        // },
-        // "Show Line Numbers": {
-        //     path: "showLineNumbers"
-        // },
+        "Show Gutter": {
+            path: "showGutter"
+        },
+        "Show Line Numbers": {
+            path: "showLineNumbers"
+        },
         // "Relative Line Numbers": {
         //     path: "relativeLineNumbers"
         // },
-        // "Fixed Gutter Width": {
-        //     path: "fixedWidthGutter"
-        // },
+        "Fixed Gutter Width": {
+            path: "fixedWidthGutter"
+        },
         "Show Print Margin": [{
             path: "showPrintMargin"
         }, {
@@ -577,9 +577,9 @@ var optionGroups = {
         // "Copy without selection": {
         //     path: "copyWithEmptySelection"
         // },
-        // "Live Autocompletion": {
-        //     path: "enableLiveAutocompletion"
-        // }
+        "Live Autocompletion": {
+            path: "enableLiveAutocompletion"
+        }
     }
 };
 
