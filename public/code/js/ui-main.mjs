@@ -136,7 +136,7 @@ const uiManager = {
 				case "regex":
 					let reg;
 				    if(val.length<3) { return editor.find("") }
-					try { reg = new RegExp().compile(val) } catch(e) { console.warn("incomplete or invalid regex")}
+					try { reg = new RegExp(val, "gsim") } catch(e) { console.warn("incomplete or invalid regex")}
 					if(reg instanceof RegExp) {
 				// 		if(next) editor.gotoLine(editor.getCursorPosition().row+2)
 				// 		if(prev) editor.findPrevious({needle: reg, regExp:true})
@@ -153,48 +153,63 @@ const uiManager = {
 			}
 
 		}
+		omni.saveStack = ()=>{
+		    if(omni.input.value.length<2) return;
+		    if(omni.stack.length == 0 || omni.stack.indexOf(omni.input.value)<omni.stack.length-1) {
+			    omni.stack.push(omni.input.value)
+		    }
+			while(omni.stack.length>50) { omni.stack.shift() }
+		}
 		omni.input.addEventListener("keyup", e=>{
 // 			console.debug(e.code, omni.stackPos, omni.stack.length)
 			
 			
 			if(e.code == "ArrowUp") {
-				if(omni.stackPos > 0) {
-					omni.stackPos--
-					omni.input.value = omni.stack[omni.stackPos]
-					omni.perform(e)
-				} else {
-					omni.input.value = ""
-				}
+			    if(omni.stackPos > omni.stack.length) { 
+			        omni.stackPos == omni.stack.length 
+			    } else if(omni.stackPos == omni.stack.length) { 
+			        omni.saveStack() 
+			    }
+			    if(omni.stack.length>0) {
+    				omni.stackPos--
+			        if(omni.stackPos<0) omni.stackPos = 0
+    				omni.input.value = omni.stack[omni.stackPos]
+    				omni.input.setSelectionRange(0,omni.input.value.length);
+    				omni.perform(e)
+			    }
+    			return
 			}
 			if(e.code == "ArrowDown") {
-				if(omni.stackPos < omni.stack.length) {
+				if(omni.stackPos < omni.stack.length-1) {
 					omni.stackPos++
+					if(omni.stackPos>=omni.stack.length) {
+					    omni.input.value = ""
+					} 
 					omni.input.value = omni.stack[omni.stackPos]
+					omni.input.setSelectionRange(0,omni.input.value.length);
 					omni.perform(e)
 				} else {
+				    omni.stackPos = omni.stack.length
 					omni.input.value = ""
 				}
+				return
 			}
 
 			if(e.code == "Escape") {
 				uiManager.hideOmnibox()
 				editor.focus();
+				return
 			}
 			
 			if(e.code == "Enter") {
 			    if(omni.last === "goto") {
 			        uiManager.hideOmnibox()
 					editor.focus();
-					omni.stack.push(omni.input.value)
 					return
 			    }
 				if(e.ctrlKey) {
 					uiManager.hideOmnibox()
 					editor.focus();
-					omni.stack.push(omni.input.value)
-					// truncate the omni stakc to the last X items
-					while(omni.stack.length>20) { omni.stack.shift() }
-					
 				} else if(e.shiftKey) {
 				    editor.execCommand("findprevious")
 				    // omni.perform(e, false, true)
@@ -202,7 +217,10 @@ const uiManager = {
 				    editor.execCommand("findnext")
 				// 	omni.perform(e, true)
 				}
+				return
 			}
+			
+			omni.stackPos = omni.stack.length
 			
 		})
 		omni.input.addEventListener("input", omni.perform )
@@ -340,6 +358,7 @@ const uiManager = {
 	},
 	
 	hideOmnibox: ()=>{
+        omni.saveStack()
 		omni.classList.remove("active");
 	},
 
