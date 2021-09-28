@@ -155,7 +155,7 @@ const uiManager = {
 		}
 		omni.saveStack = ()=>{
 		    if(omni.input.value.length<2) return;
-		    if(omni.stack.length == 0 || omni.stack.indexOf(omni.input.value)<omni.stack.length-1) {
+		    if(omni.stack.length == 0 || omni.stack.indexOf(omni.input.value)==-1) {
 			    omni.stack.push(omni.input.value)
 		    }
 			while(omni.stack.length>50) { omni.stack.shift() }
