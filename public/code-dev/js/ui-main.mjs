@@ -211,9 +211,11 @@ const uiManager = {
 					uiManager.hideOmnibox()
 					editor.focus();
 				} else if(e.shiftKey) {
+				    if(omni.last=="regex") editor.gotoLine(editor.getCursorPosition().row)
 				    editor.execCommand("findprevious")
 				    // omni.perform(e, false, true)
 				} else {
+				    if(omni.last=="regex") editor.gotoLine(editor.getCursorPosition().row+2)
 				    editor.execCommand("findnext")
 				// 	omni.perform(e, true)
 				}
