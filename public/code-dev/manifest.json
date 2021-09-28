@@ -1,6 +1,6 @@
 {
   "short_name": "Code - DEV",
-  "name": "Code DEV",
+  "name": "Code",
   "icons": [
     {
       "src": "/code-dev/images/code-192-teal.png",
@@ -15,8 +15,8 @@
 
   ],
   "start_url": "/code-dev/index.html",
-  "display_override": ["standalone", "minimal-ui"],
   "display": "standalone",
+  "display_override": ["window-control-overlay", "standalone"],
   "scope": "/code-dev/",
   "theme_color": "#00aabb",
   "background_color": "#ffffff",
@@ -26,7 +26,7 @@
       "short_name": "last",
       "description": "Open Code with the last active project file",
       "url": "/code-dev/index.html?open=last",
-      "icons": [{ "src": "/code-dev/images/code-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/code-dev/images/code-192-teal.png", "sizes": "192x192" }]
     }
   ],
   "description": "Super light code editing in your brower",
@@ -42,10 +42,21 @@
       "sizes": "1024x662"
     }
   ],
-  "protocol_handlers": [
-  {
-    "protocol": "text",
-    "url": "/code-dev/index.html?open=%s"
-  }
-]
+  "file_handlers": [
+    {
+      "action": "/code-dev/openFile.html",
+      "accept": {
+        "application/javascript": [".js",".mjs",".jsm",".json"],
+        "text/stylesheet": [".css"],
+        "text/html": [".html"]
+      },
+      "icons": [
+        {
+          "src": "/code-dev/images/code-192-teal.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
 }

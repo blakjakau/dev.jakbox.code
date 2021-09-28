@@ -5,6 +5,9 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="manifest" href="/code-dev/manifest.json">
 	
+	<!-- FileHandling Origin Trial Tag -->
+	<meta http-equiv="origin-trial" content="Any5ZMxapcnyPRU6oaXf0kLl9P9F9MenwujJJcA1PlbIwLqpudQMO/W62fOwE+0WPWyhfZTBeWm8tS9fFJ8ALwAAAABVeyJvcmlnaW4iOiJodHRwczovL2NvZGUuamFrYm94Lm5ldDo0NDMiLCJmZWF0dXJlIjoiRmlsZUhhbmRsaW5nIiwiZXhwaXJ5IjoxNjM0MDgzMTk5fQ==">
+	
 	<!--<link rel='stylesheet' href='/material-icons.woff2' media='screen,projection' type='text/css'>-->
 	<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 	
@@ -36,6 +39,14 @@
     		/* Only register a service worker if it's supported */
     		if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/code-dev/service-worker.js'); }
 		}
+	</script>
+	<script>
+        const bc = window.filesReceiver = new BroadcastChannel("file_open_request")
+        bc.postMessage("connected")
+        bc.addEventListener("message", e=>{ 
+            if(e.data == "connected") { bc.postMessage("abort") } 
+            if(e.data == "abort") { console.log("disabled file listener"); bc.close(); }
+        })
 	</script>
 	<style> :root { --theme: #00aabb!important; } </style>
 </head>
@@ -69,10 +80,6 @@
 	<ui-menu attachTo="#menu_edit" onclick="(e)=>{ window.ui.command(e) }">
 	    <ui-menu-item command="undo" icon="undo" keyTag="Ctrl-Z">Undo</ui-menu-item>
 	    <ui-menu-item command="redo" icon="redo" keyTag="Ctrl-Y">Redo</ui-menu-item>
-	    <!--<ui-menu-split></ui-menu-split>-->
-	    <!--<ui-menu-item command="cut" icon="content_cut" keyTag="Ctrl-X">Cut</ui-menu-item>-->
-	    <!--<ui-menu-item command="copy" icon="content_copy" keyTag="Ctrl-C">Copy</ui-menu-item>-->
-	    <!--<ui-menu-item command="paste" icon="content_paste" keyTag="Ctrl-V">Paste</ui-menu-item>-->
 	    <ui-menu-split></ui-menu-split>
 	    <ui-menu-item command="app:find" icon="search" keyTag="Ctrl-F">Find</ui-menu-item>
 	    <ui-menu-item command="app:find-next" keyTag="F3">Find Next</ui-menu-item>
@@ -81,8 +88,6 @@
 	    <ui-menu-item command="app:goto" keyTag="Ctrl-G">Goto Line</ui-menu-item>
 	    <ui-menu-split></ui-menu-split>
 	    <ui-menu-item command="splitIntoLines" keyTag="Ctrl-Shift-L">Cursor per line of selection</ui-menu-item>
-	    <!--<ui-menu-split></ui-menu-split>-->
-	    <!--<ui-menu-item command="joinlines" keyTag="Ctrl-Shift-J">Join lines</ui-menu-item>-->
 	    <ui-menu-split></ui-menu-split>
 	    <ui-menu-item command="indent" icon="format_indent_increase" keyTag="Ctrl-]">Indent Selection</ui-menu-item>
 	    <ui-menu-item command="outdent" icon="format_indent_decrease" keyTag="Ctrl-[">Outdent Selection</ui-menu-item>

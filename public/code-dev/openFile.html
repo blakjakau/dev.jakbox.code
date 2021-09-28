@@ -1,0 +1,15 @@
+<html>
+    <script>
+        const bc = window.filesReceiver = new BroadcastChannel("file_open_request")
+        if('launchQueue' in window) {
+            launchQueue.setConsumer(params=>{
+                if(params.files.length>0) {
+                    for (const fileHandle of params.files) {
+                        bc.postMessage({open: fileHandle})
+                    }
+                }
+                window.close();
+            })
+        }
+    </script>
+</html>

@@ -302,7 +302,7 @@ const dragleave = function (e) {
     if(moving == this) { return }
 }
 
-const drop = function(e) {  this.parentElement.tabDrop(e) }
+// const drop = function(e) {  this.parentElement.tabDrop(e) }
 
 class TabItem extends Button {
 	constructor(content) {
@@ -315,6 +315,7 @@ class TabItem extends Button {
 		this.setAttribute("draggable", true)
 
 		this.ondragstart = (e)=>{
+		    this.ondrop = this.parentElement.tabDrop
     		e.dataTransfer.effectAllowed = "move";
     		e.dataTransfer.setData("movingTab", this);
 
@@ -335,7 +336,6 @@ class TabItem extends Button {
 			})
 		}
 		this.ondragend = (e)=>{
-		    
 		  //  this.parentElement.tabDrop(e);
 		    
 		    this.parentElement.removeAttribute("dragging")
@@ -351,7 +351,7 @@ class TabItem extends Button {
 		this.ondragover = dragover
 		this.ondragleave = dragleave
 		this.ondragenter = dragover
-		this.ondrop = drop
+		
 		
 		return this;
 	}
@@ -630,25 +630,41 @@ class TabBar extends Block {
 		
 	}
 	
-	tabDrop() {
-	     if(this?.dropPosition=="before") {
-	        this.insertBefore(this.movingItem, this.dropTarget)
-	    } else {
-	        if(this?.dropTarget?.nextElementSibling) {
-	            this.insertBefore(this.movingItem, this.dropTarget.nextElementSibling)
-	        } else {
-	            this.appendChild(this.movingItem);
-	        }
-	    }
-	    
-	    // rebuilt the _tabs array with the new item order
-	    while(this._tabs.length>0) { this._tabs.pop()}
-	    let tabs = this.children
-        for(let i=0,l=tabs.length;i<l;i++) {
-            if(!(tabs[i] instanceof TabItem)) continue;
-            this._tabs.push(tabs[i])
+	async tabDrop(e) {
+		e.stopPropagation();
+		e.preventDefault();
+		const items = e.dataTransfer.items
+	    const delayed = []
+	    for(let i=0,l=items.length;i<l;i++) {
+	        let item = items[i];
+            if (item.kind === 'file') {
+                delayed.push(item.getAsFileSystemHandle());
+            }
         }
-        this.movingItem.click()
+        if(delayed.length > 0) {
+            Promise.all(delayed).then(res=>{
+                res.forEach(this.dropFileHandle)
+            })
+        } else {
+             if(this?.dropPosition=="before") {
+                this.insertBefore(this.movingItem, this.dropTarget)
+            } else {
+                if(this?.dropTarget?.nextElementSibling) {
+                    this.insertBefore(this.movingItem, this.dropTarget.nextElementSibling)
+                } else {
+                    this.appendChild(this.movingItem);
+                }
+            }
+            
+            // rebuilt the _tabs array with the new item order
+            while(this._tabs.length>0) { this._tabs.pop()}
+            let tabs = this.children
+            for(let i=0,l=tabs.length;i<l;i++) {
+                if(!(tabs[i] instanceof TabItem)) continue;
+                this._tabs.push(tabs[i])
+            }
+            this.movingItem.click()
+        }
 	}
 	
 	

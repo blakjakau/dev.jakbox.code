@@ -41,5 +41,22 @@
       "type": "image/png",
       "sizes": "1024x662"
     }
+  ],
+  "file_handlers": [
+    {
+      "action": "/code/openFile.html",
+      "accept": {
+        "application/javascript": [".js",".mjs",".jsm",".json"],
+        "text/stylesheet": [".css"],
+        "text/html": [".html"]
+      },
+      "icons": [
+        {
+          "src": "/code-dev/images/code-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }
