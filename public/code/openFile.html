@@ -1,0 +1,24 @@
+<html>
+    <script>
+        const bc = window.filesReceiver = new BroadcastChannel("file_open_request")
+        bc.addEventListener("message", e=>{
+            if(e.data == "fileAccepted") {
+                window.close();
+            }
+        })
+        if('launchQueue' in window) {
+            launchQueue.setConsumer(params=>{
+                if(params.files.length>0) {
+                    for (const fileHandle of params.files) {
+                        bc.postMessage({open: fileHandle})
+                    }
+                }
+                localStorage.setItem("fileHandlingEnabled", 'true')
+                setTimeout(()=>{ window.location.href = "index.html"} ,250)
+            })
+        }
+        if(localStorage.getItem("fileHandlineEnabled")=="true") {
+            setTimeout(()=>{ window.location.href = "index.html"} ,250)
+        } 
+    </script>
+</html>
