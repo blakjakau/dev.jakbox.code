@@ -1,6 +1,7 @@
 const CACHE_NAME = 'offline';
 const OFFLINE_URL = 'offline.html';
 const MAIN_URL = 'index.html';
+const FILE_URL = 'openFile.html';
 
 const deploy = false
 
@@ -8,7 +9,6 @@ const essential = [
 	"manifest.json",
     "ui-main.mjs",
     "main.mjs",
-
     "../components/elements.js",
     "../components/elements.css",
     "css/main.css",
@@ -40,6 +40,7 @@ self.addEventListener('install', function(event) {
     // isn't fulfilled from the HTTP cache; i.e., it will be from the network.
     await cache.add(new Request(OFFLINE_URL, {cache: 'reload'}))
     await cache.add(new Request(MAIN_URL, {cache: 'reload'}))
+    await cache.add(new Request(FILE_URL, {cache: 'reload'}))
     
 	// always cache these static assets
 	for(let i=0,l=staticAssets.length;i<l;i++) {

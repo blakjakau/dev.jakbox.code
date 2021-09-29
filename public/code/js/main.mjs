@@ -173,8 +173,7 @@ const execCommandNewFile = async ()=>{
 	tab.click();
 }
 
-fileList.unlock = verifyPermission
-fileList.open = async (handle)=>{
+const openFileHandle= tabBar.dropFileHandle = async (handle)=>{
 	
 	// don't add a new tab if the file is already open in a tab
 	for(let i=0,l=tabBar.tabs.length; i<l; i++) {
@@ -213,7 +212,11 @@ fileList.open = async (handle)=>{
 	
 	const tab = tabBar.add({name: file.name, mode: fileMode, session: newSession, handle: handle, folder:handle.container})
 	tab.click();
+    
 }
+
+fileList.unlock = verifyPermission
+fileList.open = openFileHandle
 
 tabBar.click = event=>{
 	const tab = event.tab
@@ -454,6 +457,10 @@ document.addEventListener("keydown", e=>{
 		        return execCommandCloseActiveTab()
 		    case "KeyN":
 		        if(!ctrl) return
+		        if(shift) {
+		            cancelEvent()
+		            return window.open("index.html", "", `standalone,width=${window.outerWidth},height=${window.outerHeight}`)
+		        }
 		        cancelEvent()
                 return execCommandNewFile()
 			case "KeyS":
@@ -505,6 +512,24 @@ setTimeout(()=>{
 	if(app.folders.length>0) {
 		ui.toggleFiles();
 	}
-	// ui.toggleThumb();
+	
+	window.filesReceiver.addEventListener("message", e=>{
+	    if(e.data?.open && window.activeFileReceiver) {
+            window.filesReceiver.postMessage("fileAccepted")
+	        openFileHandle(e.data.open)
+	    }
+	})
+	
+	editor.on("ready", ()=>{
+        if('launchQueue' in window) {
+            launchQueue.setConsumer(params=>{
+                if(params.files.length>0) {
+                    for (const fileHandle of params.files) {
+                        openFileHandle(fileHandle)
+                    }
+                }
+            })
+        }
+	})
 
 });
