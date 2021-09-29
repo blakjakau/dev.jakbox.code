@@ -219,6 +219,9 @@ class Button extends Element {
 		if(v==""||v==undefined||v==null) { this._text.remove() } else if(this._text.innerHTML=="") { this.append(this._text); }
 		this._text.innerHTML = v;
 	}
+	get text() {
+	    return this._text.innerHTML
+	}
 	// get innerHTML() { return this._text.innerHTML }
 }
 
@@ -230,7 +233,41 @@ class FileItem extends Button {
 		this._refresh.style.visibility = "hidden"
 		this._refresh.hook = "right"
 		this._refresh.setAttribute("size", "tiny")
-		
+		this.on("keydown", e=>{
+		    if(e.code == "ArrowUp") {
+		        e.preventDefault()
+		        if(this.previousElementSibling instanceof FileItem) {
+		           return this.previousElementSibling.focus()
+		        }
+		        if(this.previousElementSibling instanceof Block) {
+		            if(this.previousElementSibling?.lastElementChild instanceof FileItem)
+		           return this.previousElementSibling.lastElementChild.focus()
+		        }
+		        if(this.previousElementSibling?.previousElementSibling instanceof FileItem) {
+		           return this.previousElementSibling.previousElementSibling.focus()
+		        }
+		        if(this.parentElement.previousElementSibling instanceof FileItem) {
+		            return this.parentElement.previousElementSibling.focus()
+		        }
+		    }
+		    if(e.code == "ArrowDown") {
+		        e.preventDefault()
+		        if(this.nextElementSibling instanceof FileItem) {
+		            return this.nextElementSibling.focus()
+		        }
+		        if(this.nextElementSibling instanceof Block) {
+		            if(this.nextElementSibling?.firstElementChild instanceof FileItem)
+		           return this.nextElementSibling.firstElementChild.focus()
+		        }
+		        if(this.nextElementSibling?.nextElementSibling instanceof FileItem) {
+		            return this.nextElementSibling.nextElementSibling.focus()
+		        }
+		        if(this.parentElement.nextElementSibling instanceof FileItem) {
+		            return this.parentElement.nextElementSibling.focus()
+		        }
+		    }
+
+		})
 		return this;
 	}
 	connectedCallback() {
@@ -412,15 +449,29 @@ class CounterButton extends Button {
 	}
 }
 
-class Icon extends Element {
-	constructor(content) {
-		super(content);
-	}
-}
-
+class Icon extends Element { constructor(content) { super(content); } }
+class Inner extends Block { constructor(content) { super(content); } }
 class Panel extends Block {
 	constructor(content) {
 		super(content);
+		this.blanker = new Inner()
+	}
+	connectedCallback() {
+		super.connectedCallback.apply(this)
+		if(this.hasAttribute("blank")) {
+		    this.parentNode.insertBefore(this.blanker, this.nextElementSibling)
+		} else {
+		    this.blanker.remove()
+		}
+	}
+	
+	attributeChangedCallback() {
+		if(this.hasAttribute("blank")) {
+		    this.parentNode.insertBefore(this.blanker, this.nextElementSibling)
+		} else {
+		    this.blanker.remove()
+		}
+	    
 	}
 }
 
@@ -477,6 +528,7 @@ class ActionBar extends Block {
 			}
 		});
 		actionBars.push(this);
+		this.on("contextmenu", e=>{ e.preventDefault() && e.stopPropagation()})
 		return this;
 	}
 	connectedCallback() {
@@ -625,8 +677,7 @@ class TabBar extends Block {
 		  //  console.log(e)
 		}
 		this.ondrop = this.tabDrop
-		
-		
+		this.on("contextmenu", e=>{ e.preventDefault() && e.stopPropagation()})
 	}
 	
 	async tabDrop(e) {
@@ -781,10 +832,21 @@ class FileList extends ContentFill {
 		super(content)
 		const inner = this._inner = new Block(); //document.createElement("div")
 		inner.classList.add("inner")
-
-		// const progress = this._progress = document.createElement("div");
-		// progress.classList.add("progress");
-		// progress.innerHTML = "progress";
+		this.tabGroup = tabIndexGroup++;
+        this._contextElement = null
+		this.on("contextmenu", e=>{ e.preventDefault() && e.stopPropagation()})
+		
+		this.itemContextMenu = ev=>{
+		    ev.preventDefault(); 
+		  //  ev.stopPropagation();
+		    if('function' == typeof this._context) {
+		        this._contextElement = ev.srcElement
+		        this._context(ev)
+		      //  e.on("blur", e=>{
+		      //      setTimeout(
+		      //  })
+		    }
+		}
 	}
 	connectedCallback() {
 		this.append(this._inner);
@@ -803,6 +865,15 @@ class FileList extends ContentFill {
 	
 	get open() { return this._open }
 	
+	set context(v) {
+		if(!isFunction(v)) throw new Error("open must be a function");
+		this._context = v
+	}
+	
+	get contextElement() {
+	    return this._contextElement
+	}
+	
 	refreshAll() {
 	    
 	}
@@ -810,6 +881,8 @@ class FileList extends ContentFill {
 	_render(base, tree) {
 		const codeFiles = "json js mjs c cpp h hpp css html".split(" ")
 		const imageFiles = "jpg jpeg gif tiff png ico bmp webp webm".split(" ")
+		
+		this._contextElement =  null
 		if(base.empty) { base.empty() }
 		tree.forEach(item=>{
 			if(item.kind=="directory") {
@@ -821,8 +894,12 @@ class FileList extends ContentFill {
 				e.holder = new Block()
 				e.holder.setAttribute("slim", "true")
 				e.holder.style.paddingLeft = "12px"
+				e.setAttribute("tabindex", this.tabGroup)
 				e.open = false;
+				e.item = item;
 				base.append(e, e.holder)
+				
+				e.on("contextmenu", this.itemContextMenu)
 				
 				if(item.locked) {
 					e.icon = "lock"
@@ -844,7 +921,7 @@ class FileList extends ContentFill {
 				
 					if(item.tree && item.open) {
 						e.icon = "folder_open"
-						e.showRefresh = true
+				// 		e.showRefresh = true
 						this._render(e.holder, item.tree)
 					}
 					
@@ -856,7 +933,7 @@ class FileList extends ContentFill {
 								item.tree = await readAndOrderDirectory(item);
 							}
 							e.icon = "folder_open"
-							e.showRefresh = true
+				// 			e.showRefresh = true
 							this._render(e.holder, item.tree)
 							e.removeAttribute("loading")
 						} else {
@@ -870,7 +947,9 @@ class FileList extends ContentFill {
 						event.stopPropagation()
 						e.setAttribute("loading", "true")
 						item.tree = await readAndOrderDirectory(item);
-						this._render(e.holder, item.tree)
+						if(item.open) {
+						    this._render(e.holder, item.tree)
+						}
 						e.removeAttribute("loading")
 					})
 					
@@ -879,6 +958,7 @@ class FileList extends ContentFill {
 			} else {
 				
 				let e = new FileItem();
+				e.setAttribute("tabindex", this.tabGroup)
 				e.showRefresh = false
 				if(codeFiles.indexOf(item.name.split(".").pop())!==-1) {
 					e.icon = "code"
@@ -1131,6 +1211,7 @@ let CurrentMenu = null
 class Menu extends Panel {
 	constructor(content) {
 		super(content);
+		this.on("contextmenu", e=>{ e.preventDefault() })
 	}
 	
 	connectedCallback() {
@@ -1170,13 +1251,27 @@ class Menu extends Panel {
 	    }
 	}
 	
-	showAt(element) {
-	   // const self = this
-		if(!(element instanceof HTMLElement)) { throw new Error("showAt requires an HTMLElement in the current DOM") }
-	    const p  = getPosition(element)
-	    this.style.left = p.x
-	    this.style.top = p.y+p.h
-        this.style.maxHeight = `calc(100vh - ${p.y+p.h+8}px)`
+	showAt(origin) {
+        // const self = this
+	    let p;
+        if(origin instanceof PointerEvent) {
+            p = {
+                x: origin.clientX+2,
+                y: origin.clientY+2,
+                w:0, h:0
+            }
+    	    this.style.left = p.x
+    	    this.style.top = p.y+p.h
+            this.style.maxHeight = `calc(100vh - ${p.y+p.h+8}px)`
+        } else if(origin instanceof HTMLElement) { 
+    	    p  = getPosition(origin)
+    	    this.style.left = p.x
+    	    this.style.top = p.y+p.h
+            this.style.maxHeight = `calc(100vh - ${p.y+p.h+8}px)`
+        } else {
+            throw new Error("showAt requires an HTMLElement in the current DOM or a PointerEvent")
+	    }
+	    
         setTimeout(()=>{
             if(p.x + this.offsetWidth > window.innerWidth) { this.style.left = p.x+p.w  - this.offsetWidth }
             if(p.y + p.h + this.offsetHeight > window.innerHeight) { 
@@ -1187,12 +1282,22 @@ class Menu extends Panel {
                 }
             }
         })
+        
 		setTimeout(()=>{
+		    if(CurrentMenu === this) {
+		        CurrentMenu.removeAttribute("active"); 
+		        CurrentMenu = null
+		        return
+		    }
+		    
 		    let clicked = false;
 		    MenuOpen = true
 		    CurrentMenu = this
-			this.addEventListener("click", ()=>{ clicked = true; MenuOpen = false; setTimeout(()=>{this.removeAttribute("active")},333) }, {once:true});
-			document.addEventListener("click", ()=>{  if(!clicked && MenuOpen) {  setTimeout(()=>{this.removeAttribute("active"); MenuOpen = false}) } }, {once:true});
+			this.addEventListener("click", ()=>{ clicked = true; MenuOpen = false; CurrentMenu = null; setTimeout(()=>{this.removeAttribute("active");},333) }, {once:true});
+			document.addEventListener("click", ()=>{ if(!clicked && MenuOpen) {  setTimeout(()=>{this.removeAttribute("active"); MenuOpen = false; CurrentMenu = null}) } }, {once:true});
+			document.addEventListener("contextmenu", ()=>{ 
+			    if(CurrentMenu == this) { CurrentMenu.removeAttribute("active"); return } 
+			    if(!clicked && MenuOpen) {  setTimeout(()=>{this.removeAttribute("active"); MenuOpen = false; CurrentMenu = null}) } }, {once:true});
 		});
 		this.setAttribute("active", "true")
 	}
@@ -1200,12 +1305,14 @@ class Menu extends Panel {
 
 class MenuItem extends Button {
 	constructor(content) {
-		super();
+		super(content);
 		this._icon = new Icon()
 		this._tag = new Inline()
 		this.addEventListener("click", ()=>{
 		    if(this.getAttribute("command")) {
 		        this.parentElement.click(this.getAttribute("command"))
+		    } else {
+		        this.parentElement.click(this)
 		    }
 		})
 	}
@@ -1242,6 +1349,7 @@ customElements.define("ui-tab-item", TabItem);
 customElements.define("ui-file-upload-list", FileUploadList);
 
 customElements.define("ui-panel", Panel);
+customElements.define("ui-inner", Inner);
 customElements.define("ui-icon", Icon);
 customElements.define("ui-input", Input);
 customElements.define("effect-base", Effects);
