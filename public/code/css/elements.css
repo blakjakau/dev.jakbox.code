@@ -420,6 +420,14 @@ ui-file-list>.inner>ui-file-item:not(:first-child) {
 	padding-top:4px;
 	margin-top:4px;
 }
+ui-file-item>ui-icon:first-child,
+ui-file-item>ui-inline {
+    pointer-events:none
+}
+
+ui-file-item:focus {
+    background:rgba(0,0,0,0.05);
+}
 
 @font-face {
   font-family: 'Material Icons Outlined';
@@ -462,7 +470,7 @@ ui-menu {
     position:absolute;
     left:0px; top:0px;
     transition: opacity 200ms ease-in-out;
-    z-index:10;
+    z-index:100;
     background:var(--ui-pri-bg);
     color:var(--ui-pri-fg);
     box-shadow: 0 3px 5px rgba(0,0,0,0.25);
@@ -516,6 +524,30 @@ ui-menu-item:last-child { border-radius: 0 0 4px 4px; }
 
 ui-menu-split { display:block; height:1px; background: var(--ui-sec-bg); width:96%; margin:2px auto;}
 
+
+ui-panel[type="modal"] {
+    position:fixed;
+    z-index:101;
+    top:33%;
+    left:33%;
+    width:33%;
+    height:33%;
+    background:var(--ui-pri-bg);
+    box-sizing: border-box;
+    border-radius:8px;
+    padding:8px;
+    box-shadow: 0 0 16px rgba(0,0,0,0.25);
+}
+ui-panel[type="modal"][blank]+ui-inner {
+    content:'';
+    position:fixed;
+    z-index:100;
+    top:0px;
+    left:0px;
+    right:0px;
+    bottom:0px;
+    background:rgba(0,0,0,0.125);
+}
 @keyframes ripple {
   0% {
 	background:var(--ui-effect);

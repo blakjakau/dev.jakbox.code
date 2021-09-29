@@ -215,6 +215,43 @@ const openFileHandle= tabBar.dropFileHandle = async (handle)=>{
     
 }
 
+const fileMenu = document.getElementById("file_context")
+const topFileMenu = document.getElementById("top_file_context")
+
+fileMenu.click = topFileMenu.click = (action)=>{
+    console.log(action)
+    const active = fileList.contextElement;
+    const file = active.item;
+    
+    switch(action) {
+        case "remove":
+            console.log(app)
+            for(let i=0;i<app.folders.length;i++) {
+                console.log(app.folders[i] === file)
+                if(app.folders[i]===file) { app.folders.splice(i, 1); i--; }
+            }
+            console.log(app)
+            set("appConfig", app)
+            ui.showFolders()
+        break;
+        case "refresh":
+            if(active.refresh) {
+                active.refresh.click()
+            }
+        break;
+    }
+    // console.log(fileList.contextElement.item)
+}
+fileList.context = (e)=>{ 
+    let menu = fileMenu
+    if(e.srcElement.parentElement.parentElement instanceof elements.FileList) {
+        menu = topFileMenu
+    } else {
+        menu = fileMenu
+    }
+    menu.showAt(e) 
+}
+
 fileList.unlock = verifyPermission
 fileList.open = openFileHandle
 
