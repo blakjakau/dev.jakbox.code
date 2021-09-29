@@ -514,22 +514,22 @@ setTimeout(()=>{
 	}
 	
 	window.filesReceiver.addEventListener("message", e=>{
-	    console.log("message from another window")
-	    if(e.data?.open) {
-	        console.log(e.data)
+	    if(e.data?.open && window.activeFileReceiver) {
+            window.filesReceiver.postMessage("fileAccepted")
 	        openFileHandle(e.data.open)
 	    }
 	})
 	
-    if('launchQueue' in window) {
-        launchQueue.setConsumer(params=>{
-            console.log(params)
-            if(params.files.length>0) {
-                for (const fileHandle of params.files) {
-                    openFileHandle(fileHandle)
+	editor.on("ready", ()=>{
+        if('launchQueue' in window) {
+            launchQueue.setConsumer(params=>{
+                if(params.files.length>0) {
+                    for (const fileHandle of params.files) {
+                        openFileHandle(fileHandle)
+                    }
                 }
-            }
-        })
-    }
+            })
+        }
+	})
 
 });

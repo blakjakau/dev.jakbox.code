@@ -1,11 +1,12 @@
 const CACHE_NAME = 'offline';
 const OFFLINE_URL = 'offline.html';
 const MAIN_URL = 'index.html';
-
+const FILE_URL = 'openFile.html';
 const deploy = false
 
 const toFullUrl = (url)=>{
-	const base = "https://tools.jakbox.net"
+	const base = "https://tools.jakbo
+	x.net"
 	const appUrl = `${base}/code`
 	if(url.indexOf("http")===0) { return url }
 	if(url.indexOf("/")===0) { return `${base}${url}` }
@@ -48,6 +49,7 @@ self.addEventListener('install', function(event) {
     // isn't fulfilled from the HTTP cache; i.e., it will be from the network.
     await cache.add(new Request(OFFLINE_URL, {cache: 'reload'}))
     await cache.add(new Request(MAIN_URL, {cache: 'reload'}))
+    await cache.add(new Request(FILE_URL, {cache: 'reload'}))
     
 	// always cache these static assets
 	for(let i=0,l=staticAssets.length;i<l;i++) {

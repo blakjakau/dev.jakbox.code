@@ -41,12 +41,11 @@
 		}
 	</script>
 	<script>
-        const bc = window.filesReceiver = new BroadcastChannel("file_open_request")
+        const bc = window.filesReceiver = new BroadcastChannel("file_open_request_dev")
+        window.activeFileReceiver = true
+        window.onfocus=()=>{ bc.postMessage("connected"); window.activeFileReceiver = true }
+        bc.addEventListener("message", e=>{  if(e.data == "connected") { window.activeFileReceiver = false }  })
         bc.postMessage("connected")
-        bc.addEventListener("message", e=>{ 
-            if(e.data == "connected") { bc.postMessage("abort") } 
-            if(e.data == "abort") { console.log("disabled file listener"); bc.close(); }
-        })
 	</script>
 	<style> :root { --theme: #00aabb!important; } </style>
 </head>

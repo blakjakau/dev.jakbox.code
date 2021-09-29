@@ -609,7 +609,7 @@ class TabBar extends Block {
         // }
 		this.ondragover = (e)=>{ 
 		    e.preventDefault();
-		    e.dataTransfer.dropEffect = "move";
+		    e.dataTransfer.dropEffect = "all";
 		    
 		    let last = this._tabs[this._tabs.length-1]
 		    if(last == this.movingItem) {
@@ -624,15 +624,14 @@ class TabBar extends Block {
 		    }
 		  //  console.log(e)
 		}
-		this.ondrop = (e)=>{
-		   this.tabDrop(e)
-		}
+		this.ondrop = this.tabDrop
+		
 		
 	}
 	
 	async tabDrop(e) {
-		e.stopPropagation();
 		e.preventDefault();
+		e.stopPropagation();
 		const items = e.dataTransfer.items
 	    const delayed = []
 	    for(let i=0,l=items.length;i<l;i++) {

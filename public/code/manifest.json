@@ -52,7 +52,7 @@
       },
       "icons": [
         {
-          "src": "/code-dev/images/code-192.png",
+          "src": "/code/images/code-192.png",
           "sizes": "192x192",
           "type": "image/png"
         }

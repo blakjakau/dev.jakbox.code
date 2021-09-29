@@ -38,6 +38,13 @@
 		}
 	</script>
 	<style> :root { --theme: #0077bb!important; } </style>
+	<script>
+        const bc = window.filesReceiver = new BroadcastChannel("file_open_request")
+        window.activeFileReceiver = true
+        window.onfocus=()=>{ bc.postMessage("connected"); window.activeFileReceiver = true }
+        bc.addEventListener("message", e=>{  if(e.data == "connected") { window.activeFileReceiver = false }  })
+        bc.postMessage("connected")
+	</script>
 </head>
 <body>
 	<ui-actionbar id="menu" hook="top" slim style="top: 0px; bottom: auto;">
