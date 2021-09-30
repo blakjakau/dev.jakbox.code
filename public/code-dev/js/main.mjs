@@ -85,6 +85,7 @@ const fileAccess = new elements.Button("Unlock All");
 
 const editor = ui.editor
 const thumbs = ui.thumb
+const installer = ui.installer
 const fileActions = ui.fileActions;
 const fileList = ui.fileList;
 const tabBar = ui.tabBar;
@@ -542,6 +543,39 @@ window.ui.command = (c)=>{
     }
 }
 
+window.addEventListener('beforeinstallprompt', (e) => {
+    let deferredPrompt = e;
+    const showInstallPromotion = ()=>{
+        if(sessionStorage.getItem("install_defer") || localStorage.getItem("install_deny")) return
+        ui.installer.later.on("click", ()=>{
+            // make sure we don't ask again before next visit
+            sessionStorage.setItem("install_defer",  true)
+            ui.installer.offscreen()
+        })
+        
+        ui.installer.confirm.on("click", ()=>{
+            // make sure we don't ask again before next visit
+            sessionStorage.setItem("install_defer",  true) 
+            deferredPrompt.prompt()
+            ui.installer.offscreen()
+        })
+        
+        ui.installer.deny.on("click", ()=>{
+            // make sure we don't ask again, period
+            localStorage.setItem("install_deny",  true)
+            ui.installer.offscreen()
+        })
+        
+        ui.installer.onscreen()
+    }
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later.
+    // Update UI notify the user they can install the PWA
+    showInstallPromotion();
+    // Optionally, send analytics event that PWA install promo was shown.
+});
+
 setTimeout(()=>{
 	ui.editorElement.classList.remove("loading");
 	ui.thumbElement.classList.remove("loading");
@@ -568,5 +602,4 @@ setTimeout(()=>{
             })
         }
 	})
-
 });

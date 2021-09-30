@@ -26,6 +26,7 @@ var statusbar;
 var statusTheme, statusMode;
 var omni;
 var modal;
+var installer;
 
 const toggleBodyClass=(className)=>{
 	if(document.body.classList.contains(className)) {
@@ -110,9 +111,45 @@ const uiManager = {
 		thumbElement.setAttribute("id", thumbID)
 		thumbElement.classList.add("loading")
 		
-		
-// 		modal = new Panel()
-//         modal._title = new elements.Block("titleElememt")
+        installer = new elements.Panel()
+        installer.setAttribute("type", "modal")
+        document.body.append(installer)
+        installer.classList.add("slideUp");
+        installer.style.cssText = `
+            left:auto; top:auto; right:32px; bottom:64px; width:auto;
+            height:128px; text-align:right;
+        `
+        // installer.style.width="300px";
+        installer.innerHTML = `
+            <p><img src="images/code-192.png" height='32px' style="vertical-align:middle; margin-top:-4px;">&nbsp;<b>Install Code for a better app experience?&nbsp;&nbsp;</b></p>
+        `
+        installer.confirm = new elements.Button("Yes please!")
+        installer.confirm.classList.add("themed")
+        installer.confirm.icon = "done"
+
+        installer.later = new elements.Button("Later")
+        installer.later.classList.add("themed")
+        installer.later.icon = "watch_later"
+
+        installer.deny = new elements.Button("No thanks")
+        installer.deny.classList.add("cancel")
+        // installer.deny.icon = "close"
+        
+            installer.onscreen = ()=>{
+                installer.show()
+                setTimeout(()=>{
+                    installer.addClass("active")
+                }, 1)
+            }
+            
+            installer.offscreen = ()=>{
+                installer.removeClass("active")
+                setTimeout(()=>{ installer.hide() }, 333)
+            }
+            
+        installer.append(installer.deny, installer.later, installer.confirm)
+        installer.hide()
+
 		
 		omni = new Panel()
 		omni.titleElement = new elements.Block("omni box")
@@ -366,6 +403,7 @@ const uiManager = {
 
 	get editor() { return editor },
 	get thumb() { return thumbstrip },
+	get installer() { return installer },
 	get editorElement() { return editorElement },
 	get thumbElement() { return thumbElement },
 	get fileActions() { return fileActions },

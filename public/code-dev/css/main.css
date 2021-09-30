@@ -1,6 +1,6 @@
 :root {
 	--theme: #00aabb;
-	--light: #eee;
+	--light: #fff;
 	--mid: #cdcdcd;
 	/*--dark: #272822;*/
 	--dark: #384144;
@@ -158,6 +158,46 @@ ui-actionbar#menu ui-panel ui-button {
 	color:#444
 }
 
+ui-button ui-icon {
+    color: var(--theme);
+}
+ui-button {
+    border-radius: 8px;
+    margin:0 2px;
+}
+
+ui-button:hover {
+    filter: brightness(0.92)
+}
+
+ui-button.themed {
+    background: var(--theme);
+    color: var(--light);
+}
+ui-button.themed ui-icon {
+    color: inherit;
+}
+
+/*ui-button.themed:hover {*/
+/*    filter: brightness(1.1);*/
+/*}*/
+
+ui-button.cancel {
+    color: #777;
+}
+ui-button.cancel ui-icon {
+    color: inherit
+}
+
+
+ui-panel.slideUp {
+    transition: margin-bottom 200ms ease-in-out;
+    margin-bottom: -50vh;
+}
+
+ui-panel.slideUp.active {
+    margin-bottom: 0vh;
+}
 #tabs {
 	position:absolute;
 	top:var(--menuHeight) !important;
