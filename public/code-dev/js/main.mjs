@@ -42,18 +42,21 @@ let permissionNotReloaded = true; // should we re-request permission for folders
 ui.create()
 window.ui = ui
 window.code = {
-	version: "0.1.2"
+	version: "0.2.1"
 }
 
 const app = {
 	folders: [],
 	workspaces: [],
+	sessionOptions: null,
+	rendererOptions: null,
+	enableLiveAutocompletion: null,
 }
 
 let workspace = {
-    name: "unamed",
-    folders: [],
-    files: []
+	name: "unamed",
+	folders: [],
+	files: []
 }
 
 window.app = app
@@ -70,7 +73,7 @@ const fileList = ui.fileList;
 const tabBar = ui.tabBar;
 
 const saveFile = async (text, handle)=>{
-    const tab = tabBar.activeTab
+	const tab = tabBar.activeTab
 	const writable = await handle.createWritable()
 	await writable.write(text)
 	await writable.close()
@@ -78,20 +81,28 @@ const saveFile = async (text, handle)=>{
 }
 
 const saveAppConfig = async ()=>{
-    app.editorOptions = ui.editor.getOptions()
-    app.folders = workspace.folders
-    await set("appConfig", app);
-    console.log("saved", app)
-	console.trace()
+	app.sessionOptions = ui.editor.session.getOptions()
+	app.rendererOptions = ui.editor.renderer.getOptions()
+	app.enableLiveAutocompletion = ui.editor.$enableLiveAutocompletion
+	delete(app.sessionOptions.mode) // don't persist the mode, that's dumb
+	app.folders = workspace.folders
+	await set("appConfig", app);
+	console.debug("saved", app)
 }
 
-const updateThemeAndMode = ()=>{
+const updateThemeAndMode = (doSave=false)=>{
     ui.updateThemeAndMode()
-    saveAppConfig()
-    
+    if(doSave) saveAppConfig()
 }
 
-const execCommandAbout = ()=>{ setTimeout(()=>{alert("Code v0.2.1 by Jason Grima (code@jakbox.net)")}, 400) }
+
+const execCommandEditorOptions = ()=>{
+	if(app.sessionOptions) editor.session.setOptions(app.sessionOptions)
+	if(app.rendererOptions) editor.renderer.setOptions(app.rendererOptions)
+	if(app.enableLiveAutocompletion) editor.$enableLiveAutocompletion = app.enableLiveAutocompletion
+}
+
+const execCommandAbout = ()=>{ setTimeout(()=>{alert(`Code v ${window.code.version} <code@jakbox.net>`)}, 400) }
 const execCommandAddFolder = ()=>{ fileOpen.click(); }
 const execCommandToggleFolders = ()=>{ ui.toggleFiles() }
 
@@ -164,6 +175,7 @@ const execCommandNewFile = async ()=>{
 	    folder: folder})
 	    
 	editor.setSession(newSession)
+	execCommandEditorOptions()
 	tab.click();
 }
 
@@ -200,6 +212,7 @@ const openFileHandle= tabBar.dropFileHandle = async (handle)=>{
 	newSession.baseValue = text
 	
 	editor.setSession(newSession)
+	execCommandEditorOptions()
 	thumbstrip.setValue(editor.getValue())
 	thumbStrip.clearSelection();
 	thumbStrip.gotoLine(0)
@@ -213,35 +226,35 @@ const fileMenu = document.getElementById("file_context")
 const topFileMenu = document.getElementById("top_file_context")
 
 fileMenu.click = topFileMenu.click = (action)=>{
-    console.log(action)
-    const active = fileList.contextElement;
-    const file = active.item;
-    
-    switch(action) {
-        case "remove":
-            for(let i=0;i<workspace.folders.length;i++) {
-                console.log(workspace.folders[i] === file)
-                if(workspace.folders[i]===file) { workspace.folders.splice(i, 1); i--; }
-            }
-            saveAppConfig()
-            ui.showFolders()
-        break;
-        case "refresh":
-            if(active.refresh) {
-                active.refresh.click()
-            }
-        break;
-    }
+	console.log(action)
+	const active = fileList.contextElement;
+	const file = active.item;
+	
+	switch(action) {
+		case "remove":
+			for(let i=0;i<workspace.folders.length;i++) {
+				console.log(workspace.folders[i] === file)
+				if(workspace.folders[i]===file) { workspace.folders.splice(i, 1); i--; }
+			}
+			saveAppConfig()
+			ui.showFolders()
+		break;
+		case "refresh":
+			if(active.refresh) {
+				active.refresh.click()
+			}
+		break;
+	}
     // console.log(fileList.contextElement.item)
 }
 fileList.context = (e)=>{ 
-    let menu = fileMenu
-    if(e.srcElement.parentElement.parentElement instanceof elements.FileList) {
-        menu = topFileMenu
-    } else {
-        menu = fileMenu
-    }
-    menu.showAt(e) 
+	let menu = fileMenu
+	if(e.srcElement.parentElement.parentElement instanceof elements.FileList) {
+		menu = topFileMenu
+	} else {
+		menu = fileMenu
+	}
+	menu.showAt(e) 
 }
 
 fileList.unlock = verifyPermission
@@ -276,6 +289,7 @@ const defaultTab = ()=>{
 	const defaultSession = ace.createEditSession("", "")
 	const tab = tabBar.add({name: "untitled", mode: {mode:""}, session: defaultSession})
 	editor.setSession(defaultSession)
+	execCommandEditorOptions()
 	tab.click();
 }
 
@@ -331,51 +345,51 @@ fileOpen.on("click", async ()=>{
 })
 
 editor.commands.addCommand({
-    name: 'find',
-    bindKey: { win:'Ctrl-F',mac:'Command-F' },
-    exec: ()=>{
-    	window.ui.omnibox("find");
-    }
+	name: 'find',
+	bindKey: { win:'Ctrl-F',mac:'Command-F' },
+	exec: ()=>{
+		window.ui.omnibox("find");
+	}
 });
 
 editor.commands.addCommand({
-    name: 'find-next',
-    bindKey: { win:'F3',mac:'F3' },
-    exec: ()=>{
-    	editor.execCommand("findnext")
-    }
+	name: 'find-next',
+	bindKey: { win:'F3',mac:'F3' },
+	exec: ()=>{
+		editor.execCommand("findnext")
+	}
 });
 
 editor.commands.addCommand({
-    name: 'collapselines',
-    bindKey: { win:'Ctrl-Shift-J',mac:'Command-Shift-J' },
-    exec: ()=>{
-    	editor.execCommand("joinlines")
-    }
+	name: 'collapselines',
+	bindKey: { win:'Ctrl-Shift-J',mac:'Command-Shift-J' },
+	exec: ()=>{
+		editor.execCommand("joinlines")
+	}
 });
 
 
 editor.commands.addCommand({
-    name: 'find-regex',
-    bindKey: { win:'Ctrl-Shift-F',mac:'Command-Shift-F' },
-    exec: ()=>{
-    	window.ui.omnibox("regex");
-    }
+	name: 'find-regex',
+	bindKey: { win:'Ctrl-Shift-F',mac:'Command-Shift-F' },
+	exec: ()=>{
+		window.ui.omnibox("regex");
+	}
 });
 
 editor.commands.addCommand({
-    name: 'goto',
-    bindKey: { win:'Ctrl-G',mac:'Command-G' },
-    exec: ()=>{
-    	window.ui.omnibox("goto");
-    }
+	name: 'goto',
+	bindKey: { win:'Ctrl-G',mac:'Command-G' },
+	exec: ()=>{
+		window.ui.omnibox("goto");
+	}
 });
 editor.commands.addCommand({
-    name: 'lookup',
-    bindKey: { win:'Ctrl-L',mac:'Command-L' },
-    exec: ()=>{
-    	window.ui.omnibox("lookup");
-    }
+	name: 'lookup',
+	bindKey: { win:'Ctrl-L',mac:'Command-L' },
+	exec: ()=>{
+		window.ui.omnibox("lookup");
+	}
 });
 
 // editor.commands.addCommand({
@@ -389,83 +403,83 @@ editor.commands.addCommand({
 
 
 editor.commands.addCommand({
-    name: 'next-buffer',
-    bindKey: { win:'Ctrl+Tab',mac:'Command+Tab' },
-    exec: ()=>{
-    	tabBar.next()
-    }
+	name: 'next-buffer',
+	bindKey: { win:'Ctrl+Tab',mac:'Command+Tab' },
+	exec: ()=>{
+		tabBar.next()
+	}
 });
 
 editor.commands.addCommand({
-    name: 'prev-buffer',
-    bindKey: { win:'Ctrl+Shift+Tab',mac:'Command+Shift+Tab' },
-    exec: ()=>{
-    	tabBar.prev()
-    }
+	name: 'prev-buffer',
+	bindKey: { win:'Ctrl+Shift+Tab',mac:'Command+Shift+Tab' },
+	exec: ()=>{
+		tabBar.prev()
+	}
 });
 
 
 editor.commands.addCommand({
-    name: 'newFile',
-    bindKey: { win:'Ctrl+N',mac:'Command+N' },
-    exec: execCommandNewFile
+	name: 'newFile',
+	bindKey: { win:'Ctrl+N',mac:'Command+N' },
+	exec: execCommandNewFile
 });
 
 editor.commands.addCommand({
-    name: 'openFile',
-    bindKey: { win:'Ctrl+O',mac:'Command+O' },
-    exec: execCommandOpen
+	name: 'openFile',
+	bindKey: { win:'Ctrl+O',mac:'Command+O' },
+	exec: execCommandOpen
 });
 
 editor.commands.addCommand({
-    name: 'saveFile',
-    bindKey: { win:'Ctrl+S',mac:'Command+S' },
-    exec: execCommandSave
+	name: 'saveFile',
+	bindKey: { win:'Ctrl+S',mac:'Command+S' },
+	exec: execCommandSave
 });
 
 editor.commands.addCommand({
-    name: 'saveFileAs',
-    bindKey: { win:'Ctrl+Shift+S',mac:'Command+Shift+S' },
-    exec: execCommandSaveAs
+	name: 'saveFileAs',
+	bindKey: { win:'Ctrl+Shift+S',mac:'Command+Shift+S' },
+	exec: execCommandSaveAs
 });
 
 editor.commands.addCommand({
-    name: "showEditorSettings",
-    exec: ()=>{
-        console.log("show settings menu")
-        editor.execCommand('showSettingsMenu', updateThemeAndMode )
-    }
+	name: "showEditorSettings",
+	exec: ()=>{
+		console.log("show settings menu")
+		editor.execCommand('showSettingsMenu', ()=>{ updateThemeAndMode(true) } )
+	}
 })
 
 editor.commands.addCommand({
-    name: 'closeFile',
-    bindKey: { win:'Ctrl+W',mac:'Command+W' },
-    exec: execCommandCloseActiveTab
+	name: 'closeFile',
+	bindKey: { win:'Ctrl+W',mac:'Command+W' },
+	exec: execCommandCloseActiveTab
 });
 
 editor.commands.addCommand({
-    name: 'toggleFolders',
-    exec: execCommandToggleFolders
+	name: 'toggleFolders',
+	exec: execCommandToggleFolders
 });
 
 editor.commands.addCommand({
-    name: 'addFolder',
-    exec: execCommandAddFolder
+	name: 'addFolder',
+	exec: execCommandAddFolder
 });
 
 editor.commands.addCommand({
-    name: 'refeshFolders',
-    exec: execCommandRefreshFolders
+	name: 'refeshFolders',
+	exec: execCommandRefreshFolders
 });
 
 editor.commands.addCommand({
-    name: 'removeAllFolders',
-    exec: execCommandRemoveAllFolders
+	name: 'removeAllFolders',
+	exec: execCommandRemoveAllFolders
 });
 
 editor.commands.addCommand({
-    name: 'showAbout',
-    exec: execCommandAbout
+	name: 'showAbout',
+	exec: execCommandAbout
 });
 
 document.addEventListener("keydown", e=>{
@@ -481,18 +495,18 @@ document.addEventListener("keydown", e=>{
 	if(ctrl || shift) { // this is probably some command keystroke!
 		// console.log(e)
 		switch(e.code) {
-		    case "KeyW":
-		        if(!ctrl) return
-		        cancelEvent();
-		        return execCommandCloseActiveTab()
-		    case "KeyN":
-		        if(!ctrl) return
-		        if(shift) {
-		            cancelEvent()
-		            return window.open("index.html", "", `standalone,width=${window.outerWidth},height=${window.outerHeight}`)
-		        }
-		        cancelEvent()
-                return execCommandNewFile()
+			case "KeyW":
+				if(!ctrl) return
+				cancelEvent();
+				return execCommandCloseActiveTab()
+			case "KeyN":
+				if(!ctrl) return
+				if(shift) {
+					cancelEvent()
+					return window.open("index.html", "", `standalone,width=${window.outerWidth},height=${window.outerHeight}`)
+				}
+				cancelEvent()
+			return execCommandNewFile()
 			case "KeyS":
 				if(!ctrl) return
 				cancelEvent()
@@ -536,37 +550,37 @@ window.ui.command = (c)=>{
 }
 
 window.addEventListener('beforeinstallprompt', (e) => {
-    let deferredPrompt = e;
-    const showInstallPromotion = ()=>{
-        if(sessionStorage.getItem("install_defer") || localStorage.getItem("install_deny")) return
-        ui.installer.later.on("click", ()=>{
-            // make sure we don't ask again before next visit
-            sessionStorage.setItem("install_defer",  true)
-            ui.installer.offscreen()
-        })
-        
-        ui.installer.confirm.on("click", ()=>{
-            // make sure we don't ask again before next visit
-            sessionStorage.setItem("install_defer",  true) 
-            deferredPrompt.prompt()
-            ui.installer.offscreen()
-        })
-        
-        ui.installer.deny.on("click", ()=>{
-            // make sure we don't ask again, period
-            localStorage.setItem("install_deny",  true)
-            ui.installer.offscreen()
-        })
-        
-        ui.installer.onscreen()
-    }
-    // Prevent the mini-infobar from appearing on mobile
-    e.preventDefault();
-    // Stash the event so it can be triggered later.
-    // Update UI notify the user they can install the PWA
-    if(sessionStorage.getItem("notSupported")) return
-    showInstallPromotion();
-    // Optionally, send analytics event that PWA install promo was shown.
+	let deferredPrompt = e;
+	const showInstallPromotion = ()=>{
+	if(sessionStorage.getItem("install_defer") || localStorage.getItem("install_deny")) return
+	ui.installer.later.on("click", ()=>{
+		// make sure we don't ask again before next visit
+		sessionStorage.setItem("install_defer",  true)
+		ui.installer.offscreen()
+	})
+	
+	ui.installer.confirm.on("click", ()=>{
+		// make sure we don't ask again before next visit
+		sessionStorage.setItem("install_defer",  true) 
+		deferredPrompt.prompt()
+		ui.installer.offscreen()
+	})
+	
+	ui.installer.deny.on("click", ()=>{
+		// make sure we don't ask again, period
+		localStorage.setItem("install_deny",  true)
+		ui.installer.offscreen()
+	})
+	
+	ui.installer.onscreen()
+	}
+	// Prevent the mini-infobar from appearing on mobile
+	e.preventDefault();
+	// Stash the event so it can be triggered later.
+	// Update UI notify the user they can install the PWA
+	if(sessionStorage.getItem("notSupported")) return
+	showInstallPromotion();
+	// Optionally, send analytics event that PWA install promo was shown.
 });
 
 setTimeout(async ()=>{
@@ -583,43 +597,49 @@ setTimeout(async ()=>{
 	
 	editor.on("ready", async ()=>{
 	    
-    	// preload stored file and folder handles
-    	let stored = await get("appConfig");
-    	if('undefined'!=typeof stored) {
-    	    if(stored.editorOptions) ui.editor.setOptions(stored.editorOptions)
-    		workspace.folders = stored.folders
-    	}
-    	let all = []
-    	workspace.folders.forEach(handle=>{
-    	    let perm = verifyPermission(handle, true).then(res=>{
-    	    	if(!res) handle.locked = true
-    	    })
-    	    all.push(perm);
-    	})
-    	
-    	Promise.all(all).then(()=>{
-    	    ui.showFolders()
-    	    
-    	    let allGood = true
-    	    workspace.folders.forEach(handle=>{
-    	        if(handle.locked) allGood = false
-    	    })
-    	    if(allGood) {
-    	        fileAccess.click()
-            }
-    	})
-    	
-    	if(workspace.folders.length>0) ui.toggleFiles();
-    	defaultTab()
-
-        if('launchQueue' in window) {
-            launchQueue.setConsumer(params=>{
-                if(params.files.length>0) {
-                    for (const fileHandle of params.files) {
-                        openFileHandle(fileHandle)
-                    }
-                }
-            })
-        }
+		// preload stored file and folder handles
+		let stored = await get("appConfig");
+		if('undefined'!=typeof stored) {
+			app.sessionOptions = stored.sessionOptions||null
+			app.rendererOptions = stored.rendererOptions||null
+			app.enableLiveAutocompletion = stored.enableLiveAutocompletion||null
+			workspace.folders = stored.folders
+			app.folders = workspace.folders
+		}
+		let all = []
+		workspace.folders.forEach(handle=>{
+			let perm = verifyPermission(handle, true).then(res=>{
+				if(!res) handle.locked = true
+			})
+			all.push(perm);
+		})
+		
+		Promise.all(all).then(()=>{
+			ui.showFolders()
+			
+			let allGood = true
+			workspace.folders.forEach(handle=>{
+			    if(handle.locked) allGood = false
+			})
+			if(allGood) {
+			    fileAccess.click()
+			}
+		})
+		
+		if(workspace.folders.length>0) {
+			ui.toggleFiles();
+			ui.showFolders()
+		}
+		defaultTab()
+	
+		if('launchQueue' in window) {
+			launchQueue.setConsumer(params=>{
+				if(params.files.length>0) {
+					for (const fileHandle of params.files) {
+						openFileHandle(fileHandle)
+					}
+				}
+			})
+		}
 	})
 });

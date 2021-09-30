@@ -18,6 +18,7 @@ const defaultSettings = {
 	"fontFamily": "Roboto Mono",
 }
 
+
 var editor, thumbstrip;
 var editorElement, editorHolder, thumbElement
 var menu, tabBar, openDir;

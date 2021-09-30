@@ -11562,7 +11562,7 @@ config.defineOptions(EditSession.prototype, "session", {
         },
         initialValue: true
     },
-    useSoftTabs: {initialValue: true},
+    useSoftTabs: {initialValue: false},
     tabSize: {
         set: function(tabSize) {
             tabSize = parseInt(tabSize);

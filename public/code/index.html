@@ -54,10 +54,10 @@
             })
 		} else {
     		/* Only register a service worker if it's supported */
-    		if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/code-dev/service-worker.js'); }
+    		if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/code/service-worker.js'); }
 		}
+		
 	</script>
-	<style> :root { --theme: #0077bb!important; } </style>
 	<script>
         const bc = window.filesReceiver = new BroadcastChannel("file_open_request")
         window.activeFileReceiver = true
@@ -65,6 +65,7 @@
         bc.addEventListener("message", e=>{  if(e.data == "connected") { window.activeFileReceiver = false }  })
         bc.postMessage("connected")
 	</script>
+	<style> :root { --theme: #0077bb!important; } </style>
 </head>
 <body>
 	<ui-actionbar id="menu" hook="top" slim style="top: 0px; bottom: auto;">

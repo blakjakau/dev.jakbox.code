@@ -460,8 +460,11 @@ var optionGroups = {
                { caption : "Off",  value : "off" },
                { caption : "View", value : "free" },
                { caption : "margin", value : "printMargin" },
-               { caption : "40",   value : "40" }
+               //{ caption : "40",   value : "40" }
             ]
+        },
+        "Indented Soft Wrap": {
+            path: "indentedSoftWrap"
         },
         // "Cursor Style": {
         //     path: "cursorStyle",
@@ -481,13 +484,22 @@ var optionGroups = {
         //         { caption : "Mark begin and end", value : "markbeginend" }
         //     ]
         // },
-        "Soft Tabs": [{
-            path: "useSoftTabs"
-        }, {
+        "Tab Size": {
             path: "tabSize",
             type: "number",
-            values: [2, 3, 4, 8, 16]
-        }],
+            defaults: [
+                {caption: "2", value: 2},
+                {caption: "4", value: 4},
+                {caption: "8", value: 8}
+            ]
+
+        },
+        "Use Soft Tabs": {
+            path: "useSoftTabs"
+        },
+        "Move within soft tabs": {
+            path: "navigateWithinSoftTabs"
+        },
         "Overscroll": {
             type: "buttonBar",
             path: "scrollPastEnd",
@@ -496,12 +508,13 @@ var optionGroups = {
                { caption : "Half",   value : 0.5 },
                { caption : "Full",   value : 1 }
             ]
-        }
+        },
+        "Animate scrolling": {
+            path: "animatedScroll"
+        },
+
     },
     More: {
-        // "Atomic soft tabs": {
-        //     path: "navigateWithinSoftTabs"
-        // },
         // "Enable Behaviours": {
         //     path: "behavioursEnabled"
         // },
@@ -513,44 +526,51 @@ var optionGroups = {
         "Highlight Active Line": {
             path: "highlightActiveLine"
         },
+        "Highlight selected word": {
+            path: "highlightSelectedWord"
+        },
+        
         "Show Invisibles": {
             path: "showInvisibles"
         },
+        
         "Show Indent Guides": {
             path: "displayIndentGuides"
         },
+        
         // "Persistent Scrollbar": [{
         //     path: "hScrollBarAlwaysVisible"
         // }, {
         //     path: "vScrollBarAlwaysVisible"
         // }],
-        "Animate scrolling": {
-            path: "animatedScroll"
+        
+        "Show Line Numbers": {
+            path: "showLineNumbers"
         },
+        
         "Show Gutter": {
             path: "showGutter"
         },
-        "Show Line Numbers": {
-            path: "showLineNumbers"
+        
+        "Fixed Gutter Width": {
+            path: "fixedWidthGutter"
         },
         // "Relative Line Numbers": {
         //     path: "relativeLineNumbers"
         // },
-        "Fixed Gutter Width": {
-            path: "fixedWidthGutter"
-        },
-        "Show Print Margin": [{
+        "Show Margin": {
             path: "showPrintMargin"
-        }, {
+        },
+        "Margin Size": {
             type: "number",
-            path: "printMarginColumn"
-        }],
-        "Indented Soft Wrap": {
-            path: "indentedSoftWrap"
+            path: "printMarginColumn",
+            defaults: [
+                {caption: "40", value: 40},
+                {caption: "80", value: 80},
+                {caption: "160", value: 160}
+            ]
         },
-        "Highlight selected word": {
-            path: "highlightSelectedWord"
-        },
+        
         // "Fade Fold Widgets": {
         //     path: "fadeFoldWidgets"
         // },
@@ -568,9 +588,9 @@ var optionGroups = {
         // "Elastic Tabstops": {
         //     path: "useElasticTabstops"
         // },
-        "Incremental Search": {
-            path: "useIncrementalSearch"
-        },
+        // "Incremental Search": {
+        //     path: "useIncrementalSearch"
+        // },
         // "Read-only": {
         //     path: "readOnly"
         // },

@@ -549,7 +549,7 @@ exports.defaultOptions = {
     showGutter:         "false",
     keybindings:        "ace",
     showPrintMargin:    "false",
-    useSoftTabs:        "true",
+    useSoftTabs:        "false",
     showInvisibles:     "false"
 };
 
