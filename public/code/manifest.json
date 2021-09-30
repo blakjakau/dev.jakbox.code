@@ -15,7 +15,7 @@
 
   ],
   "start_url": "/code/index.html",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": ["window-control-overlay", "standalone"],
   "display": "standalone",
   "scope": "/code/",
   "theme_color": "#0077bb",

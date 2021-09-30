@@ -9,8 +9,8 @@ const defaultSettings = {
 	"scrollPastEnd": 0, //allow the editor to scroll past the end of the document
 	"trimTrailingWhitespace": true, //run "Trim Trailing Whitespace" on save
 	"trimEmptyLines": false, //should the trim whitespace command also truncate empty lines?
-// 	"tabSize": 4,
 	"useSoftTabs": false,
+	"tabSize": 4,
 	"newLineMode": "auto",
 	"wrapLimit": false,
 	"enableBasicAutocompletion":true,
@@ -19,7 +19,7 @@ const defaultSettings = {
 }
 
 var editor, thumbstrip;
-var editorElement, thumbElement
+var editorElement, editorHolder, thumbElement
 var menu, tabBar, openDir;
 var files, fileActions, fileList;
 var statusbar;
@@ -41,7 +41,8 @@ const toggleBodyClass=(className)=>{
 const uiManager = {
 	create: (options={})=>{
 		
-		const editorID = "ui_editor"
+		const editorID = "editor"
+		const holderID = "ui_editor"
 		const thumbID = "ui_thumbstrip"
 		
 		const defaults = {
@@ -83,6 +84,9 @@ const uiManager = {
 				openDir.icon = "menu"
 				openDir.setAttribute("title", "show file list")
 			}
+			setTimeout(()=>{
+			    editor.resize()
+			}, 500)
 		})
 		
 		tabBar = new elements.TabBar();
@@ -103,9 +107,13 @@ const uiManager = {
 		statusTheme = document.querySelector('#theme_select')
 		statusMode = document.querySelector('#mode_select')
 		
-		editorElement = document.createElement("pre")
-		editorElement.setAttribute("id", editorID)
+		editorHolder = document.createElement("div")
+		editorHolder.setAttribute("id", holderID)
+		editorElement = document.createElement("div")
 		editorElement.classList.add("loading")
+		editorElement.setAttribute("id", editorID)
+		
+		editorHolder.appendChild(editorElement)
 		
 		thumbElement = document.createElement("pre")
 		thumbElement.setAttribute("id", thumbID)
@@ -285,8 +293,7 @@ const uiManager = {
 		omni.input.addEventListener("input", omni.perform )
 		omni.prepend(omni.titleElement)
 		omni.append(omni.input)
-		omni.append(new elements.Block(`<acronym title='Ctrl-F'>Find</acronym> &nbsp;&nbsp; <acronym title='Ctrl-Shift-F'>/RegEx</acronym> &nbsp;&nbsp; 
-		    <acronym title='Ctrl-G'>:Goto</acronym> &nbsp;&nbsp; <acronym title='Ctrl-R (Not implemented)'><strike>@Reference</strike></acronym>`))
+		omni.append(new elements.Block(`<acronym title='Ctrl-F'>Find</acronym> &nbsp;&nbsp; <acronym title='Ctrl-Shift-F'>/RegEx</acronym> &nbsp;&nbsp; <acronym title='Ctrl-G'>:Goto</acronym> &nbsp;&nbsp; <acronym title='Ctrl-R (Not implemented)'><strike>@Reference</strike></acronym>`))
 		omni.setAttribute("id", "omni")
 		omni.setAttribute("omni", "true")
 		
@@ -296,7 +303,7 @@ const uiManager = {
 		document.body.appendChild(tabBar)
 		document.body.appendChild(statusbar)
 		document.body.appendChild(thumbElement)
-		document.body.appendChild(editorElement)
+		document.body.appendChild(editorHolder)
 		document.body.appendChild(files)
 		document.body.appendChild(omni)
 		

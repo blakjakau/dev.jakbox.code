@@ -67,6 +67,12 @@ ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme); border-radius: 
     box-shadow: 0 0 10px rgba(0,0,0,0.5);
 }
 
+#editor {
+    margin:0;
+    height:100%;
+    width:100%;
+}
+
 .ace_scrollbar::-webkit-scrollbar {
 	width: .66em; height: .66em;
 }

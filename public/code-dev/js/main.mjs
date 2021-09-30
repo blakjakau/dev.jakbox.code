@@ -47,41 +47,20 @@ window.code = {
 
 const app = {
 	folders: [],
+	workspaces: [],
+}
+
+let workspace = {
+    name: "unamed",
+    folders: [],
+    files: []
 }
 
 window.app = app
-
+window.workspace = workspace
 
 const fileOpen = new elements.Button("Add Folder to Workspace");
 const fileAccess = new elements.Button("Unlock All");
-
-{
-	// preload stored file and folder handles
-	let stored = await get("appConfig");
-	if('undefined'!=typeof stored) {
-		app.folders = stored.folders
-	}
-	let all = []
-	app.folders.forEach(handle=>{
-	    let perm = verifyPermission(handle, true).then(res=>{
-	    	if(!res) handle.locked = true
-	    })
-	    all.push(perm);
-	})
-	
-	Promise.all(all).then(()=>{
-	    ui.showFolders()
-	    
-	    let allGood = true
-	    app.folders.forEach(handle=>{
-	        if(handle.locked) allGood = false
-	    })
-	    if(allGood) {
-	        fileAccess.click()
-	    }
-	})
-	// console.log(app.folders);
-}
 
 const editor = ui.editor
 const thumbs = ui.thumb
@@ -98,20 +77,34 @@ const saveFile = async (text, handle)=>{
 	tab.changed = false
 }
 
+const saveAppConfig = async ()=>{
+    app.editorOptions = ui.editor.getOptions()
+    app.folders = workspace.folders
+    await set("appConfig", app);
+    console.log("saved", app)
+	console.trace()
+}
+
+const updateThemeAndMode = ()=>{
+    ui.updateThemeAndMode()
+    saveAppConfig()
+    
+}
+
 const execCommandAbout = ()=>{ setTimeout(()=>{alert("Code v0.2.1 by Jason Grima (code@jakbox.net)")}, 400) }
 const execCommandAddFolder = ()=>{ fileOpen.click(); }
 const execCommandToggleFolders = ()=>{ ui.toggleFiles() }
 
 const execCommandRemoveAllFolders = ()=>{ 
     setTimeout(async ()=>{
-        const l = app.folders.length
+        const l = workspace.folders.length
         if(l==0) {
             alert("You don't have any folders in your workspace");
         } else {
             if(confirm(`Are you sure you want to remove ${l} folder${l>1?"s":""} from your workspace?`)) {
-                while(app.folders.length>0) { app.folders.pop() }
+                while(workspace.folders.length>0) { workspace.folders.pop() }
                 ui.showFolders()
-                await set("appConfig", app);
+                saveAppConfig()
             }
         }
     }, 400)
@@ -226,13 +219,11 @@ fileMenu.click = topFileMenu.click = (action)=>{
     
     switch(action) {
         case "remove":
-            console.log(app)
-            for(let i=0;i<app.folders.length;i++) {
-                console.log(app.folders[i] === file)
-                if(app.folders[i]===file) { app.folders.splice(i, 1); i--; }
+            for(let i=0;i<workspace.folders.length;i++) {
+                console.log(workspace.folders[i] === file)
+                if(workspace.folders[i]===file) { workspace.folders.splice(i, 1); i--; }
             }
-            console.log(app)
-            set("appConfig", app)
+            saveAppConfig()
             ui.showFolders()
         break;
         case "refresh":
@@ -262,7 +253,7 @@ tabBar.click = event=>{
 	thumbStrip.setValue(editor.getValue())
 	thumbStrip.clearSelection();
 	thumbStrip.gotoLine(editor.getCursorPosition().row+1)
-	ui.updateThemeAndMode()
+	updateThemeAndMode()
 	editor.focus()
 }
 
@@ -278,6 +269,7 @@ tabBar.close = event=>{
 		defaultTab()
 	}
 	tab.config.session.destroy()
+	saveAppConfig()
 }
 
 const defaultTab = ()=>{
@@ -286,7 +278,7 @@ const defaultTab = ()=>{
 	editor.setSession(defaultSession)
 	tab.click();
 }
-defaultTab()
+
 
 // fileActions.hook="bottom";
 fileAccess.icon = "lock_open"
@@ -294,8 +286,8 @@ fileAccess.hook = "right"
 fileAccess.title = "Refresh Workspace File Permissions"
 fileAccess.on("click", async ()=>{
 	let allGood = true;
-	for(let i=0,l=app.folders.length;i<l;i++) {
-		let handle = app.folders[i]
+	for(let i=0,l=workspace.folders.length;i<l;i++) {
+		let handle = workspace.folders[i]
 		if(await verifyPermission(handle)) {
 			handle.locked = false
 			ui.showFolders()
@@ -314,7 +306,7 @@ fileOpen.icon = "create_new_folder";
 fileOpen.title = "Add Folder to Workspace"
 fileActions.append(fileOpen);
 
-if(app.folders.length > 0) {
+if(workspace.folders.length > 0) {
 	fileActions.append(fileAccess);
 	fileOpen.text = "Add Folder"
 }
@@ -325,7 +317,7 @@ fileOpen.on("click", async ()=>{
 	// checkForExistingFolder
 	// before adding the folder, lets make sure we don't already have access.
 	let addToFolders = true;
-	app.folders.forEach(handle=>{
+	workspace.folders.forEach(handle=>{
 		if(handle == folderHandle) {
 			addToFolders = false;
 		}
@@ -333,8 +325,8 @@ fileOpen.on("click", async ()=>{
 
 	// verifyPermission
 	await verifyPermission(folderHandle);
-	if(addToFolders) app.folders.push(folderHandle);
-	await set("appConfig", app);
+	if(addToFolders) workspace.folders.push(folderHandle);
+	saveAppConfig()
 	ui.showFolders()
 })
 
@@ -441,7 +433,7 @@ editor.commands.addCommand({
     name: "showEditorSettings",
     exec: ()=>{
         console.log("show settings menu")
-        editor.execCommand('showSettingsMenu', window.ui.updateThemeAndMode )
+        editor.execCommand('showSettingsMenu', updateThemeAndMode )
     }
 })
 
@@ -572,17 +564,15 @@ window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     // Stash the event so it can be triggered later.
     // Update UI notify the user they can install the PWA
+    if(sessionStorage.getItem("notSupported")) return
     showInstallPromotion();
     // Optionally, send analytics event that PWA install promo was shown.
 });
 
-setTimeout(()=>{
+setTimeout(async ()=>{
 	ui.editorElement.classList.remove("loading");
 	ui.thumbElement.classList.remove("loading");
 	
-	if(app.folders.length>0) {
-		ui.toggleFiles();
-	}
 	
 	window.filesReceiver.addEventListener("message", e=>{
 	    if(e.data?.open && window.activeFileReceiver) {
@@ -591,7 +581,37 @@ setTimeout(()=>{
 	    }
 	})
 	
-	editor.on("ready", ()=>{
+	editor.on("ready", async ()=>{
+	    
+    	// preload stored file and folder handles
+    	let stored = await get("appConfig");
+    	if('undefined'!=typeof stored) {
+    	    if(stored.editorOptions) ui.editor.setOptions(stored.editorOptions)
+    		workspace.folders = stored.folders
+    	}
+    	let all = []
+    	workspace.folders.forEach(handle=>{
+    	    let perm = verifyPermission(handle, true).then(res=>{
+    	    	if(!res) handle.locked = true
+    	    })
+    	    all.push(perm);
+    	})
+    	
+    	Promise.all(all).then(()=>{
+    	    ui.showFolders()
+    	    
+    	    let allGood = true
+    	    workspace.folders.forEach(handle=>{
+    	        if(handle.locked) allGood = false
+    	    })
+    	    if(allGood) {
+    	        fileAccess.click()
+            }
+    	})
+    	
+    	if(workspace.folders.length>0) ui.toggleFiles();
+    	defaultTab()
+
         if('launchQueue' in window) {
             launchQueue.setConsumer(params=>{
                 if(params.files.length>0) {
