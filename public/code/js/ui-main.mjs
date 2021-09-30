@@ -117,12 +117,14 @@ const uiManager = {
         installer.classList.add("slideUp");
         installer.style.cssText = `
             left:auto; top:auto; right:32px; bottom:64px; width:auto;
-            height:128px; text-align:right;
+            height:128px; text-align:center;
         `
         // installer.style.width="300px";
         installer.innerHTML = `
-            <p><img src="images/code-192.png" height='32px' style="vertical-align:middle; margin-top:-4px;">&nbsp;<b>Install Code for a better app experience?&nbsp;&nbsp;</b></p>
+            <p><img src="images/code-192.png" height='32px' style="vertical-align:middle; margin-top:-4px;">&nbsp;&nbsp;<b>Add 'Code' as an app?</b></p>
         `
+        
+        
         installer.confirm = new elements.Button("Yes please!")
         installer.confirm.classList.add("themed")
         installer.confirm.icon = "done"
@@ -135,19 +137,37 @@ const uiManager = {
         installer.deny.classList.add("cancel")
         // installer.deny.icon = "close"
         
-            installer.onscreen = ()=>{
-                installer.show()
-                setTimeout(()=>{
-                    installer.addClass("active")
-                }, 1)
-            }
+        installer.onscreen = ()=>{
+            installer.show()
+            setTimeout(()=>{
+                installer.addClass("active")
+            }, 1)
+        }
+        
+        installer.offscreen = ()=>{
+            installer.removeClass("active")
+            setTimeout(()=>{ installer.hide() }, 333)
+        }
             
-            installer.offscreen = ()=>{
-                installer.removeClass("active")
-                setTimeout(()=>{ installer.hide() }, 333)
-            }
-            
+        installer.clear = new elements.Button("")
+        installer.clear.icon = "close"
+        installer.clear.style.cssText = `
+        position:absolute;
+        right:0px;
+        top:0px;
+        text-indent: -1px;
+        width:32px;
+        height:28px;
+        min-height:34px;
+        border-radius: 16px;
+        `
+        installer.clear.on("click", ()=>{
+            installer.offscreen()    
+        })
+        
+        installer.prepend(installer.clear);
         installer.append(installer.deny, installer.later, installer.confirm)
+        
         installer.hide()
 
 		

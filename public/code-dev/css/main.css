@@ -162,7 +162,6 @@ ui-button ui-icon {
     color: var(--theme);
 }
 ui-button {
-    border-radius: 8px;
     margin:0 2px;
 }
 
@@ -171,6 +170,7 @@ ui-button:hover {
 }
 
 ui-button.themed {
+    border-radius: 8px;
     background: var(--theme);
     color: var(--light);
 }
@@ -178,11 +178,8 @@ ui-button.themed ui-icon {
     color: inherit;
 }
 
-/*ui-button.themed:hover {*/
-/*    filter: brightness(1.1);*/
-/*}*/
-
 ui-button.cancel {
+    border-radius: 8px;
     color: #777;
 }
 ui-button.cancel ui-icon {

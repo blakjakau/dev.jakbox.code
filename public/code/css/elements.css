@@ -132,16 +132,16 @@ ui-button-counter:empty { opacity:0; }
 ui-button ui-icon,
 ui-file-item ui-icon,
 ui-button-counter ui-icon{
-	height:48px;
-	line-height:48px;
-	max-width:24px;
+	height: 1.5em;
+	line-height:1.5em;
+	max-width:1.5em;
 	color: var(--ui-icon-color);
 }
 
 [slim]>ui-button ui-icon,
 [slim]>ui-button-counter ui-icon{
-	height:32px;
-	line-height:30px; max-width:24px;
+	/*height:32px;*/
+	/*line-height:30px; max-width:24px;*/
 	color: var(--ui-icon-color);
 }
 
@@ -446,7 +446,7 @@ ui-file-item[loading] {
 ui-icon {
   font-family: 'Material Icons';
   font-weight: normal; font-style: normal;
-  font-size: 24px;  /* Preferred icon size */
+  font-size: 1.5em;  /* Preferred icon size */
   
   display: inline-block;
   line-height: 1;
