@@ -16,6 +16,9 @@
 #ace_settingsmenu {
 	top: var(--editorTop);
 	bottom: var(--menuHeight);
+	
+	width: 400px;
+
 }
 tr.ace_optionsMenuEntry { line-height:1.5em; font-size:14px; }
 

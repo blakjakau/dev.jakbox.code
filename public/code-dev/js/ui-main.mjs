@@ -7,12 +7,9 @@ const defaultSettings = {
 	displayIndentGuides: true,
 	showInvisibles: false, //show whitespace characters (spaces, tabs, returns)
 	scrollPastEnd: 0, //allow the editor to scroll past the end of the document
-	trimTrailingWhitespace: true, //run "Trim Trailing Whitespace" on save
-	trimEmptyLines: false, //should the trim whitespace command also truncate empty lines?
 	useSoftTabs: false,
 	tabSize: 4,
 	newLineMode: "auto",
-	wrapLimit: false,
 	enableBasicAutocompletion: true,
 	fontSize: 12,
 	fontFamily: "ui-monospace",

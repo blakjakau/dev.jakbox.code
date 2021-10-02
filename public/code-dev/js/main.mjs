@@ -586,7 +586,6 @@ editor.commands.addCommand({
 editor.commands.addCommand({
 	name: "showEditorSettings",
 	exec: () => {
-		console.log("show settings menu")
 		editor.execCommand("showSettingsMenu", () => {
 			updateThemeAndMode(true)
 		})

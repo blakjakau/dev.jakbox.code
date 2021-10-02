@@ -513,8 +513,7 @@ var optionGroups = {
             path: "animatedScroll"
         },
 
-    },
-    More: {
+    
         // "Enable Behaviours": {
         //     path: "behavioursEnabled"
         // },
@@ -600,6 +599,8 @@ var optionGroups = {
         "Live Autocompletion": {
             path: "enableLiveAutocompletion"
         }
+    },
+    More: {
     }
 };
 

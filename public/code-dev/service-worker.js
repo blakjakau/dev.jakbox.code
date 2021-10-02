@@ -8,7 +8,7 @@ const FILE_URL = "openFile.html"
 
 const deploy = false
 
-// Files here will be kept fresh every time the service worker is updated
+// Files here will be kept fresh every time the serviceworker is updated
 const essential = [
 	"index.html",
 	"js/main.mjs",
@@ -17,6 +17,7 @@ const essential = [
 	"css/elements.css",
 	"css/main.css",
 	"/favicon.png",
+	"ace/ext-settings_menu.js",
 ]
 
 // Files here will be cached indefinitely. move to the other list if update needed
@@ -30,7 +31,6 @@ const staticAssets = [
 	"ace/mode-javascript.js",
 
 	"ace/theme-code.js",
-	"ace/ext-settings_menu.js",
 	"ace/ext-language_tools.js",
 	"ace/keybinding-sublime.js",
 	"ace/worker-javascript.js",
@@ -59,11 +59,14 @@ const staticAssets = [
 ]
 
 self.addEventListener("install", function (event) {
-	console.debug("[ServiceWorker] Install or Update triggered")
+	console.debug("[service] Installing")
 
 	event.waitUntil(
 		(async () => {
 			const cache = await caches.open(CACHE_PRELOAD)
+
+			await caches.delete(CACHE_PRELOAD);
+			
 			// Setting {cache: 'reload'} in the new request will ensure that the response
 			// isn't fulfilled from the HTTP cache; i.e., it will be from the network.
 			await cache.add(new Request(OFFLINE_URL, { cache: "reload" }))
@@ -96,7 +99,7 @@ self.addEventListener("install", function (event) {
 })
 
 self.addEventListener("activate", (event) => {
-	console.debug("[ServiceWorker] Install complete")
+	console.debug("[service] Ready")
 	event.waitUntil(
 		(async () => {
 			// Enable navigation preload if it's supported.
@@ -107,7 +110,7 @@ self.addEventListener("activate", (event) => {
 		})()
 	)
 
-	// Tell the active service worker to take control of the page immediately.
+	// Tell the active serviceworker to take control of the page immediately.
 	self.clients.claim()
 })
 
@@ -115,7 +118,7 @@ self.addEventListener("fetch", function (event) {
 	if (event.request.mode === "navigate") {
 		event.respondWith(
 			(async () => {
-				console.debug("[Service Worker]", event.request.mode, event.request.url)
+				console.debug("[service]", event.request.mode, event.request.url)
 				const cache = await caches.open(CACHE_PRELOAD)
 
 				const preloadResponse = await event.preloadResponse.catch(console.warn)
@@ -127,7 +130,7 @@ self.addEventListener("fetch", function (event) {
 				const cached = await cache.match(event.request.url)
 
 				if (networkResponse && !cached) {
-					console.warn("network access", event.request.url, "updating cache")
+					console.warn("[service] [request]", event.request.url, "updating cache")
 					cache.add(new Request(event.request.url))
 					return networkResponse
 				}
@@ -136,7 +139,7 @@ self.addEventListener("fetch", function (event) {
 					const offline = await cache.match(OFFLINE_URL)
 					return offline
 				}
-				console.debug("using cached", event.request.url)
+				console.debug("[service] [cached]", event.request.url)
 				return cached
 			})()
 		)
@@ -154,17 +157,17 @@ self.addEventListener("fetch", function (event) {
 				const preloaded = await preload.match(event.request.url)
 
 				if (preloaded) {
-					console.debug("[Service Worker] using preload cache", event.request.url)
+					console.debug("[service] [cache] preload", event.request.url)
 					return preloaded
 				}
 
 				if(!navigator.onLine) {
 					const cached = await offline.match(event.request.url)
 					if(cached) {
-						console.debug("[Service Worker] using offline cache", event.request.url)
+						console.debug("[service] [cache] offline", event.request.url)
 						return cached
 					} else {
-						console.error("[Service Worker] resource not cached :( ", event.request.url)
+						console.error("[service] resource not cached :( ", event.request.url)
 						return null
 					}
 				}
@@ -172,13 +175,13 @@ self.addEventListener("fetch", function (event) {
 				const networkResponse = await fetch(event.request).catch(console.warn)
 
 				if (networkResponse) {
-					console.debug("[Service Worker] network access", event.request.url, "updating cache")
+					console.debug("[service] [updating] ", event.request.url)
 					offline.add(new Request(event.request.url))
 					return networkResponse
 				}
 
 				if (cached) {
-					console.debug("[Service Worker] using cached", event.request.url)
+					console.debug("[service] [cached]", event.request.url)
 					return cached
 				}
 
