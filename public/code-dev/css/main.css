@@ -22,7 +22,7 @@ tr.ace_optionsMenuEntry { line-height:1.5em; font-size:14px; }
 button { border:0; }
 
 body {
-	font-family:roboto, arial, sans;
+	font-family:system-ui, roboto, arial, sans;
 	font-size:13px;
     overflow: hidden;
 	background:var(--light);

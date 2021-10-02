@@ -80,6 +80,7 @@
 	    <ui-button id="settings" icon="settings" hook=right onclick="editor.execCommand('showEditorSettings')"></ui-button>
 	    <ui-button id="theme_select" hook=right></ui-button>
 	    <ui-button  id="mode_select" hook=right></ui-button>
+	    <ui-button id="prettier" onclick="editor.execCommand('prettify')" hook=right style="display:none">{&nbsp;}</ui-button>
 	</ui-actionbar>
 	
 	<ui-menu attachTo="#menu_file" onclick="(e)=>{editor.execCommand(e)}">
