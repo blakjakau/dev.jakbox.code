@@ -626,15 +626,23 @@ class Icon extends Element {
 		super(content)
 	}
 }
+
 class Inner extends Block {
 	constructor(content) {
 		super(content)
 	}
 }
+
+class Blank extends Block {
+	constructor(content) {
+		super(content)
+	}
+}
+
 class Panel extends Block {
 	constructor(content) {
 		super(content)
-		this.blanker = new Inner()
+		this.blanker = new Blank()
 	}
 	connectedCallback() {
 		super.connectedCallback.apply(this)
@@ -830,6 +838,8 @@ class ActionBar extends Block {
 			case "bottom":
 				v = -1
 				break
+			case "bottom-sticky":
+				v = -2;
 			default:
 				if (isNaN(v)) v = 0
 				break
@@ -840,6 +850,7 @@ class ActionBar extends Block {
 			this.style.bottom = "auto"
 		} else {
 			this.addClass("bottom")
+			if(v==-1) this.addClass("sticky");
 			this.style.top = "auto"
 			this.style.bottom = -(v + 1) + "px"
 		}
@@ -1651,6 +1662,7 @@ customElements.define("ui-file-upload-list", FileUploadList)
 
 customElements.define("ui-panel", Panel)
 customElements.define("ui-inner", Inner)
+customElements.define("ui-blank", Blank)
 customElements.define("ui-icon", Icon)
 customElements.define("ui-input", Input)
 customElements.define("effect-base", Effects)

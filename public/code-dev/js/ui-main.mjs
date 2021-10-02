@@ -123,7 +123,7 @@ const uiManager = {
 		installer.classList.add("slideUp")
 		installer.style.cssText = `
             left:auto; top:auto; right:32px; bottom:64px; width:auto;
-            height:128px; text-align:center;
+            height:105px; text-align:center;
         `
 		// installer.style.width="300px";
 		installer.innerHTML = `
@@ -145,12 +145,12 @@ const uiManager = {
 		installer.onscreen = () => {
 			installer.show()
 			setTimeout(() => {
-				installer.addClass("active")
+				installer.setAttribute("active", "active")
 			}, 1)
 		}
 
 		installer.offscreen = () => {
-			installer.removeClass("active")
+			installer.removeAttribute("active")
 			setTimeout(() => {
 				installer.hide()
 			}, 333)
@@ -185,23 +185,32 @@ const uiManager = {
 		omni.perform = (e, next = false, prev = false) => {
 			let val = omni.input.value
 			let mode = ""
+
+			if (val.substr(0, 1) == "/") {
+				mode = "find"
+			}
 			if (val.substr(0, 1) == ":") {
 				mode = "goto"
 			}
-			if (val.substr(0, 1) == "/") {
+			if (val.substr(0, 1) == "~") {
 				mode = "regex"
+			}
+			if (val.substr(0, 1) == "?") {
+				mode = "regex-m"
 			}
 			if (val.substr(0, 1) == "@") {
 				mode = "index"
 			}
 
-			if (mode === "") {
+			if (mode === "" && val.length > 0) {
 				mode = "find"
-			} else {
-				val = val.slice(1)
+				omni.input.value = omni.modePrefix + val
+				val = omni.input.value
 			}
+			val = val.slice(1)
 
 			switch (mode) {
+				case "regex-m":
 				case "regex":
 					let reg
 					if (val.length < 3) {
@@ -212,10 +221,20 @@ const uiManager = {
 					} catch (e) {
 						console.warn("incomplete or invalid regex")
 					}
+
 					if (reg instanceof RegExp) {
-						// 		if(next) editor.gotoLine(editor.getCursorPosition().row+2)
-						// 		if(prev) editor.findPrevious({needle: reg, regExp:true})
-						editor.find(reg)
+						if (mode == "regex") {
+							editor.find(reg)
+						} else {
+							const match = reg.exec(editor.getValue())
+							console.log(match);
+							if(match && match.length>0) {
+								editor.selection.setRange({
+									start: editor.session.doc.indexToPosition(match.index),
+									end: editor.session.doc.indexToPosition(match.index+match[0].length),
+								})
+							}
+						}
 					}
 					break
 				case "goto":
@@ -251,7 +270,7 @@ const uiManager = {
 					omni.stackPos--
 					if (omni.stackPos < 0) omni.stackPos = 0
 					omni.input.value = omni.stack[omni.stackPos]
-					omni.input.setSelectionRange(0, omni.input.value.length)
+					omni.input.setSelectionRange(1, omni.input.value.length)
 					omni.perform(e)
 				}
 				return
@@ -263,11 +282,11 @@ const uiManager = {
 						omni.input.value = ""
 					}
 					omni.input.value = omni.stack[omni.stackPos]
-					omni.input.setSelectionRange(0, omni.input.value.length)
+					omni.input.setSelectionRange(1, omni.input.value.length)
 					omni.perform(e)
 				} else {
 					omni.stackPos = omni.stack.length
-					omni.input.value = ""
+					// omni.input.value = omni.modePrefix
 				}
 				return
 			}
@@ -306,7 +325,13 @@ const uiManager = {
 		omni.append(omni.input)
 		omni.append(
 			new elements.Block(
-				`<acronym title='Ctrl-F'>Find</acronym> &nbsp;&nbsp; <acronym title='Ctrl-Shift-F'>/RegEx</acronym> &nbsp;&nbsp; <acronym title='Ctrl-G'>:Goto</acronym> &nbsp;&nbsp; <acronym title='Ctrl-R (Not implemented)'><strike>@Reference</strike></acronym>`
+				`
+				&nbsp;&nbsp; <acronym title='Ctrl-G'>:Goto</acronym> 
+				&nbsp;&nbsp; <acronym title='Ctrl-F'>/Find</acronym> 
+				&nbsp;&nbsp; <acronym title='Ctrl-Shift-F'>~RegEx</acronym> 
+				&nbsp;&nbsp; <acronym title='Ctrl-Shift-Alt-F'>?RegEx-Multiline</acronym> 
+				<!--&nbsp;&nbsp; <acronym title='Ctrl-R (Not implemented)'><strike>@Reference</strike></acronym>-->
+				&nbsp;&nbsp; `
 			)
 		)
 		omni.setAttribute("id", "omni")
@@ -416,29 +441,21 @@ const uiManager = {
 		omni.classList.add("active")
 		omni.input.focus()
 		omni.stackPos = omni.stack.length
-		if (omni.last == mode && "find regex".indexOf(mode) != -1) {
-			switch (mode) {
-				case "find":
-					omni.input.setSelectionRange(0, omni.input.value.length)
-					break
-				case "regex":
-					omni.input.setSelectionRange(1, omni.input.value.length - 1)
-					break
-				case "goto":
-					omni.input.setSelectionRange(1, omni.input.value.length)
-					break
-				case "lookup":
-					omni.input.setSelectionRange(1, omni.input.value.length)
-					break
-			}
+		if (omni.last == mode && "find regex regex-m".indexOf(mode) != -1) {
+			omni.input.setSelectionRange(1, omni.input.value.length)
+			omni.perform()
 		} else {
 			switch (mode) {
 				case "find":
-					omni.input.value = ""
-					omni.input.setSelectionRange(0, 0)
+					omni.input.value = "/"
+					omni.input.setSelectionRange(1, 1)
 					break
 				case "regex":
-					omni.input.value = "/"
+					omni.input.value = "~"
+					omni.input.setSelectionRange(1, 1)
+					break
+				case "regex-m":
+					omni.input.value = "?"
 					omni.input.setSelectionRange(1, 1)
 					break
 				case "goto":
@@ -452,6 +469,7 @@ const uiManager = {
 			}
 		}
 		omni.last = mode
+		omni.modePrefix = omni.input.value.substr(0, 1)
 		setTimeout(() => {
 			omni.input.addEventListener("blur", uiManager.hideOmnibox, { once: true })
 		})

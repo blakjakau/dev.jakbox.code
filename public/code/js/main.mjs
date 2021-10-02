@@ -8,21 +8,40 @@
 // --- menus context / file
 // --- persist editor settings
 // --- implement "prettier" for code beautification
+// add save/load triggers for prettier with independant settings
 // look at ponyfilling file access https://github.com/jimmywarting/native-file-system-adapter/
+// addkeyboard navigation to menus
 // bind theme and mode menus
 // create "about" panel
 // link tab status to file view?
-// implement @lookup in omnibox
 // look at restoring workspace during app load?
+// implement @lookup in omnibox
 
 // experimental... run prettier on load and save of JS files...
 import prettier from "https://unpkg.com/prettier@2.4.1/esm/standalone.mjs"
 import parserBabel from "https://unpkg.com/prettier@2.4.1/esm/parser-babel.mjs"
 import parserHtml from "https://unpkg.com/prettier@2.4.1/esm/parser-html.mjs"
+import parserCss from "https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs"
+
+// import parserJava from "https://unpkg.com/prettier@2.4.1/esm/parser-java.mjs"
+// import parserKotlin from "https://unpkg.com/prettier@2.4.1/esm/parser-kotlin.mjs"
+// import parserXml from "https://unpkg.com/prettier@2.4.1/esm/parser-xml.mjs"
+// import parserSh from "https://unpkg.com/prettier@2.4.1/esm/parser-sh.mjs"
+// import parserRuby from "https://unpkg.com/prettier@2.4.1/esm/parser-ruby.mjs"
 
 import ui from "./ui-main.mjs"
 // import elements from "../elements/elements.mjs"
 import { get, set } from "/idb-keyval/index.js"
+
+
+const canPrettify = {
+	"ace/mode/javascript": {name:"babel", plugins: [parserBabel]},
+	"ace/mode/json": {name:"json", plugins: [parserBabel]},
+	"ace/mode/html": {name: "html", plugins: [parserHtml]},
+	"ace/mode/css": {name: "css", plugins: [parserCss]},
+}
+
+
 
 async function verifyPermission(fileHandle, queryOnly = false) {
 	const options = {}
@@ -42,6 +61,8 @@ async function verifyPermission(fileHandle, queryOnly = false) {
 	return false
 }
 
+
+
 const editorElementID = "editor"
 const thumbElementID = "thumbstrip"
 let permissionNotReloaded = true // should we re-request permission for folders added
@@ -49,7 +70,7 @@ let permissionNotReloaded = true // should we re-request permission for folders 
 ui.create()
 window.ui = ui
 window.code = {
-	version: "0.2.1",
+	version: "0.2.3",
 }
 
 const app = {
@@ -98,9 +119,11 @@ const saveAppConfig = async () => {
 	console.debug("saved", app)
 }
 
+
 const updateThemeAndMode = (doSave = false) => {
 	ui.updateThemeAndMode()
-	if (editor.getOption("mode") === "ace/mode/javascript") {
+	
+	if(editor.getOption("mode") in canPrettify) {
 		prettify.removeAttribute("disabled")
 	} else {
 		prettify.setAttribute("disabled", "disabled")
@@ -110,11 +133,15 @@ const updateThemeAndMode = (doSave = false) => {
 
 const execCommandPrettify = () => {
 	let text = editor.getValue()
-	if (editor.getOption("mode") !== "ace/mode/javascript") return
+	const mode = editor.getOption("mode")
+	if(!(mode in canPrettify)) return
+	
+	const parser = canPrettify[mode]
+	
 	try {
 		text = prettier.format(text, {
-			parser: "babel",
-			plugins: [parserBabel, parserHtml],
+			parser: parser.name,
+			plugins: parser.plugins,
 			printWidth: editor.getOption("printMargin") || 120,
 			tabWidth: editor.getOption("tabSize") || 4,
 			useTabs: !editor.getOption("useSoftTabs") || false,
@@ -146,13 +173,25 @@ const execCommandEditorOptions = () => {
 	if (app.sessionOptions) editor.session.setOptions(app.sessionOptions)
 	if (app.rendererOptions) editor.renderer.setOptions(app.rendererOptions)
 	if (app.enableLiveAutocompletion) editor.$enableLiveAutocompletion = app.enableLiveAutocompletion
-	editor.setOption("useWorker", false)
+
+	if (editor.getOption("mode") !== "ace/mode/javascript") {
+		editor.setOption("useWorker", false)
+	} else {
+		editor.setOption("useWorker", true)
+	}
 }
 
 const execCommandAbout = () => {
 	setTimeout(() => {
-		alert(`Code v ${window.code.version} <code@jakbox.net>`)
-	}, 400)
+		const about = document.querySelector("#about");
+		const version = document.querySelector("#version");
+		if(!about) {
+			alert(`Code v${window.code.version} <code@jakbox.net>`)
+		} else {
+			version.innerHTML = `Version ${window.code.version} - `
+			about.setAttribute("active", "true")
+		}
+	})
 }
 const execCommandAddFolder = () => {
 	fileOpen.click()
@@ -458,6 +497,14 @@ editor.commands.addCommand({
 })
 
 editor.commands.addCommand({
+	name: "find-regex-multiline",
+	bindKey: { win: "Ctrl-Shift-Alt-F", mac: "Command-Shift-Alt-F" },
+	exec: () => {
+		window.ui.omnibox("regex-m")
+	},
+})
+
+editor.commands.addCommand({
 	name: "goto",
 	bindKey: { win: "Ctrl-G", mac: "Command-G" },
 	exec: () => {
@@ -482,8 +529,16 @@ editor.commands.addCommand({
 // });
 
 editor.commands.addCommand({
+	name: "showAllCommands",
+	bindKey: {win:"Ctrl+Shift+P", mac:"Command+Shift+P"},
+	exec: ()=>{
+		editor.execCommand("openCommandPallete");
+	}
+})
+
+editor.commands.addCommand({
 	name: "prettify",
-	bindKey: { win: "Ctrl+Shift+P", mac: "Command+Shift+P" },
+	bindKey: { win: "Ctrl+Alt+P", mac: "Command+Alt+P" },
 	exec: () => {
 		execCommandPrettify()
 	},
@@ -576,6 +631,7 @@ document.addEventListener("keydown", (e) => {
 	}
 	const ctrl = e.ctrlKey
 	const shift = e.shiftKey
+	const alt = e.altKey
 
 	switch (e.code) {
 		case "Escape":
@@ -587,7 +643,7 @@ document.addEventListener("keydown", (e) => {
 			break
 	}
 
-	if (ctrl || shift) {
+	if (ctrl || shift || alt) {
 		// this is probably some command keystroke!
 		// console.log(e)
 		switch (e.code) {
@@ -626,7 +682,9 @@ document.addEventListener("keydown", (e) => {
 			case "KeyF":
 				if (!ctrl) return
 				cancelEvent()
-				if (shift) {
+				if (shift && alt) {
+					return window.ui.omnibox("regex-m")
+				} else if (shift) {
 					return window.ui.omnibox("regex")
 				} else {
 					return window.ui.omnibox("find")
@@ -642,10 +700,12 @@ document.addEventListener("keydown", (e) => {
 window.ui.command = (c) => {
 	let target = "editor",
 		command = c
+		
 	if (c.indexOf(":") > -1) {
 		let bits = c.split(":")
 		;(target = bits[0]), (command = bits[1])
 	}
+	
 	if (target == "editor") {
 		editor.focus()
 		editor.execCommand(command)

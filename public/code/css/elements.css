@@ -11,6 +11,8 @@
 	--ui-icon-color: inherit;
 	--ui-icon-highlight: inherit;
 	--ui-bg: #fff;
+	--menuHeight: 48px;
+	--buttonBarHeight: 64px;
 }
 
 ui-view * {
@@ -75,12 +77,11 @@ ui-actionbar {
 	width:100%;
 	left:0px;
 	right:0px;
-	height:48px;
-	line-height:48px;
+	height:var(--menuHeight);
+	line-height:var(--menuHeight);
 	white-space: nowrap;
 	user-select: none;
 	webkit-user-select: none;
-	
 }
 
 ui-actionbar > * { vertical-align: middle; }
@@ -98,8 +99,8 @@ ui-file-item,
 ui-button-counter {
 	position:relative;
 	display:inline-block;
-	min-height:48px;
-	line-height:48px;
+	min-height:var(--menuHeight);
+	line-height:var(--menuHeight);
 	padding:0 8px;
 	outline:0px;
 	cursor:pointer;
@@ -140,9 +141,9 @@ ui-button-counter ui-icon{
 
 [slim]>ui-button ui-icon,
 [slim]>ui-button-counter ui-icon{
-	/*height:32px;*/
-	/*line-height:30px; max-width:24px;*/
 	color: var(--ui-icon-color);
+	margin-top:1px;
+	
 }
 
 ui-icon[size='tiny']  {
@@ -249,8 +250,8 @@ ui-actionbar ui-panel ui-button:hover ui-icon {
 
 ui-view ui-button,
 ui-view ui-button-counter {
-	min-height:48px;
-	line-height:48px;
+	min-height:var(--menuHeight);
+	line-height:var(--menuHeight);
 	padding:0 8px;
 }
 
@@ -267,8 +268,8 @@ ui-button-counter ui-inline{
 ui-actionbar>ui-button,
 ui-actionbar>ui-button-counter,
 ui-actionbar>ui-inline{
-	min-height:48px;
-	line-height:48px;
+	min-height:var(--menuHeight);
+	line-height:var(--menuHeight);
 }
 
 ui-actionbar[slim]>ui-button,
@@ -286,7 +287,14 @@ ui-tabbar[slim]>ui-button ui-icon{ line-height:39px; }
 ui-button[active],
 ui-button-counter[active] {
 	background:var(--ui-highlight-bg);
-	color:;var(--ui-highlight-fg);
+	color: var(--ui-highlight-fg);
+}
+
+ui-button[disabled] {
+	opacity:0.33;
+	background:var(--ui-highlight-bg);
+	cursor:not-allowed;
+	filter: brightness(0.9);
 }
 
 ui-actionbar [multiline]>ui-inline { display:inline-block; line-height:20px; }
@@ -524,9 +532,11 @@ ui-menu-item:last-child { border-radius: 0 0 4px 4px; }
 
 ui-menu-split { display:block; height:1px; background: var(--ui-sec-bg); width:96%; margin:2px auto;}
 
+ui-panel img {vertical-align:middle; margin-top:-0.2em}
 
 ui-panel[type="modal"] {
     position:fixed;
+    display:relative;
     z-index:101;
     top:33%;
     left:33%;
@@ -539,7 +549,27 @@ ui-panel[type="modal"] {
     box-shadow: 0 0 16px rgba(0,0,0,0.25);
     overflow-y: auto;
 }
-ui-panel[type="modal"][blank]+ui-inner {
+
+ui-panel[type="modal"] ui-inner {
+	padding:16px;
+	overflow-y: auto;
+	position:absolute;
+	top:0px; left:0px; right:0px; bottom: var(--menuHeight);
+}
+
+ui-panel[type="modal"] ui-actionbar {
+	position:absolute;
+	bottom:0px;
+	padding:8px 0;
+	box-shadow: none;
+	height:var(--menuHeight);
+}
+ui-panel[type="modal"] ui-actionbar ui-button {
+	min-width:64px;
+	text-align:center;
+}
+ui-panel[type="modal"][blank]+ui-blank {
+	display:none;
     content:'';
     position:fixed;
     z-index:100;
@@ -549,6 +579,21 @@ ui-panel[type="modal"][blank]+ui-inner {
     bottom:0px;
     background:rgba(0,0,0,0.125);
 }
+
+ui-panel[type="modal"][blank][active]+ui-blank {
+	display:block;
+}
+
+ui-panel[type="modal"] h1,
+ui-panel[type="modal"] h2 {
+	text-align:center;
+}
+ui-panel[type="modal"] h1 small {
+	margin-top:0.2em;
+	font-size:0.5em;
+	color: var(--ui-sec-fg);
+}
+
 @keyframes ripple {
   0% {
 	background:var(--ui-effect);
