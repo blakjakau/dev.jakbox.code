@@ -112,7 +112,7 @@ const uiManager = {
 			setTimeout(()=>{
 				const active = themeMenu.querySelector("[icon='done']")
 				themeMenu.scrollTop = active.offsetTop-(themeMenu.offsetHeight/2)+12
-				console.log(active.offsetTop, themeMenu.scrollTop)
+				// console.log(active.offsetTop, themeMenu.scrollTop)
 			})
 		}, true)
 		modeMenu.on("show", e=>{
@@ -120,7 +120,7 @@ const uiManager = {
 			setTimeout(()=>{
 				const active = modeMenu.querySelector("[icon='done']")
 				modeMenu.scrollTop = active.offsetTop-(modeMenu.offsetHeight/2)+12
-				console.log(active.offsetTop, modeMenu.scrollTop)
+				// console.log(active.offsetTop, modeMenu.scrollTop)
 			})
 		}, true)
 
@@ -247,7 +247,7 @@ const uiManager = {
 							editor.find(reg)
 						} else {
 							const match = reg.exec(editor.getValue())
-							console.log(match);
+							// console.log(match);
 							if(match && match.length>0) {
 								editor.selection.setRange({
 									start: editor.session.doc.indexToPosition(match.index),
@@ -450,7 +450,7 @@ const uiManager = {
 				for(const n in ace_themes) {
 					if (ace_themes[n].theme == c_theme) {
 						statusTheme.text = ace_themes[n].caption
-						console.log("THEME:",`[rel-data='${ace_themes[n].theme}']`)
+						// console.log("THEME:",`[rel-data='${ace_themes[n].theme}']`)
 						themeMenu.querySelector(`[rel-data='${ace_themes[n].theme}']`).icon = "done"
 					}
 				}
@@ -473,7 +473,7 @@ const uiManager = {
 				for(const n in ace_modes) {
 					if (ace_modes[n].mode == c_mode) {
 						statusMode.text = ace_modes[n].caption
-						console.log("MODE:",`[rel-data='${ace_modes[n].mode}']`)
+						// console.log("MODE:",`[rel-data='${ace_modes[n].mode}']`)
 						modeMenu.querySelector(`[rel-data='${ace_modes[n].mode}']`).icon = "done"
 					}
 				}

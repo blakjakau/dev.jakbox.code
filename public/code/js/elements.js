@@ -1559,26 +1559,19 @@ class Menu extends Panel {
 		setTimeout(() => {
 			if (p.x + this.offsetWidth > window.innerWidth) {
 				this.setAttribute("left", "")
-				console.log(p, this.offsetWidth, window.innerWidth)
 				this.style.left = (p.x+p.w) - this.offsetWidth
 			}
-			
-			// console.log(this, p, p.y + p.h + this.offsetHeight, window.innerHeight)
-			
-			
 			if (p.y + p.h + this.offsetHeight > window.innerHeight) {
 				if((p.y+p.h) > window.innerHeight/2) { // displat ABOVE the orgin
 					this.setAttribute("up", "")
 					this.style.top = 'auto'; //p.y - (this.offsetHeight-32)
 					this.style.bottom = `${window.innerHeight-p.y}px`;
 					this.style.maxHeight = `calc(100vh - ${(window.innerHeight - p.y)+16}px)`;
+				} else {
+					this.style.maxHeight = `calc(100vh - ${p.y+p.h+16}px)`;
 				} 
-				
-				// if (this.offsetHeight < window.innerHeight) {
-					// this.style.maxHeight = `calc(100vh - ${p.y}px)`
-				// } else {
-					// this.style.maxHeight = `calc(100vh - ${p.y + p.h + 8}px)`
-				// }
+			} else {
+				this.style.maxHeight = `calc(100vh - ${p.y+p.h+16}px)`;
 			}
 		})
 		
