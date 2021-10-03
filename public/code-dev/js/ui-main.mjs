@@ -21,6 +21,7 @@ var menu, tabBar, openDir
 var files, fileActions, fileList
 var statusbar
 var statusTheme, statusMode
+var themeMenu, modeMenu
 var omni
 var modal
 var installer
@@ -101,7 +102,29 @@ const uiManager = {
 
 		statusTheme = document.querySelector("#theme_select")
 		statusMode = document.querySelector("#mode_select")
+		
+		themeMenu = document.querySelector("#theme_menu")
+		modeMenu = document.querySelector("#mode_menu")
+		
+		
+		themeMenu.on("show", e=>{
+			e.stopPropagation()
+			setTimeout(()=>{
+				const active = themeMenu.querySelector("[icon='done']")
+				themeMenu.scrollTop = active.offsetTop-(themeMenu.offsetHeight/2)+12
+				console.log(active.offsetTop, themeMenu.scrollTop)
+			})
+		}, true)
+		modeMenu.on("show", e=>{
+			e.stopPropagation()
+			setTimeout(()=>{
+				const active = modeMenu.querySelector("[icon='done']")
+				modeMenu.scrollTop = active.offsetTop-(modeMenu.offsetHeight/2)+12
+				console.log(active.offsetTop, modeMenu.scrollTop)
+			})
+		}, true)
 
+		
 		editorHolder = document.createElement("div")
 		editorHolder.setAttribute("id", holderID)
 		editorElement = document.createElement("div")
@@ -404,22 +427,62 @@ const uiManager = {
 	},
 
 	updateThemeAndMode: () => {
-		const mode = editor.getOption("mode")
-		const theme = editor.getOption("theme")
+		const c_mode = editor.getOption("mode")
+		const c_theme = editor.getOption("theme")
+		window.themeMenu = themeMenu
+		window.modeMenu = modeMenu
+		
 		if (window.ace_themes) {
-			for (let n in ace_themes) {
-				if (ace_themes[n].theme == theme) {
-					statusTheme.text = ace_themes[n].caption
+			// themeMenu.empty();
+			if(themeMenu.children.length==0) {
+				for(const n in ace_themes) {
+					const theme = ace_themes[n]
+					const item = new elements.MenuItem(theme.caption);
+					item.setAttribute("rel-data", ace_themes[n].theme)
+					item.setAttribute("command", `app:setTheme:${ace_themes[n].theme}`)
+					themeMenu.append(item)
 				}
 			}
+			
+			setTimeout(()=>{
+				const active = themeMenu.querySelector("[icon='done']")
+				if(active) active.icon = ""
+				for(const n in ace_themes) {
+					if (ace_themes[n].theme == c_theme) {
+						statusTheme.text = ace_themes[n].caption
+						console.log("THEME:",`[rel-data='${ace_themes[n].theme}']`)
+						themeMenu.querySelector(`[rel-data='${ace_themes[n].theme}']`).icon = "done"
+					}
+				}
+			})
 		}
 		if (window.ace_modes) {
-			for (let n in ace_modes) {
-				if (ace_modes[n].mode == mode) {
-					statusMode.text = ace_modes[n].caption
+			// modeMenu.empty();
+			if(modeMenu.children.length==0) {
+				for(const n in ace_modes) {
+					const mode = ace_modes[n]
+					const item = new elements.MenuItem(mode.caption);
+					item.setAttribute("rel-data", ace_modes[n].mode)
+					item.setAttribute("command", `app:setMode:${ace_modes[n].mode}`)
+					modeMenu.append(item)
 				}
 			}
+			setTimeout(()=>{
+				const active = modeMenu.querySelector("[icon='done']")
+				if(active) active.icon = ""
+				for(const n in ace_modes) {
+					if (ace_modes[n].mode == c_mode) {
+						statusMode.text = ace_modes[n].caption
+						console.log("MODE:",`[rel-data='${ace_modes[n].mode}']`)
+						modeMenu.querySelector(`[rel-data='${ace_modes[n].mode}']`).icon = "done"
+					}
+				}
+			})
 		}
+		
+		
+
+		
 	},
 
 	showFolders: async () => {

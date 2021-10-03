@@ -357,9 +357,12 @@ class Button extends Element {
 	set id(v) {
 		this.setAttribute("id", v)
 	}
+	
 	set icon(v) {
+		this.setAttribute("icon", v)
 		this._icon.innerHTML = v
 	}
+	
 	set text(v) {
 		if (v.indexOf("<br>") > -1 || v.indexOf("<br/>") > -1) {
 			this.setAttribute("multiline", "multiline")
@@ -1528,6 +1531,11 @@ class Menu extends Panel {
 	showAt(origin) {
 		// const self = this
 		let p
+		
+		// clear styling for left/up combos
+		this.removeAttribute("left")
+		this.removeAttribute("up")
+		
 		if (origin instanceof PointerEvent) {
 			p = {
 				x: origin.clientX + 2,
@@ -1535,30 +1543,48 @@ class Menu extends Panel {
 				w: 0,
 				h: 0,
 			}
-			this.style.left = p.x
-			this.style.top = p.y + p.h
-			this.style.maxHeight = `calc(100vh - ${p.y + p.h + 8}px)`
+			this.style.left = `${p.x}px`
+			this.style.top = `${p.y + p.h}px`;
+			this.style.bottom = ""
+			// this.style.maxHeight = `calc(100vh - ${p.y + p.h + 8}px)`
 		} else if (origin instanceof HTMLElement) {
 			p = getPosition(origin)
-			this.style.left = p.x
-			this.style.top = p.y + p.h
-			this.style.maxHeight = `calc(100vh - ${p.y + p.h + 8}px)`
+			this.style.left = `${p.x}px`
+			this.style.top = `${p.y + p.h}px`;
+			this.style.bottom = ""
 		} else {
 			throw new Error("showAt requires an HTMLElement in the current DOM or a PointerEvent")
 		}
 
 		setTimeout(() => {
 			if (p.x + this.offsetWidth > window.innerWidth) {
-				this.style.left = p.x + p.w - this.offsetWidth
+				this.setAttribute("left", "")
+				console.log(p, this.offsetWidth, window.innerWidth)
+				this.style.left = (p.x+p.w) - this.offsetWidth
 			}
+			
+			// console.log(this, p, p.y + p.h + this.offsetHeight, window.innerHeight)
+			
+			
 			if (p.y + p.h + this.offsetHeight > window.innerHeight) {
-				if (this.offsetHeight < window.innerHeight) {
-					this.style.top = p.y - this.offsetHeight
-					this.style.maxHeight = `calc(100vh - ${window.innerHeight - (p.y + 8)}px)`
-				} else {
-				}
+				if((p.y+p.h) > window.innerHeight/2) { // displat ABOVE the orgin
+					this.setAttribute("up", "")
+					this.style.top = 'auto'; //p.y - (this.offsetHeight-32)
+					this.style.bottom = `${window.innerHeight-p.y}px`;
+					this.style.maxHeight = `calc(100vh - ${(window.innerHeight - p.y)+16}px)`;
+				} 
+				
+				// if (this.offsetHeight < window.innerHeight) {
+					// this.style.maxHeight = `calc(100vh - ${p.y}px)`
+				// } else {
+					// this.style.maxHeight = `calc(100vh - ${p.y + p.h + 8}px)`
+				// }
 			}
 		})
+		
+		const event = new CustomEvent("show")
+		this.dispatchEvent(event)
+		console.log(event)
 
 		setTimeout(() => {
 			if (CurrentMenu === this) {

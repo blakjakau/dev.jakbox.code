@@ -146,6 +146,10 @@ ui-button-counter ui-icon{
 	
 }
 
+ui-button>* {
+	pointer-events:none
+}
+
 ui-icon[size='tiny']  {
 	width:24px;
 	height:24px;
@@ -486,6 +490,16 @@ ui-menu {
     overflow-y:auto;
 }
 
+ui-menu[left] {
+    border-radius: 2px 0px 4px 4px;
+}
+ui-menu[up] {
+    border-radius: 4px 4px 0px 2px;
+}
+ui-menu[up][left] {
+    border-radius: 4px 4px 0px 2px;
+}
+
 ui-menu:not([active]) {
     display:none;
 }
@@ -498,6 +512,11 @@ ui-menu ui-menu-item {
     padding:0 16px;
     display:block;
     white-space: nowrap;
+}
+
+ui-menu[slim] ui-menu-item {
+    min-height:24px;
+    line-height:24px;
 }
 
 ui-menu ui-menu-item ui-inline {
@@ -520,6 +539,11 @@ ui-menu ui-menu-item ui-icon {
     font-size:20px;
     vertical-align:middle;
     color:var(--ui-sec-bg);
+}
+
+ui-menu[slim] ui-menu-item ui-icon {
+	min-height:24px;
+	line-height: 24px;
 }
 
 ui-menu ui-menu-item:hover ui-icon {

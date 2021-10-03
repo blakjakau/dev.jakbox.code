@@ -8,11 +8,11 @@
 // --- menus context / file
 // --- persist editor settings
 // --- implement "prettier" for code beautification
+// --- bind theme and mode menus
+// --- create "about" panel
 // add save/load triggers for prettier with independant settings
 // look at ponyfilling file access https://github.com/jimmywarting/native-file-system-adapter/
 // addkeyboard navigation to menus
-// bind theme and mode menus
-// create "about" panel
 // link tab status to file view?
 // look at restoring workspace during app load?
 // implement @lookup in omnibox
@@ -30,7 +30,6 @@ import parserCss from "https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs"
 // import parserRuby from "https://unpkg.com/prettier@2.4.1/esm/parser-ruby.mjs"
 
 import ui from "./ui-main.mjs"
-// import elements from "../elements/elements.mjs"
 import { get, set } from "/idb-keyval/index.js"
 
 
@@ -623,6 +622,22 @@ editor.commands.addCommand({
 	exec: execCommandAbout,
 })
 
+editor.commands.addCommand({
+	name: "setTheme",
+	exec: (editor, theme)=>{
+		editor.setOption("theme", theme)
+		updateThemeAndMode(true)
+	},
+})
+
+editor.commands.addCommand({
+	name: "setMode",
+	exec: (editor, mode)=>{
+		editor.setOption("mode", mode)
+		updateThemeAndMode(true)
+	},
+})
+
 document.addEventListener("keydown", (e) => {
 	const cancelEvent = () => {
 		e.preventDefault()
@@ -698,18 +713,22 @@ document.addEventListener("keydown", (e) => {
 
 window.ui.command = (c) => {
 	let target = "editor",
-		command = c
+		command = c,
+		ext = ""
 		
 	if (c.indexOf(":") > -1) {
 		let bits = c.split(":")
 		;(target = bits[0]), (command = bits[1])
+		if(bits.length>2) {
+			ext = bits[2]
+		}
 	}
 	
 	if (target == "editor") {
 		editor.focus()
-		editor.execCommand(command)
+		editor.execCommand(command, ext)
 	} else {
-		editor.execCommand(command)
+		editor.execCommand(command, ext)
 	}
 }
 

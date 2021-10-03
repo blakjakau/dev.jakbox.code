@@ -82,6 +82,12 @@
 	    <ui-button  id="mode_select" hook=right></ui-button>
 	    <ui-button id="prettier" onclick="editor.execCommand('prettify')" hook=right>{&nbsp;}</ui-button>
 	</ui-actionbar>
+
+	<ui-menu id="theme_menu" attachTo="#theme_select" slim onclick="(e)=>{ window.ui.command(e) }">
+	</ui-menu>
+
+	<ui-menu id="mode_menu" attachTo="#mode_select" slim onclick="(e)=>{ window.ui.command(e) }">
+	</ui-menu>
 	
 	<ui-menu attachTo="#menu_file" onclick="(e)=>{ window.ui.command(e) }">
 	    <ui-menu-item command="newFile" icon="note_add" keyTag="Ctrl-N">New File</ui-menu-item>
