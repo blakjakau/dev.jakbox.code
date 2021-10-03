@@ -222,6 +222,11 @@ ui-panel.slideDown[active] {
     pointer-events: initial;
 }
 
+ui-menu[slim] ui-menu-item[icon="done"]:not(:hover) {
+	color: var(--light);
+	background:var(--theme);
+}
+
 
 #tabs {
 	position:absolute;
