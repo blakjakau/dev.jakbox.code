@@ -69,7 +69,7 @@ let permissionNotReloaded = true // should we re-request permission for folders 
 ui.create()
 window.ui = ui
 window.code = {
-	version: "0.2.3",
+	version: "0.2.4",
 }
 
 const app = {
@@ -382,6 +382,7 @@ fileList.open = openFileHandle
 tabBar.click = (event) => {
 	const tab = event.tab
 	editor.setSession(tab.config.session)
+	fileList.active = tab.config.handle;
 	thumbStrip.setValue(editor.getValue())
 	thumbStrip.clearSelection()
 	thumbStrip.gotoLine(editor.getCursorPosition().row + 1)
@@ -391,6 +392,7 @@ tabBar.click = (event) => {
 
 tabBar.close = (event) => {
 	const tab = event.tab
+	fileList.inactive = tab.config.handle;
 	if (tab.changed) {
 		if (!confirm("This file has unsaved changes, are you sure?")) {
 			return

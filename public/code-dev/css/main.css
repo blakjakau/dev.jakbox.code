@@ -226,6 +226,22 @@ ui-menu[slim] ui-menu-item[icon="done"]:not(:hover) {
 	color: var(--light);
 	background:var(--theme);
 }
+ui-menu[slim] ui-menu-item[icon="done"]:not(:hover) ui-icon {
+	color: var(--light);
+}
+
+[slim] ui-menu-item[icon="done"]:not(:hover) {
+	color: var(--light);
+	background:var(--theme);
+}
+ui-menu[slim] ui-menu-item[icon="done"]:not(:hover) ui-icon {
+	color: var(--light);
+}
+
+ui-file-item[active] {
+	background: var(--theme);
+	color: var(--light);
+}
 
 
 #tabs {

@@ -430,7 +430,7 @@ class FileItem extends Button {
 		super.connectedCallback.apply(this)
 		this.append(this._refresh)
 	}
-
+	
 	set showRefresh(v) {
 		if (!!v) {
 			this._refresh.style.visibility = "visible"
@@ -861,6 +861,13 @@ class ActionBar extends Block {
 	}
 }
 
+const buildPath = (f)=>{
+	if(!(f instanceof FileSystemFileHandle || f instanceof FileSystemDirectoryHandle) ) { return "" }
+	let n = f.name;
+	if(f.container) n = buildPath(f.container)+"/"+n
+	return n
+}
+
 class TabBar extends Block {
 	constructor(content) {
 		super()
@@ -987,6 +994,7 @@ class TabBar extends Block {
 
 	add(config) {
 		const tab = new TabItem(config.name)
+		tab.setAttribute("title", buildPath(config.handle))
 		tab.config = config
 		this._tabs.push(tab)
 		this.append(tab)
@@ -1057,11 +1065,14 @@ class TabBar extends Block {
 // file selection list, takes an array of file/folder handles and produces a directory tree
 // lazily loads subfolders on request
 
+
 class FileList extends ContentFill {
 	constructor(content) {
 		super(content)
 		const inner = (this._inner = new Block()) //document.createElement("div")
 		inner.classList.add("inner")
+		
+		this._active = []; // maintain a list of the active files
 		this.tabGroup = tabIndexGroup++
 		this._contextElement = null
 		this.on("contextmenu", (e) => {
@@ -1130,6 +1141,8 @@ class FileList extends ContentFill {
 				e.setAttribute("tabindex", this.tabGroup)
 				e.open = false
 				e.item = item
+				e.setAttribute("title", buildPath(item))
+				// e.setAttribute("title", buildPath(item));
 				base.append(e, e.holder)
 
 				e.on("contextmenu", this.itemContextMenu)
@@ -1188,9 +1201,21 @@ class FileList extends ContentFill {
 					})
 				}
 			} else {
-				let e = new FileItem()
+				const e = new FileItem()
+				const path = buildPath(item)
 				e.setAttribute("tabindex", this.tabGroup)
-				e.showRefresh = false
+				e.setAttribute("title", path)
+				e.refresh.innerHTML = "circle"
+				if(this._active.indexOf(path)>-1){
+					e.showRefresh = true
+				} else {
+					e.showRefresh = false
+				}
+				
+				if(this._current == path) {
+					e.setAttribute("active", "")
+				}
+
 				if (codeFiles.indexOf(item.name.split(".").pop()) !== -1) {
 					e.icon = "code"
 					e.addEventListener("click", async (event) => {
@@ -1220,6 +1245,38 @@ class FileList extends ContentFill {
 				base.append(e)
 			}
 		})
+	}
+
+	set active(v) {
+		if(v instanceof FileSystemFileHandle) {
+			const target = buildPath(v)
+			const selector = `[title="${target}"]`
+			const match = this.querySelector(selector);
+			const current = this.querySelectorAll("[active]");
+			if(current.length>0) {
+				for(let item of current)  item.removeAttribute("active")
+			}
+			if(match) {
+				this._active.push(target)
+				match.setAttribute("active", "");
+				match.showRefresh = true
+			}
+			this._current = target
+		}
+	}
+	set inactive(v) {
+		if(v instanceof FileSystemFileHandle) {
+			const target = buildPath(v)
+			const selector = `[title="${target}"]`
+			const match = this.querySelector(selector);
+			if(match) {
+				match.showRefresh = false
+			}
+			const index = this._active.indexOf(target)
+			if(index>-1) {
+				this._active.splice(index, 1);
+			}
+		}
 	}
 
 	set files(tree) {
