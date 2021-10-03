@@ -1577,7 +1577,7 @@ class Menu extends Panel {
 		
 		const event = new CustomEvent("show")
 		this.dispatchEvent(event)
-		console.log(event)
+		// console.log(event)
 
 		setTimeout(() => {
 			if (CurrentMenu === this) {
