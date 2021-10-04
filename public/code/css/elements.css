@@ -440,11 +440,11 @@ ui-file-item>ui-inline {
 }
 
 ui-file-item:focus {
-    background:rgba(0,0,0,0.05);
+    background:rgba(0,0,0,0.125);
 }
 
 ui-file-item[active] {
-	background: rgba(0,0,0,0.25);
+	background: rgba(0,0,0,0.4);
 	color: var(--ui-sec-fg);
 }
 ui-file-item[active] ui-icon {

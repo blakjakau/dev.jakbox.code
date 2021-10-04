@@ -120,6 +120,17 @@ const saveAppConfig = async () => {
 	console.debug("saved", app)
 }
 
+ui.themeModeToggle.on("click", ()=>{
+	setTimeout(()=>{
+		if(document.body.classList.contains("darkmode")) {
+			app.darkmode = true;
+		} else {
+			app.darkmode = false;
+		}
+		saveAppConfig()
+	})
+})
+
 
 const updateThemeAndMode = (doSave = false) => {
 	ui.updateThemeAndMode()
@@ -541,7 +552,7 @@ editor.commands.addCommand({
 
 editor.commands.addCommand({
 	name: "prettify",
-	bindKey: { win: "Ctrl+Alt+P", mac: "Command+Alt+P" },
+	bindKey: { win: "Ctrl+Shift+I", mac: "Command+Shift+I" },
 	exec: () => {
 		execCommandPrettify()
 	},
@@ -785,11 +796,15 @@ setTimeout(async () => {
 		// preload stored file and folder handles
 		let stored = await get("appConfig")
 		if ("undefined" != typeof stored) {
+			app.darkmode = stored.darkmode || false
 			app.sessionOptions = stored.sessionOptions || null
 			app.rendererOptions = stored.rendererOptions || null
 			app.enableLiveAutocompletion = stored.enableLiveAutocompletion || null
 			workspace.folders = stored.folders
 			app.folders = workspace.folders
+			if(app.darkmode == true) {
+				ui.themeModeToggle.click()
+			}
 		}
 		let all = []
 		workspace.folders.forEach((handle) => {

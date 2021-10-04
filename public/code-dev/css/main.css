@@ -13,6 +13,7 @@
 	--ui-icon-color: var(--mid);
 }
 
+
 #ace_settingsmenu {
 	top: var(--editorTop);
 	bottom: var(--menuHeight);
@@ -277,8 +278,8 @@ ui-file-item[active] {
 	overflow:auto;
 }
 
-#tabs, #files, #ui_editor {
-	transition:left var(--animRate), right var(--animRate), opacity var(--animRate);
+#tabs, #files, #ui_editor, #statusbar, ui-actionbar, ui-file-list {
+	transition:left var(--animRate), right var(--animRate), opacity var(--animRate), background var(--animRate), color var(--animRate);
 }
 
 #statusbar {
@@ -289,9 +290,30 @@ ui-file-item[active] {
 	top:auto !important;
 	z-index:6;
 }
-
 #statusbar #cursor_pos {
 	margin-left: 8px;
+}
+
+
+#statusbar ui-button {
+	color: inherit;
+}
+#statusbar ui-button ui-icon {
+	color: inherit;
+}
+
+#ace_settingsmenu * {
+	color: inherit;
+}
+
+.darkmode ui-menu,
+.darkmode #files,
+.darkmode #statusbar,
+.darkmode #ace_settingsmenu,
+.darkmode ui-file-list,
+.darkmode ui-actionbar {
+	background: var(--dark);
+	color: var(--mid);
 }
 
 .showFiles #tabs,

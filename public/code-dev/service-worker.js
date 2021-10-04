@@ -5,7 +5,6 @@ const OFFLINE_URL = "offline.html"
 const MAIN_URL = "index.html"
 const FILE_URL = "openFile.html"
 
-
 const deploy = false
 
 // Files here will be kept fresh every time the serviceworker is updated
@@ -65,8 +64,8 @@ self.addEventListener("install", function (event) {
 		(async () => {
 			const cache = await caches.open(CACHE_PRELOAD)
 
-			await caches.delete(CACHE_PRELOAD);
-			
+			await caches.delete(CACHE_PRELOAD)
+
 			// Setting {cache: 'reload'} in the new request will ensure that the response
 			// isn't fulfilled from the HTTP cache; i.e., it will be from the network.
 			await cache.add(new Request(OFFLINE_URL, { cache: "reload" }))
@@ -161,9 +160,9 @@ self.addEventListener("fetch", function (event) {
 					return preloaded
 				}
 
-				if(!navigator.onLine) {
+				if (!navigator.onLine) {
 					const cached = await offline.match(event.request.url)
-					if(cached) {
+					if (cached) {
 						console.debug("[service] [cache] offline", event.request.url)
 						return cached
 					} else {
@@ -171,7 +170,7 @@ self.addEventListener("fetch", function (event) {
 						return null
 					}
 				}
-				
+
 				const networkResponse = await fetch(event.request).catch(console.warn)
 
 				if (networkResponse) {

@@ -70,6 +70,7 @@
 <body>
 	<ui-actionbar id="menu" hook="top" slim style="top: 0px; bottom: auto;">
 	    <ui-inline id="logo"><img src="images/code-192-simple.svg" style="color: #fff" height="32px"> Code </ui-inline>
+
 	    <ui-button id="menu_file">File</ui-button>
 	    <ui-button id="menu_edit">Edit</ui-button>
 	    <ui-button id="menu_project">Folders</ui-button>
@@ -77,6 +78,7 @@
 	</ui-actionbar>
 
 	<ui-actionbar id="statusbar" slim hook="bottom">
+   		<ui-button id="themeModeToggle" hook=right icon="dark_mode"></ui-button>
 	    <ui-button id="settings" icon="settings" hook=right onclick="editor.execCommand('showEditorSettings')"></ui-button>
 	    <ui-button id="theme_select" hook=right></ui-button>
 	    <ui-button  id="mode_select" hook=right></ui-button>

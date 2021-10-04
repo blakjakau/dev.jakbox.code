@@ -994,7 +994,7 @@ class TabBar extends Block {
 
 	add(config) {
 		const tab = new TabItem(config.name)
-		tab.setAttribute("title", buildPath(config.handle))
+		if(config.handle) tab.setAttribute("title", buildPath(config.handle))
 		tab.config = config
 		this._tabs.push(tab)
 		this.append(tab)

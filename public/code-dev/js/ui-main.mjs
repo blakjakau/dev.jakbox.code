@@ -25,6 +25,7 @@ var themeMenu, modeMenu
 var omni
 var modal
 var installer
+var themeModeToggle
 
 const toggleBodyClass = (className) => {
 	if (document.body.classList.contains(className)) {
@@ -356,6 +357,21 @@ const uiManager = {
 		)
 		omni.setAttribute("id", "omni")
 		omni.setAttribute("omni", "true")
+		
+		
+		
+		themeModeToggle = document.querySelector("#themeModeToggle")
+		if(themeModeToggle) {
+			themeModeToggle.on("click", ()=>{
+				if(document.body.classList.contains("darkmode")) {
+					document.body.classList.remove("darkmode")
+					themeModeToggle.icon = "dark_mode"
+				} else {
+					document.body.classList.add("darkmode")
+					themeModeToggle.icon = "light_mode"
+				}
+			})
+		}
 
 		document.body.appendChild(menu)
 		document.body.appendChild(tabBar)
@@ -567,6 +583,9 @@ const uiManager = {
 	get tabBar() {
 		return tabBar
 	},
+	get themeModeToggle() {
+		return themeModeToggle
+	}
 }
 
 setTimeout(() => {
