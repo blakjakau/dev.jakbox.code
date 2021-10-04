@@ -89,7 +89,7 @@ ui-actionbar[hook="top"] { top:0px; box-shadow: 0 5px 5px var(--ui-shadow); }
 ui-actionbar[hook="bottom"] { bottom:0px; box-shadow: 0 -3px 5px var(--ui-shadow); }
 
 ui-actionbar[slim] {
-	height:34px;
+	height:35px;
 	line-height:34px;
 }
 ui-actionbar[slim] img { vertical-align: middle; max-height:34px; }
@@ -142,8 +142,10 @@ ui-button-counter ui-icon{
 [slim]>ui-button ui-icon,
 [slim]>ui-button-counter ui-icon{
 	color: var(--ui-icon-color);
-	margin-top:1px;
-	
+	margin-top:0px;
+}
+[slim]>ui-button {
+	margin-top:0px;
 }
 
 ui-button>* {

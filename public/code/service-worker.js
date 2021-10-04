@@ -8,6 +8,7 @@ const FILE_URL = "openFile.html"
 
 const deploy = false
 
+
 // Files here will be kept fresh every time the serviceworker is updated
 const essential = [
 	"index.html",

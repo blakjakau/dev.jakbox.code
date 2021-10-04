@@ -12,7 +12,7 @@ const defaultSettings = {
 	newLineMode: "auto",
 	enableBasicAutocompletion: true,
 	fontSize: 12,
-	fontFamily: "ui-monospace",
+	fontFamily: "roboto mono",
 }
 
 var editor, thumbstrip

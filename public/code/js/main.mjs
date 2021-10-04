@@ -10,10 +10,12 @@
 // --- implement "prettier" for code beautification
 // --- bind theme and mode menus
 // --- create "about" panel
+// --- link active tab(s) to file view
+// bind edit state between tabs and filelist?
+// add "delete file" in filelist context menu?
 // add save/load triggers for prettier with independant settings
 // look at ponyfilling file access https://github.com/jimmywarting/native-file-system-adapter/
 // addkeyboard navigation to menus
-// link tab status to file view?
 // look at restoring workspace during app load?
 // implement @lookup in omnibox
 
