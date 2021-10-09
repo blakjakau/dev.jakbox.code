@@ -78,84 +78,79 @@
 	</ui-actionbar>
 
 	<ui-actionbar id="statusbar" slim hook="bottom">
-   		<ui-button id="themeModeToggle" hook=right icon="dark_mode"></ui-button>
-	    <ui-button id="settings" icon="settings" hook=right onclick="editor.execCommand('showEditorSettings')"></ui-button>
-	    <ui-button id="theme_select" hook=right></ui-button>
-	    <ui-button  id="mode_select" hook=right></ui-button>
-	    <ui-button id="prettier" onclick="editor.execCommand('prettify')" hook=right>{&nbsp;}</ui-button>
+		<ui-button id="settings" icon="settings_application" hook=right onclick="window.ui.execCommand('app:showEditorSettings')"></ui-button>
+		<ui-button id="themeModeToggle" hook=right icon="dark_mode"></ui-button>
+		<ui-button id="theme_select" hook=right></ui-button>
+		<ui-button  id="mode_select" hook=right></ui-button>
+		<ui-button id="prettier" onclick="editor.execCommand('prettify')" hook=right disabled>{&nbsp;}</ui-button>
 	</ui-actionbar>
-
-	<ui-menu id="theme_menu" attachTo="#theme_select" slim onclick="(e)=>{ window.ui.command(e) }">
+	
+	<ui-menu id="theme_menu" attachTo="#theme_select" slim onclick="(e)=>{ window.ui.execCommand(e) }">
 	</ui-menu>
 
-	<ui-menu id="mode_menu" attachTo="#mode_select" slim onclick="(e)=>{ window.ui.command(e) }">
+	<ui-menu id="mode_menu" attachTo="#mode_select" slim onclick="(e)=>{ window.ui.execCommand(e) }">
 	</ui-menu>
 	
-	<ui-menu attachTo="#menu_file" onclick="(e)=>{ window.ui.command(e) }">
-	    <ui-menu-item command="newFile" icon="note_add" keyTag="Ctrl-N">New File</ui-menu-item>
-	    <ui-menu-item command="openFile" keyTag="Ctrl-O">Open File</ui-menu-item>
-	    <ui-menu-split></ui-menu-split>
-	    <ui-menu-item command="saveFile" icon="save" keyTag="Ctrl-S">Save File</ui-menu-item>
-	    <ui-menu-item command="saveFileAs" keyTag="Ctrl-Shift-S">Save File As ...</ui-menu-item>
-	    <ui-menu-split></ui-menu-split>
-	    <!--<ui-menu-item>Save All</ui-menu-item>-->
-	    <ui-menu-item command="closeFile" icon="close" keyTag="Ctrl-W">Close File</ui-menu-item>
-	    <!--<ui-menu-item>Exit</ui-menu-item>-->
-    </ui-menu>
-
-	<ui-menu attachTo="#menu_edit" onclick="(e)=>{ window.ui.command(e) }">
-	    <ui-menu-item command="undo" icon="undo" keyTag="Ctrl-Z">Undo</ui-menu-item>
-	    <ui-menu-item command="redo" icon="redo" keyTag="Ctrl-Y">Redo</ui-menu-item>
-	    <!--<ui-menu-split></ui-menu-split>-->r
-	    <!--<ui-menu-item command="cut" icon="content_cut" keyTag="Ctrl-X">Cut</ui-menu-item>-->
-	    <!--<ui-menu-item command="copy" icon="content_copy" keyTag="Ctrl-C">Copy</ui-menu-item>-->
-	    <!--<ui-menu-item command="paste" icon="content_paste" keyTag="Ctrl-V">Paste</ui-menu-item>-->
-	    <ui-menu-split></ui-menu-split>
-	    <ui-menu-item command="app:find" icon="search" keyTag="Ctrl-F">Find</ui-menu-item>
-	    <ui-menu-item command="app:find-next" keyTag="F3">Find Next</ui-menu-item>
-	    <ui-menu-item command="app:find-regex" keyTag="Ctrl-Shift-F">Find (Regex)</ui-menu-item>
-	    <ui-menu-item command="app:find-regex-multiline" keyTag="Ctrl-Shift-Alt-F">Find (Regex Multiline)</ui-menu-item>
-	    <ui-menu-split></ui-menu-split>
-	    <ui-menu-item command="app:goto" keyTag="Ctrl-G">Goto Line</ui-menu-item>
-	    <ui-menu-split></ui-menu-split>
-	    <ui-menu-item command="splitIntoLines" keyTag="Ctrl-Shift-L">Cursor per line of selection</ui-menu-item>
-
-	    <!--<ui-menu-split></ui-menu-split>-->
-	    <!--<ui-menu-item command="joinlines" keyTag="Ctrl-Shift-J">Join lines</ui-menu-item>-->
-	    <ui-menu-split></ui-menu-split>
-	    <ui-menu-item command="indent" icon="format_indent_increase" keyTag="Ctrl-]">Indent Selection</ui-menu-item>
-	    <ui-menu-item command="outdent" icon="format_indent_decrease" keyTag="Ctrl-[">Outdent Selection</ui-menu-item>
+	<ui-menu attachTo="#menu_file" onclick="(e)=>{ window.ui.execCommand(e) }">
+		<ui-menu-item command="app:newFile" icon="note_add" keyTag="Ctrl-N">New File</ui-menu-item>
+		<ui-menu-item command="app:openFile" keyTag="Ctrl-O">Open File</ui-menu-item>
 		<ui-menu-split></ui-menu-split>
-		<ui-menu-item command="prettify" icon="format_align_right" keyTag="">Prettify Code (JS/JSON/HTML/CSS)</ui-menu-item>
+		<ui-menu-item command="app:saveFile" icon="save" keyTag="Ctrl-S">Save File</ui-menu-item>
+		<ui-menu-item command="app:saveFileAs" keyTag="Ctrl-Shift-S">Save File As ...</ui-menu-item>
+		<ui-menu-split></ui-menu-split>
+		<!--<ui-menu-item>Save All</ui-menu-item>-->
+		<ui-menu-item command="app:closeFile" icon="close" keyTag="Ctrl-W">Close File</ui-menu-item>
+		<!--<ui-menu-item command="app:close" keyTag="Ctrl-Q">Exit</ui-menu-item>-->
+	</ui-menu>
+
+	<ui-menu attachTo="#menu_edit" onclick="(e)=>{ window.ui.execCommand(e) }">
+		<ui-menu-item command="editor:undo" icon="undo" keyTag="Ctrl-Z">Undo</ui-menu-item>
+		<ui-menu-item command="editor:redo" icon="redo" keyTag="Ctrl-Y">Redo</ui-menu-item>
+		<ui-menu-split></ui-menu-split>
+		<ui-menu-item command="editor-ex:find" icon="search" keyTag="Ctrl-F">Find</ui-menu-item>
+		<ui-menu-item command="editor-ex:find-next" keyTag="F3">Find Next</ui-menu-item>
+		<ui-menu-item command="editor-ex:find-regex" keyTag="Ctrl-Shift-F">Find (Regex)</ui-menu-item>
+		<ui-menu-item command="editor-ex:find-regex-multiline" keyTag="Ctrl-Shift-Alt-F">Find (Regex Multiline)</ui-menu-item>
+		<ui-menu-split></ui-menu-split>
+		<ui-menu-item command="editor-ex:goto" keyTag="Ctrl-G">Goto Line</ui-menu-item>
+		<ui-menu-split></ui-menu-split>
+		<ui-menu-item command="splitIntoLines" keyTag="Ctrl-Shift-L">Cursor per line of selection</ui-menu-item>
+		<ui-menu-split></ui-menu-split>
+		<ui-menu-item command="editor:indent" icon="format_indent_increase" keyTag="Ctrl-]">Indent Selection</ui-menu-item>
+		<ui-menu-item command="editor:outdent" icon="format_indent_decrease" keyTag="Ctrl-[">Outdent Selection</ui-menu-item>
+		<ui-menu-split></ui-menu-split>
+		<ui-menu-item command="app:prettify" icon="format_align_right" keyTag="">Prettify Code (JS/JSON/HTML/CSS)</ui-menu-item>
+		<ui-menu-split></ui-menu-split>
+		<ui-menu-item command="editor:togglecomment" icon="short_text" keyTag="Ctrl-/">Toggle Comment</ui-menu-item>
+		<ui-menu-item command="editor:toggleBlockComment" icon="notes" keyTag="Ctrl-Shift-/">Toggle Block Comment</ui-menu-item>
+    </ui-menu>
+
+	<ui-menu attachTo="#menu_project" onclick="(e)=>{ window.ui.execCommand(e) }">
+	    <ui-menu-item command="app:toggleFolders" icon="menu_open">Toggle File List</ui-menu-item>
 	    <ui-menu-split></ui-menu-split>
-	    <ui-menu-item command="togglecomment" icon="short_text" keyTag="Ctrl-/">Toggle Comment</ui-menu-item>
-	    <ui-menu-item command="toggleBlockComment" icon="notes" keyTag="Ctrl-Shift-/">Toggle Block Comment</ui-menu-item>
+	    <ui-menu-item command="app:addFolder" icon="create_new_folder">Add Folder</ui-menu-item>
+	    <ui-menu-item command="app:refreshFolders" icon="refresh">Refresh Folders</ui-menu-item>
+	    <ui-menu-item command="app:removeAllFolders" icon="close">Remove All Folders</ui-menu-item>
     </ui-menu>
 
-	<ui-menu attachTo="#menu_project" onclick="(e)=>{ window.ui.command(e) }">
-	    <ui-menu-item command="toggleFolders" icon="menu_open">Toggle File List</ui-menu-item>
-	    <ui-menu-split></ui-menu-split>
-	    <ui-menu-item command="addFolder" icon="create_new_folder">Add Folder</ui-menu-item>
-	    <!--<ui-menu-item command="refreshFolders" icon="refresh">Refresh Folders</ui-menu-item>-->
-	    <ui-menu-item command="removeAllFolders" icon="close">Remove All Folders</ui-menu-item>
-    </ui-menu>
-
-	<ui-menu attachTo="#menu_settings" onclick="(e)=>{ window.ui.command(e) }">
-	    <ui-menu-item command="showEditorSettings" icon="settings">Editor Settings</ui-menu-item>
-	    <ui-menu-split></ui-menu-split>
-	    <ui-menu-item command="showAbout" icon="info">About Code</ui-menu-item>
-    </ui-menu>
-
-    <ui-menu id="top_file_context" onclick="(e)=>{ console.log(e) }">
-	    <ui-menu-item command="refresh" icon="refresh">Refresh Folder</ui-menu-item>
-	    <ui-menu-item command="remove" icon="close">Remove Folder</ui-menu-item>
-    </ui-menu>
-
-    <ui-menu id="file_context" onclick="(e)=>{ console.log(e) }">
-	    <ui-menu-item command="refresh" icon="refresh">Refresh Folder</ui-menu-item>
-    </ui-menu>
-
+	<ui-menu attachTo="#menu_settings" onclick="(e)=>{ window.ui.execCommand(e) }">
+		<ui-menu-item command="app:showEditorSettings" icon="settings">Editor Settings</ui-menu-item>
+		<ui-menu-split></ui-menu-split>
+		<ui-menu-item command="app:showAbout" icon="info">About Code</ui-menu-item>
+	</ui-menu>
 	
+	<ui-menu id="top_file_context" onclick="(e)=>{ console.log(e) }">
+		<ui-menu-item command="refresh" icon="refresh">Refresh Folder</ui-menu-item>
+		<ui-menu-item command="remove" icon="close">Remove Folder</ui-menu-item>
+	</ui-menu>
+
+	<ui-menu id="file_context" onclick="(e)=>{ console.log(e) }">
+	<ui-menu-item command="refresh" icon="refresh">Refresh Folder</ui-menu-item>
+	<!--<ui-menu-item command="rename" icon="edit">Rename file</ui-menu-item>-->
+	<!--<ui-menu-split></ui-menu-split>-->
+	<!--<ui-menu-item command="delete" icon="delete">Delete file</ui-menu-item>-->
+	</ui-menu>
+
     <ui-panel id="about" type=modal blank class="slideDown" style="left:50%; width:480px; top:16px; height:270px; margin-left:-240px;">
 		<ui-inner>
 			<h1><img src="images/code-192-blue.svg"/ width="32px">&nbsp;Code<br/><small><br/><span id="version"></span>Written by <a href="matilto:code@jakbox.net">Jason Grima</a> 2021</small></h1>

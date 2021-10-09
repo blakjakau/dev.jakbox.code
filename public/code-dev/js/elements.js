@@ -1208,6 +1208,7 @@ class FileList extends ContentFill {
 				e.refresh.innerHTML = "circle"
 				if(this._active.indexOf(path)>-1){
 					e.showRefresh = true
+					e.setAttribute("open", "")
 				} else {
 					e.showRefresh = false
 				}
@@ -1259,6 +1260,7 @@ class FileList extends ContentFill {
 			if(match) {
 				this._active.push(target)
 				match.setAttribute("active", "");
+				match.setAttribute("open" ,"")
 				match.showRefresh = true
 			}
 			this._current = target
@@ -1270,6 +1272,7 @@ class FileList extends ContentFill {
 			const selector = `[title="${target}"]`
 			const match = this.querySelector(selector);
 			if(match) {
+				match.removeAttribute("open")
 				match.showRefresh = false
 			}
 			const index = this._active.indexOf(target)

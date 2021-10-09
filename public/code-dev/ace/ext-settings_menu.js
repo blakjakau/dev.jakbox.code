@@ -782,8 +782,14 @@ function showSettingsMenu(editor, callback) {
         var options = new OptionPanel(editor);
         options.render();
         options.container.id = "ace_settingsmenu";
-        overlayPage(editor, options.container, callback);
-        options.container.querySelector("select,input,button,checkbox").focus();
+        
+        if('function' == typeof window.showSettings) {
+        	window.showSettings({ editorSettings: options.container })
+        } else {
+	        overlayPage(editor, options.container, callback);
+	        options.container.querySelector("select,input,button,checkbox").focus();
+        }
+        
     }
 }
 module.exports.init = function(editor, initCallback) {

@@ -34,15 +34,12 @@ import parserCss from "https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs"
 import ui from "./ui-main.mjs"
 import { get, set } from "/idb-keyval/index.js"
 
-
 const canPrettify = {
-	"ace/mode/javascript": {name:"babel", plugins: [parserBabel]},
-	"ace/mode/json": {name:"json", plugins: [parserBabel]},
-	"ace/mode/html": {name: "html", plugins: [parserHtml]},
-	"ace/mode/css": {name: "css", plugins: [parserCss]},
+	"ace/mode/javascript": { name: "babel", plugins: [parserBabel] },
+	"ace/mode/json": { name: "json", plugins: [parserBabel] },
+	"ace/mode/html": { name: "html", plugins: [parserHtml] },
+	"ace/mode/css": { name: "css", plugins: [parserCss] },
 }
-
-
 
 async function verifyPermission(fileHandle, queryOnly = false) {
 	const options = {}
@@ -61,8 +58,6 @@ async function verifyPermission(fileHandle, queryOnly = false) {
 	// The user didn't grant permission, so return false.
 	return false
 }
-
-
 
 const editorElementID = "editor"
 const thumbElementID = "thumbstrip"
@@ -88,6 +83,7 @@ let workspace = {
 	files: [],
 }
 
+// window.showSettings = ui.showSettings
 window.app = app
 window.workspace = workspace
 
@@ -101,6 +97,105 @@ const fileActions = ui.fileActions
 const fileList = ui.fileList
 const tabBar = ui.tabBar
 const prettify = document.querySelector("#prettier")
+
+window.ui.commands = {
+	byKeys: {},
+	byName: {},
+	add(command) {
+		if (command && command.name && "function" == typeof command.exec) {
+			switch (command.target) {
+				case "editor":
+					//register with ACE editor
+					editor.commands.addCommand({
+						name: command.name,
+						bindKey: command.bindKey,
+						exec: command.exec,
+					})
+					break
+				case "app":
+				default:
+					// register with ui
+					if (command.bindKey) {
+						if (command.bindKey.win && command.bindKey.mac) {
+							if (window.navigator.userAgent.indexOf("osx") !== -1) {
+								command.bindKey = command.bindKey.mac
+							} else {
+								command.bindKey = command.bindKey.win
+							}
+						}
+					}
+					if (command.name in this.byName) {
+						console.warn(command.name, "already registered, removing existing")
+						if (this.byName[command.name].bindKey) {
+							if (this.byKeys[command.bindKey] == command.name) {
+								delete this.byKeys[command.bindKey]
+							}
+						}
+						delete this.byName[command.name]
+					}
+					this.byName[command.name] = command
+					if (command.bindKey) {
+						command.bindKey = command.bindKey
+							.replace(/meta/g, "command")
+							.replace(/option/g, "alt")
+							.replace(/\+/g, "-")
+							.toLowerCase()
+						this.byKeys[command.bindKey] = command.name
+					}
+					break
+			}
+		} else {
+			console.warn("Invalid command definition", command)
+		}
+	},
+	exec(commandName, args) {
+		if (commandName in this.byName) {
+			// console.log("execCommand", commandName)
+			this.byName[commandName].exec(args)
+		}
+	},
+	bindToDocument() {
+		if (this.boundToDocument) return
+		document.addEventListener("keydown", (e) => {
+			const skipKeys = {
+				ControlLeft: true,
+				ShiftLeft: true,
+				AltLeft: true,
+				AltRight: true,
+				ShiftRight: true,
+				ControlRight: true,
+				MetaLeft: true,
+			}
+
+			const ctrl = e.ctrlKey,
+				shift = e.shiftKey,
+				alt = e.altKey,
+				meta = e.metaKey
+
+			const cancelEvent = () => {
+				e.preventDefault()
+				e.stopPropagation()
+			}
+			if (e.code in skipKeys) return
+
+			// build a key code string from this event
+			const bindKey = (
+				(ctrl ? "ctrl-" : "") +
+				(shift ? "shift-" : "") +
+				(alt ? "alt-" : "") +
+				(meta ? "meta-" : "") +
+				e.code.replace(/(Key|Digit)/, "")
+			).toLowerCase()
+
+			if (bindKey in this.byKeys) {
+				if(bindKey!=="escape") cancelEvent(e)
+				this.exec(this.byKeys[bindKey])
+			}
+		}, true)
+		this.boundToDocument = true
+	},
+}
+window.ui.commands.bindToDocument()
 
 const saveFile = async (text, handle) => {
 	const tab = tabBar.activeTab
@@ -120,22 +215,21 @@ const saveAppConfig = async () => {
 	console.debug("saved", app)
 }
 
-ui.themeModeToggle.on("click", ()=>{
-	setTimeout(()=>{
-		if(document.body.classList.contains("darkmode")) {
-			app.darkmode = true;
+ui.themeModeToggle.on("click", () => {
+	setTimeout(() => {
+		if (document.body.classList.contains("darkmode")) {
+			app.darkmode = true
 		} else {
-			app.darkmode = false;
+			app.darkmode = false
 		}
 		saveAppConfig()
 	})
 })
 
-
 const updateThemeAndMode = (doSave = false) => {
 	ui.updateThemeAndMode()
-	
-	if(editor.getOption("mode") in canPrettify) {
+
+	if (editor.getOption("mode") in canPrettify) {
 		prettify.removeAttribute("disabled")
 	} else {
 		prettify.setAttribute("disabled", "disabled")
@@ -146,10 +240,10 @@ const updateThemeAndMode = (doSave = false) => {
 const execCommandPrettify = () => {
 	let text = editor.getValue()
 	const mode = editor.getOption("mode")
-	if(!(mode in canPrettify)) return
-	
+	if (!(mode in canPrettify)) return
+
 	const parser = canPrettify[mode]
-	
+
 	try {
 		text = prettier.format(text, {
 			parser: parser.name,
@@ -195,9 +289,9 @@ const execCommandEditorOptions = () => {
 
 const execCommandAbout = () => {
 	setTimeout(() => {
-		const about = document.querySelector("#about");
-		const version = document.querySelector("#version");
-		if(!about) {
+		const about = document.querySelector("#about")
+		const version = document.querySelector("#version")
+		if (!about) {
 			alert(`Code v${window.code.version} <code@jakbox.net>`)
 		} else {
 			version.innerHTML = `Version ${window.code.version} - `
@@ -395,7 +489,7 @@ fileList.open = openFileHandle
 tabBar.click = (event) => {
 	const tab = event.tab
 	editor.setSession(tab.config.session)
-	fileList.active = tab.config.handle;
+	fileList.active = tab.config.handle
 	thumbStrip.setValue(editor.getValue())
 	thumbStrip.clearSelection()
 	thumbStrip.gotoLine(editor.getCursorPosition().row + 1)
@@ -405,7 +499,7 @@ tabBar.click = (event) => {
 
 tabBar.close = (event) => {
 	const tab = event.tab
-	fileList.inactive = tab.config.handle;
+	fileList.inactive = tab.config.handle
 	if (tab.changed) {
 		if (!confirm("This file has unsaved changes, are you sure?")) {
 			return
@@ -470,7 +564,6 @@ fileOpen.on("click", async () => {
 			addToFolders = false
 		}
 	})
-
 	// verifyPermission
 	await verifyPermission(folderHandle)
 	if (addToFolders) workspace.folders.push(folderHandle)
@@ -478,272 +571,208 @@ fileOpen.on("click", async () => {
 	ui.showFolders()
 })
 
-editor.commands.addCommand({
-	name: "find",
-	bindKey: { win: "Ctrl-F", mac: "Command-F" },
-	exec: () => {
-		window.ui.omnibox("find")
+const keyBinds = [
+	{
+		target: "editor",
+		name: "find",
+		bindKey: { win: "Ctrl-F", mac: "Command-F" },
+		exec: () => {
+			window.ui.omnibox("find")
+		},
 	},
-})
-
-editor.commands.addCommand({
-	name: "find-next",
-	bindKey: { win: "F3", mac: "F3" },
-	exec: () => {
-		editor.execCommand("findnext")
+	{
+		target: "editor",
+		name: "find-next",
+		bindKey: { win: "F3", mac: "F3" },
+		exec: () => {
+			editor.execCommand("findnext")
+		},
 	},
-})
-
-editor.commands.addCommand({
-	name: "collapselines",
-	bindKey: { win: "Ctrl-Shift-J", mac: "Command-Shift-J" },
-	exec: () => {
-		editor.execCommand("joinlines")
+	{
+		target: "editor",
+		name: "collapselines",
+		bindKey: { win: "Ctrl-Shift-J", mac: "Command-Shift-J" },
+		exec: () => {
+			editor.execCommand("joinlines")
+		},
 	},
-})
-
-editor.commands.addCommand({
-	name: "find-regex",
-	bindKey: { win: "Ctrl-Shift-F", mac: "Command-Shift-F" },
-	exec: () => {
-		window.ui.omnibox("regex")
+	{
+		target: "editor",
+		name: "find-regex",
+		bindKey: { win: "Ctrl-Shift-F", mac: "Command-Shift-F" },
+		exec: () => {
+			window.ui.omnibox("regex")
+		},
 	},
-})
-
-editor.commands.addCommand({
-	name: "find-regex-multiline",
-	bindKey: { win: "Ctrl-Shift-Alt-F", mac: "Command-Shift-Alt-F" },
-	exec: () => {
-		window.ui.omnibox("regex-m")
+	{
+		target: "editor",
+		name: "find-regex-multiline",
+		bindKey: { win: "Ctrl-Shift-Alt-F", mac: "Command-Shift-Alt-F" },
+		exec: () => {
+			window.ui.omnibox("regex-m")
+		},
 	},
-})
-
-editor.commands.addCommand({
-	name: "goto",
-	bindKey: { win: "Ctrl-G", mac: "Command-G" },
-	exec: () => {
-		window.ui.omnibox("goto")
+	{
+		target: "editor",
+		name: "goto",
+		bindKey: { win: "Ctrl-G", mac: "Command-G" },
+		exec: () => {
+			window.ui.omnibox("goto")
+		},
 	},
-})
-editor.commands.addCommand({
-	name: "lookup",
-	bindKey: { win: "Ctrl-L", mac: "Command-L" },
-	exec: () => {
-		window.ui.omnibox("lookup")
+	{
+		target: "editor",
+		name: "lookup",
+		bindKey: { win: "Ctrl-L", mac: "Command-L" },
+		exec: () => {
+			window.ui.omnibox("lookup")
+		},
 	},
-})
-
-// editor.commands.addCommand({
-//     name: 'reference',
-//     bindKey: { win:'Ctrl-R',mac:'Command-R' },
-//     exec: ()=>{
-//     	console.warn("REFERENCE not implemented")
-//     }
-//     // editor.commands.byName['find'].exec
-// });
-
-editor.commands.addCommand({
-	name: "showAllCommands",
-	bindKey: {win:"Ctrl+Shift+P", mac:"Command+Shift+P"},
-	exec: ()=>{
-		editor.execCommand("openCommandPallete");
-	}
-})
-
-editor.commands.addCommand({
-	name: "prettify",
-	bindKey: { win: "Ctrl+Shift+I", mac: "Command+Shift+I" },
-	exec: () => {
-		execCommandPrettify()
+	{
+		target: "app",
+		name: "showAllCommands",
+		bindKey: { win: "Ctrl+Shift+P", mac: "Command+Shift+P" },
+		exec: () => {
+			editor.execCommand("openCommandPallete")
+		},
 	},
-})
-editor.commands.addCommand({
-	name: "next-buffer",
-	bindKey: { win: "Ctrl+Tab", mac: "Command+Tab" },
-	exec: () => {
-		tabBar.next()
+	{
+		target: "editor",
+		name: "prettify",
+		bindKey: { win: "Ctrl+Shift+I", mac: "Command+Shift+I" },
+		exec: () => {
+			execCommandPrettify()
+		},
 	},
-})
-
-editor.commands.addCommand({
-	name: "prev-buffer",
-	bindKey: { win: "Ctrl+Shift+Tab", mac: "Command+Shift+Tab" },
-	exec: () => {
-		tabBar.prev()
+	{
+		target: "app",
+		name: "next-buffer",
+		bindKey: { win: "Ctrl+Tab", mac: "Command+Tab" },
+		exec: () => {
+			tabBar.next()
+		},
 	},
-})
-
-editor.commands.addCommand({
-	name: "newFile",
-	bindKey: { win: "Ctrl+N", mac: "Command+N" },
-	exec: execCommandNewFile,
-})
-
-editor.commands.addCommand({
-	name: "openFile",
-	bindKey: { win: "Ctrl+O", mac: "Command+O" },
-	exec: execCommandOpen,
-})
-
-editor.commands.addCommand({
-	name: "saveFile",
-	bindKey: { win: "Ctrl+S", mac: "Command+S" },
-	exec: execCommandSave,
-})
-
-editor.commands.addCommand({
-	name: "saveFileAs",
-	bindKey: { win: "Ctrl+Shift+S", mac: "Command+Shift+S" },
-	exec: execCommandSaveAs,
-})
-
-editor.commands.addCommand({
-	name: "showEditorSettings",
-	exec: () => {
-		editor.execCommand("showSettingsMenu", () => {
+	{
+		target: "app",
+		name: "prev-buffer",
+		bindKey: { win: "Ctrl+Shift+Tab", mac: "Command+Shift+Tab" },
+		exec: () => {
+			tabBar.prev()
+		},
+	},
+	{
+		target: "app",
+		name: "newFile",
+		bindKey: { win: "Ctrl+N", mac: "Command+N" },
+		exec: execCommandNewFile,
+	},
+	{
+		target: "app",
+		name: "openFile",
+		bindKey: { win: "Ctrl+O", mac: "Command+O" },
+		exec: execCommandOpen,
+	},
+	{
+		target: "app",
+		name: "saveFile",
+		bindKey: { win: "Ctrl+S", mac: "Command+S" },
+		exec: execCommandSave,
+	},
+	{
+		target: "app",
+		name: "saveFileAs",
+		bindKey: { win: "Ctrl+Shift+S", mac: "Command+Shift+S" },
+		exec: execCommandSaveAs,
+	},
+	{
+		target: "app",
+		name: "showEditorSettings",
+		exec: () => {
+			editor.execCommand("showSettingsMenu", () => {
+				updateThemeAndMode(true)
+			})
+		},
+	},
+	{
+		target: "app",
+		name: "closeFile",
+		bindKey: { win: "Ctrl+W", mac: "Command+W" },
+		exec: execCommandCloseActiveTab,
+	},
+	{
+		target: "app",
+		name: "toggleFolders",
+		exec: execCommandToggleFolders,
+	},
+	{
+		target: "app",
+		name: "addFolder",
+		exec: execCommandAddFolder,
+	},
+	{
+		target: "app",
+		name: "refeshFolders",
+		exec: execCommandRefreshFolders,
+	},
+	{
+		target: "app",
+		name: "removeAllFolders",
+		exec: execCommandRemoveAllFolders,
+	},
+	{
+		target: "app",
+		name: "showAbout",
+		exec: execCommandAbout,
+	},
+	{
+		target: "app",
+		name: "setTheme",
+		exec: (editor, theme) => {
+			editor.setOption("theme", theme)
 			updateThemeAndMode(true)
-		})
+		},
 	},
-})
-
-editor.commands.addCommand({
-	name: "closeFile",
-	bindKey: { win: "Ctrl+W", mac: "Command+W" },
-	exec: execCommandCloseActiveTab,
-})
-
-editor.commands.addCommand({
-	name: "toggleFolders",
-	exec: execCommandToggleFolders,
-})
-
-editor.commands.addCommand({
-	name: "addFolder",
-	exec: execCommandAddFolder,
-})
-
-editor.commands.addCommand({
-	name: "refeshFolders",
-	exec: execCommandRefreshFolders,
-})
-
-editor.commands.addCommand({
-	name: "removeAllFolders",
-	exec: execCommandRemoveAllFolders,
-})
-
-editor.commands.addCommand({
-	name: "showAbout",
-	exec: execCommandAbout,
-})
-
-editor.commands.addCommand({
-	name: "setTheme",
-	exec: (editor, theme)=>{
-		editor.setOption("theme", theme)
-		updateThemeAndMode(true)
+	{
+		target: "app",
+		name: "setMode",
+		exec: (editor, mode) => {
+			editor.setOption("mode", mode)
+			updateThemeAndMode(true)
+		},
 	},
-})
-
-editor.commands.addCommand({
-	name: "setMode",
-	exec: (editor, mode)=>{
-		editor.setOption("mode", mode)
-		updateThemeAndMode(true)
-	},
-})
-
-document.addEventListener("keydown", (e) => {
-	const cancelEvent = () => {
-		e.preventDefault()
-		e.stopPropagation()
-	}
-	const ctrl = e.ctrlKey
-	const shift = e.shiftKey
-	const alt = e.altKey
-
-	switch (e.code) {
-		case "Escape":
+	{
+		target: "app",
+		name: "hindOmniBox",
+		bindKey: { win: "escape", mac: "escape" },
+		exec: () => {
 			window.ui.hideOmnibox()
-			break
-		case "F3":
-			e.preventDefault()
-			e.stopPropagation()
-			break
-	}
+		},
+	},
+]
 
-	if (ctrl || shift || alt) {
-		// this is probably some command keystroke!
-		// console.log(e)
-		switch (e.code) {
-			case "KeyW":
-				if (!ctrl) return
-				cancelEvent()
-				return execCommandCloseActiveTab()
-			case "KeyN":
-				if (!ctrl) return
-				if (shift) {
-					cancelEvent()
-					return window.open(
-						"index.html",
-						"",
-						`standalone,width=${window.outerWidth},height=${window.outerHeight}`
-					)
-				}
-				cancelEvent()
-				return execCommandNewFile()
-			case "KeyS":
-				if (!ctrl) return
-				cancelEvent()
-				if (ctrl && shift) {
-					return execCommandSaveAs()
-				} else if (ctrl) {
-					return execCommandSave()
-				}
-			case "KeyO":
-				if (!ctrl) return
-				cancelEvent()
-				return execCommandOpen()
-			case "KeyG":
-				if (!ctrl) return
-				cancelEvent()
-				return window.ui.omnibox("goto")
-			case "KeyF":
-				if (!ctrl) return
-				cancelEvent()
-				if (shift && alt) {
-					return window.ui.omnibox("regex-m")
-				} else if (shift) {
-					return window.ui.omnibox("regex")
-				} else {
-					return window.ui.omnibox("find")
-				}
-			//  case "KeyR":
-			//      if(!ctrl) return
-			//      cancelEvent();
-			//      return window.ui.omnibox("lookup")
-		}
-	}
+keyBinds.forEach(bind=>{
+	window.ui.commands.add(bind)
 })
 
-window.ui.command = (c) => {
+window.ui.execCommand = (c, args) => {
 	let target = "editor",
 		command = c,
 		ext = ""
-		
 	if (c.indexOf(":") > -1) {
 		let bits = c.split(":")
 		;(target = bits[0]), (command = bits[1])
-		if(bits.length>2) {
+		if (bits.length > 2) {
 			ext = bits[2]
 		}
 	}
-	
 	if (target == "editor") {
 		editor.focus()
 		editor.execCommand(command, ext)
-	} else {
+	} else if (target == "editor-ex") {
 		editor.execCommand(command, ext)
+	} else {
+		window.ui.commands.exec(command, ext)
+		// editor.execCommand(command, ext)
 	}
 }
 
@@ -802,7 +831,7 @@ setTimeout(async () => {
 			app.enableLiveAutocompletion = stored.enableLiveAutocompletion || null
 			workspace.folders = stored.folders
 			app.folders = workspace.folders
-			if(app.darkmode == true) {
+			if (app.darkmode == true) {
 				ui.themeModeToggle.click()
 			}
 		}

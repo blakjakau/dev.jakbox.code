@@ -90,10 +90,10 @@ ace.define("ace/theme/code",["require","exports","module","ace/lib/dom"], functi
 		color: #FD971F\
 	}\
 	.ace-code .ace_string {\
-		color: #c4f3a6\
+		color: #ccffbb\
 	}\
 	.ace-code .ace_comment {\
-		color: #75715E\
+		color: #666666\
 	}\
 	.ace-code .ace_indent-guide {\
 		background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAACCAYAAACZgbYnAAAAEklEQVQImWPQ0FD0ZXBzd/wPAAjVAoxeSgNeAAAAAElFTkSuQmCC) right repeat-y\

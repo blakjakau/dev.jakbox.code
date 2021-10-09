@@ -3,6 +3,7 @@
 	--light: #fff;
 	--mid: #afafaf;
 	/*--dark: #272822;*/
+	--low: #455155;
 	--dark: #384144;
 	--animRate:250ms;
 	--tabRadius: 4px 4px 0 0;
@@ -14,10 +15,16 @@
 }
 
 
+a,
+a:visited {
+	color: var(--theme);
+	text-decoration:none;
+}
+
 #ace_settingsmenu {
 	top: var(--editorTop);
 	bottom: var(--menuHeight);
-	
+	box-shadow:none;
 	width: 400px;
 
 }
@@ -44,6 +51,7 @@ ui-action-bar #logo {
 ui-tab-item:not([active])::after { 
     display:inline-block;
     position:absolute;
+    opacity:1;
     width:1px;
     height:20px;
     margin-top:4px;
@@ -51,13 +59,25 @@ ui-tab-item:not([active])::after {
     content: '';
     overflow:hidden;
     background-color:var(--mid);
+    transition: opacity 200ms ease-in-out;
 }
 
 /*ui-tab-item[active] + ui-tab-item::after { opacity:0; }*/
 
-ui-tabbar[slim]>ui-tab-item { background:none; color: var(--light); border: 0px; }
-ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme); border-radius: 4px 4px 0 0; border:0px; }
-
+ui-tabbar[slim]>ui-tab-item { 
+	border-radius: 4px 4px 0 0; background:none; color: var(--light); 
+	border: 0px; transition: background 200ms ease-in-out; }
+ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme);  border:0px; }
+/*ui-tabbar[slim]>ui-tab-item:hover+ui-tab-item { background: var(--dark);  }*/
+ui-tabbar[slim]>ui-tab-item:not([active]):hover {
+	background: var(--low);
+}
+ui-tabbar[slim]>ui-tab-item[active]:hover {
+	filter:brightness(1.1);
+}
+ui-tab-item:hover::after {
+	opacity:0;
+}
 #ui_editor {
 	opacity:1;
 	transition:opacity 333ms;
@@ -255,16 +275,16 @@ ui-file-item[active] {
 	overflow-x: auto;
 }
 
-#tabs item {
-	display:inline-block;
+/*#tabs ui-tab-item {*/
+/*	display:inline-block;*/
 	/*min-width:128px;*/
-	height:calc(var(--tabHeight) -4);
-	background: var(--mid);
-	border-radius:var(--tabRadius);
-	margin:0px 1px;
-	padding:0 24px 0 5px;
-	line-height:var(--tabHeight);
-}
+/*	height:calc(var(--tabHeight) -4);*/
+/*	background: var(--mid);*/
+/*	border-radius:var(--tabRadius);*/
+/*	margin:0px 1px;*/
+/*	padding:0 24px 0 5px;*/
+/*	line-height:var(--tabHeight);*/
+/*}*/
 
 #files {
 	z-index:5;
@@ -306,14 +326,23 @@ ui-file-item[active] {
 	color: inherit;
 }
 
+.darkmode,
 .darkmode ui-menu,
 .darkmode #files,
 .darkmode #statusbar,
 .darkmode #ace_settingsmenu,
+.darkmode ui-panel,
 .darkmode ui-file-list,
 .darkmode ui-actionbar {
 	background: var(--dark);
 	color: var(--mid);
+}
+
+.darkmode #ace_settingsmenu input,
+.darkmode #ace_settingsmenu select,
+.darkmode #ace_settingsmenu button {
+	background: var(--mid);
+	color: var(--dark);
 }
 
 .showFiles #tabs,

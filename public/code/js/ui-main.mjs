@@ -495,10 +495,6 @@ const uiManager = {
 				}
 			})
 		}
-		
-		
-
-		
 	},
 
 	showFolders: async () => {
@@ -554,6 +550,11 @@ const uiManager = {
 	hideOmnibox: () => {
 		omni.saveStack()
 		omni.classList.remove("active")
+	},
+
+	showSettings: (opts) => {
+		console.log(opts)
+		settingsPanel.show()
 	},
 
 	get editor() {
