@@ -18,6 +18,7 @@
 // addkeyboard navigation to menus
 // look at restoring workspace during app load?
 // implement @lookup in omnibox
+// implement side-by-side split view
 
 // experimental... run prettier on load and save of JS files...
 import prettier from "https://unpkg.com/prettier@2.4.1/esm/standalone.mjs"
@@ -66,7 +67,7 @@ let permissionNotReloaded = true // should we re-request permission for folders 
 ui.create()
 window.ui = ui
 window.code = {
-	version: "0.2.4",
+	version: "0.2.5",
 }
 
 const app = {
@@ -241,8 +242,9 @@ const execCommandPrettify = () => {
 	let text = editor.getValue()
 	const mode = editor.getOption("mode")
 	if (!(mode in canPrettify)) return
-
+	
 	const parser = canPrettify[mode]
+	const activeRow = editor.getCursorPosition().row+1
 
 	try {
 		text = prettier.format(text, {
@@ -255,6 +257,7 @@ const execCommandPrettify = () => {
 		})
 		editor.setValue(text)
 		editor.clearSelection()
+		editor.gotoLine(activeRow)
 	} catch (e) {
 		console.warn("Unable to prettify", e)
 		const m = e.message
@@ -280,7 +283,7 @@ const execCommandEditorOptions = () => {
 	if (app.rendererOptions) editor.renderer.setOptions(app.rendererOptions)
 	if (app.enableLiveAutocompletion) editor.$enableLiveAutocompletion = app.enableLiveAutocompletion
 
-	if (editor.getOption("mode") !== "ace/mode/javascript") {
+	if (editor.getOption("mode") === "ace/mode/javascript") {
 		editor.setOption("useWorker", false)
 	} else {
 		editor.setOption("useWorker", true)
@@ -499,12 +502,14 @@ tabBar.click = (event) => {
 
 tabBar.close = (event) => {
 	const tab = event.tab
-	fileList.inactive = tab.config.handle
 	if (tab.changed) {
 		if (!confirm("This file has unsaved changes, are you sure?")) {
 			return
 		}
 	}
+	
+	fileList.inactive = tab.config.handle
+	
 	tabBar.remove(tab)
 	if (tabBar.tabs.length == 0) {
 		defaultTab()
@@ -727,7 +732,7 @@ const keyBinds = [
 	{
 		target: "app",
 		name: "setTheme",
-		exec: (editor, theme) => {
+		exec: (theme) => {
 			editor.setOption("theme", theme)
 			updateThemeAndMode(true)
 		},
@@ -735,9 +740,9 @@ const keyBinds = [
 	{
 		target: "app",
 		name: "setMode",
-		exec: (editor, mode) => {
+		exec: (mode) => {
 			editor.setOption("mode", mode)
-			updateThemeAndMode(true)
+			updateThemeAndMode(false)
 		},
 	},
 	{

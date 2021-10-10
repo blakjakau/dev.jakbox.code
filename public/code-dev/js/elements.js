@@ -431,6 +431,20 @@ class FileItem extends Button {
 		this.append(this._refresh)
 	}
 	
+	set changed(v) {
+		this._changed = !!v
+		if (this._changed) {
+			this._refresh.innerHTML = "circle"
+		} else {
+			this._refresh.innerHTML = "radio_button_unchecked"
+		}
+	}
+
+	get changed() {
+		return this._changed
+	}
+
+	
 	set showRefresh(v) {
 		if (!!v) {
 			this._refresh.style.visibility = "visible"
@@ -970,8 +984,14 @@ class TabBar extends Block {
 	}
 
 	get activeTab() {
-		let i = this.activeIndex
-		return this._tabs[i]
+		const active = this.querySelector("ui-tab-item[active]")
+		return active
+	}
+
+	byTitle(title) {
+		const tab = this.querySelector(`ui-tab-item[title="${title}"`)
+		console.warn("No match found for", title)
+		return tab
 	}
 
 	next() {
@@ -1101,13 +1121,24 @@ class FileList extends ContentFill {
 		if (!isFunction(v)) throw new Error("unlock must be a function")
 		this._unlock = v
 	}
+	
 	set open(v) {
 		if (!isFunction(v)) throw new Error("open must be a function")
 		this._open = v
 	}
 
+
 	get open() {
 		return this._open
+	}
+
+	set close(v) {
+		if (!isFunction(v)) throw new Error("close must be a function")
+		this._close = v
+	}
+	
+	get close() {
+		return this._close
 	}
 
 	set context(v) {
@@ -1118,7 +1149,19 @@ class FileList extends ContentFill {
 	get contextElement() {
 		return this._contextElement
 	}
-
+	
+	
+	get activeItem() {
+		const active = this.querySelector("ui-file-item[active]")
+		return active
+	}
+	
+	byTitle(title) {
+		const tab = this.querySelector(`ui-file-item[title="${title}"`)
+		console.warn("No match found for", title)
+		return tab
+	}
+	
 	refreshAll() {}
 
 	_render(base, tree) {
@@ -1205,10 +1248,16 @@ class FileList extends ContentFill {
 				const path = buildPath(item)
 				e.setAttribute("tabindex", this.tabGroup)
 				e.setAttribute("title", path)
-				e.refresh.innerHTML = "circle"
+				e.refresh.innerHTML = "radio_button_unchecked"
+				e.item = item
 				if(this._active.indexOf(path)>-1){
 					e.showRefresh = true
 					e.setAttribute("open", "")
+					e.refresh.on("click", ()=>{
+						if('function'==typeof this.close) {
+							this.close(e.item)
+						}
+					})
 				} else {
 					e.showRefresh = false
 				}

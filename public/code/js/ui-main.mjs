@@ -103,29 +103,35 @@ const uiManager = {
 
 		statusTheme = document.querySelector("#theme_select")
 		statusMode = document.querySelector("#mode_select")
-		
+
 		themeMenu = document.querySelector("#theme_menu")
 		modeMenu = document.querySelector("#mode_menu")
-		
-		
-		themeMenu.on("show", e=>{
-			e.stopPropagation()
-			setTimeout(()=>{
-				const active = themeMenu.querySelector("[icon='done']")
-				themeMenu.scrollTop = active.offsetTop-(themeMenu.offsetHeight/2)+12
-				// console.log(active.offsetTop, themeMenu.scrollTop)
-			})
-		}, true)
-		modeMenu.on("show", e=>{
-			e.stopPropagation()
-			setTimeout(()=>{
-				const active = modeMenu.querySelector("[icon='done']")
-				modeMenu.scrollTop = active.offsetTop-(modeMenu.offsetHeight/2)+12
-				// console.log(active.offsetTop, modeMenu.scrollTop)
-			})
-		}, true)
 
-		
+		themeMenu.on(
+			"show",
+			(e) => {
+				e.stopPropagation()
+				setTimeout(() => {
+					const active = themeMenu.querySelector("[icon='done']")
+					themeMenu.scrollTop = active.offsetTop - themeMenu.offsetHeight / 2 + 12
+					// console.log(active.offsetTop, themeMenu.scrollTop)
+				})
+			},
+			true
+		)
+		modeMenu.on(
+			"show",
+			(e) => {
+				e.stopPropagation()
+				setTimeout(() => {
+					const active = modeMenu.querySelector("[icon='done']")
+					modeMenu.scrollTop = active.offsetTop - modeMenu.offsetHeight / 2 + 12
+					// console.log(active.offsetTop, modeMenu.scrollTop)
+				})
+			},
+			true
+		)
+
 		editorHolder = document.createElement("div")
 		editorHolder.setAttribute("id", holderID)
 		editorElement = document.createElement("div")
@@ -249,10 +255,10 @@ const uiManager = {
 						} else {
 							const match = reg.exec(editor.getValue())
 							// console.log(match);
-							if(match && match.length>0) {
+							if (match && match.length > 0) {
 								editor.selection.setRange({
 									start: editor.session.doc.indexToPosition(match.index),
-									end: editor.session.doc.indexToPosition(match.index+match[0].length),
+									end: editor.session.doc.indexToPosition(match.index + match[0].length),
 								})
 							}
 						}
@@ -357,13 +363,11 @@ const uiManager = {
 		)
 		omni.setAttribute("id", "omni")
 		omni.setAttribute("omni", "true")
-		
-		
-		
+
 		themeModeToggle = document.querySelector("#themeModeToggle")
-		if(themeModeToggle) {
-			themeModeToggle.on("click", ()=>{
-				if(document.body.classList.contains("darkmode")) {
+		if (themeModeToggle) {
+			themeModeToggle.on("click", () => {
+				if (document.body.classList.contains("darkmode")) {
 					document.body.classList.remove("darkmode")
 					themeModeToggle.icon = "dark_mode"
 				} else {
@@ -433,10 +437,23 @@ const uiManager = {
 		editor.on("change", () => {
 			const pos = editor.getCursorPosition
 			cursorpos.innerHTML = `${pos.col}:${pos.row}`
-
+			if(!editor.session.getUndoManager().isClean()) {
+				if(editor.getValue() !== editor.session.baseValue) {
+					if(tabBar.activeTab) tabBar.activeTab.changed = true 
+					if(fileList.activeItem) fileList.activeItem.changed = true
+				} else {
+					if(tabBar.activeTab) tabBar.activeTab.changed = false
+					if(fileList.activeItem) fileList.activeItem.changed = false
+					editor.session.getUndoManager().markClean()
+				}
+			} else {
+				if(tabBar.activeTab) tabBar.activeTab.changed = false
+				if(fileList.activeItem) fileList.activeItem.changed = false
+			}
 			// check if the buffer has edits
 			// 			tabBar.activeTab.changed = !!(editor.getSession().$undoManager.$undoStack.length>0)
-			tabBar.activeTab.changed = editor.getValue() != tabBar.activeTab?.config?.session?.baseValue
+			// tabBar.activeTab.changed = editor.getValue() != tabBar.activeTab?.config?.session?.baseValue
+			// fileList.activeItem.changed = tabBar.activeTab.changed
 		})
 
 		return
@@ -447,23 +464,23 @@ const uiManager = {
 		const c_theme = editor.getOption("theme")
 		window.themeMenu = themeMenu
 		window.modeMenu = modeMenu
-		
+
 		if (window.ace_themes) {
 			// themeMenu.empty();
-			if(themeMenu.children.length==0) {
-				for(const n in ace_themes) {
+			if (themeMenu.children.length == 0) {
+				for (const n in ace_themes) {
 					const theme = ace_themes[n]
-					const item = new elements.MenuItem(theme.caption);
+					const item = new elements.MenuItem(theme.caption)
 					item.setAttribute("rel-data", ace_themes[n].theme)
 					item.setAttribute("command", `app:setTheme:${ace_themes[n].theme}`)
 					themeMenu.append(item)
 				}
 			}
-			
-			setTimeout(()=>{
+
+			setTimeout(() => {
 				const active = themeMenu.querySelector("[icon='done']")
-				if(active) active.icon = ""
-				for(const n in ace_themes) {
+				if (active) active.icon = ""
+				for (const n in ace_themes) {
 					if (ace_themes[n].theme == c_theme) {
 						statusTheme.text = ace_themes[n].caption
 						// console.log("THEME:",`[rel-data='${ace_themes[n].theme}']`)
@@ -474,19 +491,19 @@ const uiManager = {
 		}
 		if (window.ace_modes) {
 			// modeMenu.empty();
-			if(modeMenu.children.length==0) {
-				for(const n in ace_modes) {
+			if (modeMenu.children.length == 0) {
+				for (const n in ace_modes) {
 					const mode = ace_modes[n]
-					const item = new elements.MenuItem(mode.caption);
+					const item = new elements.MenuItem(mode.caption)
 					item.setAttribute("rel-data", ace_modes[n].mode)
 					item.setAttribute("command", `app:setMode:${ace_modes[n].mode}`)
 					modeMenu.append(item)
 				}
 			}
-			setTimeout(()=>{
+			setTimeout(() => {
 				const active = modeMenu.querySelector("[icon='done']")
-				if(active) active.icon = ""
-				for(const n in ace_modes) {
+				if (active) active.icon = ""
+				for (const n in ace_modes) {
 					if (ace_modes[n].mode == c_mode) {
 						statusMode.text = ace_modes[n].caption
 						// console.log("MODE:",`[rel-data='${ace_modes[n].mode}']`)
@@ -586,7 +603,7 @@ const uiManager = {
 	},
 	get themeModeToggle() {
 		return themeModeToggle
-	}
+	},
 }
 
 setTimeout(() => {

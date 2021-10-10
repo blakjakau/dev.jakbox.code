@@ -43,10 +43,6 @@ body {
 ui-action-bar #logo {
 	margin-left:8px;
 }
-#tabs {
-    box-sizing: border-box;
-    border-bottom:2px solid var(--theme);
-}
 
 ui-tab-item:not([active])::after { 
     display:inline-block;
@@ -270,9 +266,11 @@ ui-file-item[active] {
 	top:var(--menuHeight) !important;
 	left:0;
 	right:0;
-	background: var(--dark);
+	background: var(--light);
 	display:flex;
 	overflow-x: auto;
+    box-sizing: border-box;
+    border-bottom:2px solid var(--theme);
 }
 
 /*#tabs ui-tab-item {*/
@@ -328,6 +326,7 @@ ui-file-item[active] {
 
 .darkmode,
 .darkmode ui-menu,
+.darkmode #tabs,
 .darkmode #files,
 .darkmode #statusbar,
 .darkmode #ace_settingsmenu,
