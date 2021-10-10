@@ -14,9 +14,9 @@
 	--buttonBarHeight: 64px;
 }
 
-ui-view * {
-	overflow-anchor: none;
-}
+/*ui-view * {*/
+/*	overflow-anchor: none;*/
+/*}*/
 
 ui-element {
 	display: inline-block;

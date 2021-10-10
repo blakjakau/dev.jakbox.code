@@ -357,12 +357,12 @@ class Button extends Element {
 	set id(v) {
 		this.setAttribute("id", v)
 	}
-	
+
 	set icon(v) {
 		this.setAttribute("icon", v)
 		this._icon.innerHTML = v
 	}
-	
+
 	set text(v) {
 		if (v.indexOf("<br>") > -1 || v.indexOf("<br/>") > -1) {
 			this.setAttribute("multiline", "multiline")
@@ -430,7 +430,7 @@ class FileItem extends Button {
 		super.connectedCallback.apply(this)
 		this.append(this._refresh)
 	}
-	
+
 	set changed(v) {
 		this._changed = !!v
 		if (this._changed) {
@@ -444,7 +444,6 @@ class FileItem extends Button {
 		return this._changed
 	}
 
-	
 	set showRefresh(v) {
 		if (!!v) {
 			this._refresh.style.visibility = "visible"
@@ -491,7 +490,7 @@ const dragover = function (e) {
 	let next =
 		target.nextElementSibling && target.nextElementSibling instanceof TabItem ? target.nextElementSibling : null
 
-	if (next == moving) {
+	if (next && next == moving) {
 		if (next.nextElementSibling && next.nextElementSibling instanceof TabItem) {
 			next = next.nextElementSibling
 		}
@@ -856,7 +855,7 @@ class ActionBar extends Block {
 				v = -1
 				break
 			case "bottom-sticky":
-				v = -2;
+				v = -2
 			default:
 				if (isNaN(v)) v = 0
 				break
@@ -867,7 +866,7 @@ class ActionBar extends Block {
 			this.style.bottom = "auto"
 		} else {
 			this.addClass("bottom")
-			if(v==-1) this.addClass("sticky");
+			if (v == -1) this.addClass("sticky")
 			this.style.top = "auto"
 			this.style.bottom = -(v + 1) + "px"
 		}
@@ -875,10 +874,12 @@ class ActionBar extends Block {
 	}
 }
 
-const buildPath = (f)=>{
-	if(!(f instanceof FileSystemFileHandle || f instanceof FileSystemDirectoryHandle) ) { return "" }
-	let n = f.name;
-	if(f.container) n = buildPath(f.container)+"/"+n
+const buildPath = (f) => {
+	if (!(f instanceof FileSystemFileHandle || f instanceof FileSystemDirectoryHandle)) {
+		return ""
+	}
+	let n = f.name
+	if (f.container) n = buildPath(f.container) + "/" + n
 	return n
 }
 
@@ -923,8 +924,8 @@ class TabBar extends Block {
 	}
 
 	async tabDrop(e) {
-		e.preventDefault()
 		e.stopPropagation()
+		e.preventDefault()
 		const items = e.dataTransfer.items
 		const delayed = []
 		for (let i = 0, l = items.length; i < l; i++) {
@@ -937,7 +938,7 @@ class TabBar extends Block {
 			Promise.all(delayed).then((res) => {
 				res.forEach(this.dropFileHandle)
 			})
-		} else {
+		} else if (this.movingItem instanceof HTMLElement) {
 			if (this?.dropPosition == "before") {
 				this.insertBefore(this.movingItem, this.dropTarget)
 			} else {
@@ -990,7 +991,7 @@ class TabBar extends Block {
 
 	byTitle(title) {
 		const tab = this.querySelector(`ui-tab-item[title="${title}"`)
-		console.warn("No match found for", title)
+		if(!tab) console.warn("No match found for", title)
 		return tab
 	}
 
@@ -1014,7 +1015,7 @@ class TabBar extends Block {
 
 	add(config) {
 		const tab = new TabItem(config.name)
-		if(config.handle) tab.setAttribute("title", buildPath(config.handle))
+		if (config.handle) tab.setAttribute("title", buildPath(config.handle))
 		tab.config = config
 		this._tabs.push(tab)
 		this.append(tab)
@@ -1085,14 +1086,13 @@ class TabBar extends Block {
 // file selection list, takes an array of file/folder handles and produces a directory tree
 // lazily loads subfolders on request
 
-
 class FileList extends ContentFill {
 	constructor(content) {
 		super(content)
 		const inner = (this._inner = new Block()) //document.createElement("div")
 		inner.classList.add("inner")
-		
-		this._active = []; // maintain a list of the active files
+
+		this._active = [] // maintain a list of the active files
 		this.tabGroup = tabIndexGroup++
 		this._contextElement = null
 		this.on("contextmenu", (e) => {
@@ -1121,12 +1121,11 @@ class FileList extends ContentFill {
 		if (!isFunction(v)) throw new Error("unlock must be a function")
 		this._unlock = v
 	}
-	
+
 	set open(v) {
 		if (!isFunction(v)) throw new Error("open must be a function")
 		this._open = v
 	}
-
 
 	get open() {
 		return this._open
@@ -1136,7 +1135,7 @@ class FileList extends ContentFill {
 		if (!isFunction(v)) throw new Error("close must be a function")
 		this._close = v
 	}
-	
+
 	get close() {
 		return this._close
 	}
@@ -1149,19 +1148,18 @@ class FileList extends ContentFill {
 	get contextElement() {
 		return this._contextElement
 	}
-	
-	
+
 	get activeItem() {
 		const active = this.querySelector("ui-file-item[active]")
 		return active
 	}
-	
+
 	byTitle(title) {
-		const tab = this.querySelector(`ui-file-item[title="${title}"`)
-		console.warn("No match found for", title)
-		return tab
+		const file = this.querySelector(`ui-file-item[title="${title}"`)
+		if(!file) console.warn("No match found for", title)
+		return file
 	}
-	
+
 	refreshAll() {}
 
 	_render(base, tree) {
@@ -1250,19 +1248,19 @@ class FileList extends ContentFill {
 				e.setAttribute("title", path)
 				e.refresh.innerHTML = "radio_button_unchecked"
 				e.item = item
-				if(this._active.indexOf(path)>-1){
+				if (this._active.indexOf(path) > -1) {
 					e.showRefresh = true
 					e.setAttribute("open", "")
-					e.refresh.on("click", ()=>{
-						if('function'==typeof this.close) {
+					e.refresh.on("click", () => {
+						if ("function" == typeof this.close) {
 							this.close(e.item)
 						}
 					})
 				} else {
 					e.showRefresh = false
 				}
-				
-				if(this._current == path) {
+
+				if (this._current == path) {
 					e.setAttribute("active", "")
 				}
 
@@ -1298,35 +1296,37 @@ class FileList extends ContentFill {
 	}
 
 	set active(v) {
-		if(v instanceof FileSystemFileHandle) {
+		if (v instanceof FileSystemFileHandle) {
 			const target = buildPath(v)
 			const selector = `[title="${target}"]`
-			const match = this.querySelector(selector);
-			const current = this.querySelectorAll("[active]");
-			if(current.length>0) {
-				for(let item of current)  item.removeAttribute("active")
+			const match = this.querySelector(selector)
+			const current = this.querySelectorAll("[active]")
+			if (current.length > 0) {
+				for (let item of current) item.removeAttribute("active")
 			}
-			if(match) {
-				this._active.push(target)
-				match.setAttribute("active", "");
-				match.setAttribute("open" ,"")
+			if (match) {
+				if (this._active.indexOf(target) == -1) {
+					this._active.push(target)
+				}
+				match.setAttribute("active", "")
+				match.setAttribute("open", "")
 				match.showRefresh = true
 			}
 			this._current = target
 		}
 	}
 	set inactive(v) {
-		if(v instanceof FileSystemFileHandle) {
+		if (v instanceof FileSystemFileHandle) {
 			const target = buildPath(v)
 			const selector = `[title="${target}"]`
-			const match = this.querySelector(selector);
-			if(match) {
+			const match = this.querySelector(selector)
+			if (match) {
 				match.removeAttribute("open")
 				match.showRefresh = false
 			}
 			const index = this._active.indexOf(target)
-			if(index>-1) {
-				this._active.splice(index, 1);
+			if (index > -1) {
+				this._active.splice(index, 1)
 			}
 		}
 	}
@@ -1640,11 +1640,11 @@ class Menu extends Panel {
 	showAt(origin) {
 		// const self = this
 		let p
-		
+
 		// clear styling for left/up combos
 		this.removeAttribute("left")
 		this.removeAttribute("up")
-		
+
 		if (origin instanceof PointerEvent) {
 			p = {
 				x: origin.clientX + 2,
@@ -1653,13 +1653,13 @@ class Menu extends Panel {
 				h: 0,
 			}
 			this.style.left = `${p.x}px`
-			this.style.top = `${p.y + p.h}px`;
+			this.style.top = `${p.y + p.h}px`
 			this.style.bottom = ""
 			// this.style.maxHeight = `calc(100vh - ${p.y + p.h + 8}px)`
 		} else if (origin instanceof HTMLElement) {
 			p = getPosition(origin)
 			this.style.left = `${p.x}px`
-			this.style.top = `${p.y + p.h}px`;
+			this.style.top = `${p.y + p.h}px`
 			this.style.bottom = ""
 		} else {
 			throw new Error("showAt requires an HTMLElement in the current DOM or a PointerEvent")
@@ -1668,22 +1668,23 @@ class Menu extends Panel {
 		setTimeout(() => {
 			if (p.x + this.offsetWidth > window.innerWidth) {
 				this.setAttribute("left", "")
-				this.style.left = (p.x+p.w) - this.offsetWidth
+				this.style.left = p.x + p.w - this.offsetWidth
 			}
 			if (p.y + p.h + this.offsetHeight > window.innerHeight) {
-				if((p.y+p.h) > window.innerHeight/2) { // displat ABOVE the orgin
+				if (p.y + p.h > window.innerHeight / 2) {
+					// displat ABOVE the orgin
 					this.setAttribute("up", "")
-					this.style.top = 'auto'; //p.y - (this.offsetHeight-32)
-					this.style.bottom = `${window.innerHeight-p.y}px`;
-					this.style.maxHeight = `calc(100vh - ${(window.innerHeight - p.y)+16}px)`;
+					this.style.top = "auto" //p.y - (this.offsetHeight-32)
+					this.style.bottom = `${window.innerHeight - p.y}px`
+					this.style.maxHeight = `calc(100vh - ${window.innerHeight - p.y + 16}px)`
 				} else {
-					this.style.maxHeight = `calc(100vh - ${p.y+p.h+16}px)`;
-				} 
+					this.style.maxHeight = `calc(100vh - ${p.y + p.h + 16}px)`
+				}
 			} else {
-				this.style.maxHeight = `calc(100vh - ${p.y+p.h+16}px)`;
+				this.style.maxHeight = `calc(100vh - ${p.y + p.h + 16}px)`
 			}
 		})
-		
+
 		const event = new CustomEvent("show")
 		this.dispatchEvent(event)
 		// console.log(event)

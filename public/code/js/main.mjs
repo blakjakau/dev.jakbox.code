@@ -200,10 +200,15 @@ window.ui.commands.bindToDocument()
 
 const saveFile = async (text, handle) => {
 	const tab = tabBar.activeTab
+	const file = fileList.activeItem
+	
 	const writable = await handle.createWritable()
 	await writable.write(text)
 	await writable.close()
 	tab.changed = false
+	if(file) {
+		file.changed = false
+	}
 }
 
 const saveAppConfig = async () => {
@@ -388,7 +393,18 @@ const execCommandNewFile = async () => {
 	tab.click()
 }
 
+
+const buildPath = (f) => {
+	if (!(f instanceof FileSystemFileHandle || f instanceof FileSystemDirectoryHandle)) {
+		return ""
+	}
+	let n = f.name
+	if (f.container) n = buildPath(f.container) + "/" + n
+	return n
+}
+
 const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
+	
 	// don't add a new tab if the file is already open in a tab
 	for (let i = 0, l = tabBar.tabs.length; i < l; i++) {
 		let tab = tabBar.tabs[i]
@@ -398,6 +414,13 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
 			return
 		}
 	}
+	// check tabs again, but this time by file path (tab.title)
+	const path = buildPath(handle)
+	{
+		let tab = tabBar.byTitle(path)
+		if(tab) return tab.click()
+	}
+
 
 	const file = await handle.getFile()
 	let text = await file.text()
@@ -493,6 +516,9 @@ tabBar.click = (event) => {
 	const tab = event.tab
 	editor.setSession(tab.config.session)
 	fileList.active = tab.config.handle
+	if(tab.changed && fileList.activeItem) {
+		fileList.activeItem.changed = true
+	}
 	thumbStrip.setValue(editor.getValue())
 	thumbStrip.clearSelection()
 	thumbStrip.gotoLine(editor.getCursorPosition().row + 1)
