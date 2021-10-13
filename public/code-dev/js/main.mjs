@@ -11,14 +11,15 @@
 // --- bind theme and mode menus
 // --- create "about" panel
 // --- link active tab(s) to file view
-// bind edit state between tabs and filelist?
-// add "delete file" in filelist context menu?
-// add save/load triggers for prettier with independant settings
-// look at ponyfilling file access https://github.com/jimmywarting/native-file-system-adapter/
-// addkeyboard navigation to menus
+// --- bind edit state between tabs and filelist?
+// infer file type from #!/ opening line
 // look at restoring workspace during app load?
+// add save/load triggers for prettier with independant settings
+// addkeyboard navigation to menus
 // implement @lookup in omnibox
 // implement side-by-side split view
+// look at ponyfilling file access https://github.com/jimmywarting/native-file-system-adapter/
+// add "delete file" in filelist context menu?
 
 // experimental... run prettier on load and save of JS files...
 import prettier from "https://unpkg.com/prettier@2.4.1/esm/standalone.mjs"
@@ -435,9 +436,32 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
 			break
 		}
 	}
+	
+	if(fileMode.mode == "") {
+		// attempt to infer from line 1
+		const filters = {
+			"ace/mode/sh": /#!.*bash/,
+			"ace/mode/javascript": /#!.*node/
+		}
+		for(let n in filters) {
+			let filter = filters[n];
+			if(fileMode.mode == "") {
+				const match = filter.exec(text)
+				if(match && match.index===0) {
+					fileMode.mode = n
+				}
+			}
+		}
+	}
+	
+	if(fileMode.mode=="") {
+		console.warn("Unsupported File", file)
+		alert(`Unsupported or unrecongnised file type: ${file.name.split(".").pop().toUpperCase()}`)
+		return;
+	}
 
 	if (fileMode.name == "javascript" && 1 == 0) {
-		console.log("Pretifying JavaScript")
+		// console.log("Pretifying JavaScript")
 		text = prettier.format(text, {
 			parser: "babel",
 			plugins: [parserBabel, parserHtml],
@@ -472,13 +496,13 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
 })
 
 const fileMenu = document.getElementById("file_context")
-const topFileMenu = document.getElementById("top_file_context")
+const folderMenu = document.getElementById("folder_context")
+const topfolderMenu = document.getElementById("top_folder_context")
 
-fileMenu.click = topFileMenu.click = (action) => {
+folderMenu.click = topfolderMenu.click = (action) => {
 	console.log(action)
 	const active = fileList.contextElement
 	const file = active.item
-
 	switch (action) {
 		case "remove":
 			for (let i = 0; i < workspace.folders.length; i++) {
@@ -500,17 +524,24 @@ fileMenu.click = topFileMenu.click = (action) => {
 	// console.log(fileList.contextElement.item)
 }
 fileList.context = (e) => {
-	let menu = fileMenu
+	let menu = folderMenu
+	
 	if (e.srcElement.parentElement.parentElement instanceof elements.FileList) {
-		menu = topFileMenu
+		menu = topfolderMenu
 	} else {
-		menu = fileMenu
+		if(e.srcElement?.item?.kind == "file") {
+			// menu = fileMenu
+			return
+		} else {
+			menu = folderMenu
+		}
 	}
 	menu.showAt(e)
 }
 
 fileList.unlock = verifyPermission
 fileList.open = openFileHandle
+fileList.unsupported = openFileHandle
 
 tabBar.click = (event) => {
 	const tab = event.tab
@@ -866,6 +897,16 @@ setTimeout(async () => {
 				ui.themeModeToggle.click()
 			}
 		}
+		
+		
+		// set supported files in our FileList control
+		let regs = []
+		for (let n in ace_modes) {
+			const mode = ace_modes[n]
+			regs.push(mode.extRe)
+		}
+		ui.fileList.supported = regs
+		
 		let all = []
 		workspace.folders.forEach((handle) => {
 			let perm = verifyPermission(handle, true).then((res) => {

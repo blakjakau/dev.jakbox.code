@@ -1122,6 +1122,11 @@ class FileList extends ContentFill {
 		this._unlock = v
 	}
 
+	set unsupported(v) {
+		if (!isFunction(v)) throw new Error("unsupported must be a function")
+		this._unsupported = v
+	}
+
 	set open(v) {
 		if (!isFunction(v)) throw new Error("open must be a function")
 		this._open = v
@@ -1160,11 +1165,41 @@ class FileList extends ContentFill {
 		return file
 	}
 
-	refreshAll() {}
 
+	refreshAll() {
+		
+	}
+
+	set supported(v) {
+		let ok = true, extensions = [], regexes = []
+		if(!Array.isArray(v) || v.length<1) ok = false;
+		if(ok) {
+			v.forEach(r=>{
+				if("string" == typeof r) {
+					if(extensions.indexOf(r)===-1) extensions.push(r)
+					return
+				}
+				if(r instanceof RegExp) {
+					if(regexes.indexOf(r)===-1) regexes.push(r)
+					return
+				}
+				// anything else is a fail!
+				ok = false
+			})
+		}
+		if(!ok) throw new Error("supported requires an Array() of String or RegEx objects")
+		
+		this._supported = {
+			ext: extensions,
+			reg: regexes
+		}
+	}
+	
 	_render(base, tree) {
 		const codeFiles = "json js mjs c cpp h hpp css html".split(" ")
-		const imageFiles = "jpg jpeg gif tiff png ico bmp webp webm".split(" ")
+		const imageFiles = "svg jpg jpeg gif tiff png ico bmp webp webm".split(" ")
+		const videoFiles = "avi mp4 webm wmv mov flv f4v mkv 3gp".split(" ")
+		const audioFiles = "mp3 aac wma ogg wav flac".split(" ")
 
 		this._contextElement = null
 		if (base.empty) {
@@ -1248,6 +1283,9 @@ class FileList extends ContentFill {
 				e.setAttribute("title", path)
 				e.refresh.innerHTML = "radio_button_unchecked"
 				e.item = item
+				
+				e.on("contextmenu", this.itemContextMenu)
+
 				if (this._active.indexOf(path) > -1) {
 					e.showRefresh = true
 					e.setAttribute("open", "")
@@ -1264,30 +1302,76 @@ class FileList extends ContentFill {
 					e.setAttribute("active", "")
 				}
 
-				if (codeFiles.indexOf(item.name.split(".").pop()) !== -1) {
-					e.icon = "code"
+
+				let triggerOpen = false
+				// first we check for SUPPORTED files...
+				if(this._supported && this._supported.ext.length > 0) {
+					// check extensions for a match
+					if(this._supported.ext.indexOf(item.name.split(".").pop())!==-1) {
+						// this is a supported file
+						triggerOpen = true
+					}
+				}
+				if(!triggerOpen && this._supported && this._supported.reg.length > 0) {
+					const reg = this._supported.reg
+					for(let i=0,l=reg.length;i<l;i++) {
+						if(item.name.match(reg[i]) !== null) {
+							triggerOpen = true; i==l
+						}
+					}
+				}
+				
+				if(triggerOpen) {
 					e.addEventListener("click", async (event) => {
 						if ("function" == typeof this._open) {
 							e.setAttribute("loading", "true")
 							await this._open(item)
 							e.removeAttribute("loading")
+						} else {
+							console.warn("FileList.open() handler hasn't been set")
 						}
 					})
-				} else if (imageFiles.indexOf(item.name.split(".").pop()) !== -1) {
-					e.icon = "image"
-					e.addEventListener("click", (e) => {
-						alert("unsupported or unknown file type")
-					})
 				} else {
-					e.icon = "description"
 					e.addEventListener("click", async (event) => {
-						if ("function" == typeof this._open) {
-							e.setAttribute("loading", "true")
-							await this._open(item)
+						e.setAttribute("loading", "true")
+						if ("function" == typeof this._unsupported) {
+							await this._unsupported(item)
 							e.removeAttribute("loading")
+						} else {
+							setTimeout(()=>{
+								e.removeAttribute("loading")
+								if(!this._supported) {
+									console.warn("No supported files specified, set FileList.supported to enable open callbck")
+								} else {
+									console.warn("Unsupported file extension. Set FileList.unsupported to add a handler")
+								}
+							},300)
 						}
 					})
 				}
+				
+				
+				e.icon = "insert_drive_file";
+				if(triggerOpen) e.icon = "description"
+				if(codeFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "code"
+				if(imageFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = (triggerOpen)?"image":"image_not_supported"
+				if(videoFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "movie"
+				if(audioFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "music_note"
+
+				// if (codeFiles.indexOf(item.name.split(".").pop()) !== -1) {
+				// 	e.icon = ""
+				// } else if (imageFiles.indexOf(item.name.split(".").pop()) !== -1) {
+				// 	e.icon = "image"
+				// } else {
+				// 	e.icon = "description"
+				// 	e.addEventListener("click", async (event) => {
+				// 		if ("function" == typeof this._open) {
+				// 			e.setAttribute("loading", "true")
+				// 			await this._open(item)
+				// 			e.removeAttribute("loading")
+				// 		}
+				// 	})
+				// }
 				e.text = " " + item.name
 
 				base.append(e)

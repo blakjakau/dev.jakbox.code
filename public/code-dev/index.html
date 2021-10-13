@@ -136,16 +136,22 @@
 		<ui-menu-item command="app:showAbout" icon="info">About Code</ui-menu-item>
 	</ui-menu>
 	
-	<ui-menu id="top_file_context" onclick="(e)=>{ console.log(e) }">
+	<ui-menu id="top_folder_context" onclick="(e)=>{ console.log(e) }">
 		<ui-menu-item command="refresh" icon="refresh">Refresh Folder</ui-menu-item>
 		<ui-menu-item command="remove" icon="close">Remove Folder</ui-menu-item>
 	</ui-menu>
 
-	<ui-menu id="file_context" onclick="(e)=>{ console.log(e) }">
+	<ui-menu id="folder_context" onclick="(e)=>{ console.log(e) }">
 	<ui-menu-item command="refresh" icon="refresh">Refresh Folder</ui-menu-item>
 	<!--<ui-menu-item command="rename" icon="edit">Rename file</ui-menu-item>-->
 	<!--<ui-menu-split></ui-menu-split>-->
 	<!--<ui-menu-item command="delete" icon="delete">Delete file</ui-menu-item>-->
+	</ui-menu>
+	
+	<ui-menu id="file_context" onclick="(e)=>console.log(e)">
+		<ui-menu-item command="rename" icon="edit">Rename File</ui-menu-item>
+		<ui-menu-split></ui-menu-split>
+		<ui-menu-item command="delete" icon="delete">Delete File</ui-menu-item>
 	</ui-menu>
 	
 	<ui-panel id="about" type=modal blank  class="slideDown" style="left:50%; width:480px; top:16px; height:270px; margin-left:-240px;">
