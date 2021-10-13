@@ -1,6 +1,7 @@
 :root {
 	--theme: #00aabb;
 	--light: #fff;
+	--heigh: #dadada;
 	--mid: #afafaf;
 	/*--dark: #272822;*/
 	--low: #455155;
@@ -61,12 +62,13 @@ ui-tab-item:not([active])::after {
 /*ui-tab-item[active] + ui-tab-item::after { opacity:0; }*/
 
 ui-tabbar[slim]>ui-tab-item { 
-	border-radius: 4px 4px 0 0; background:none; color: var(--light); 
+	border-radius: 4px 4px 0 0; background:none; 
+	color: inherit;
 	border: 0px; transition: background 200ms ease-in-out; }
-ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme);  border:0px; }
+ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme);  border:0px; color: var(--light)}
 /*ui-tabbar[slim]>ui-tab-item:hover+ui-tab-item { background: var(--dark);  }*/
 ui-tabbar[slim]>ui-tab-item:not([active]):hover {
-	background: var(--low);
+	background: var(--heigh);
 }
 ui-tabbar[slim]>ui-tab-item[active]:hover {
 	filter:brightness(1.1);
@@ -337,12 +339,21 @@ ui-file-item[active] {
 	color: var(--mid);
 }
 
+.darkmode ui-actionbar {
+	color: var(--light); 
+}
+
 .darkmode #ace_settingsmenu input,
 .darkmode #ace_settingsmenu select,
 .darkmode #ace_settingsmenu button {
 	background: var(--mid);
 	color: var(--dark);
 }
+
+.darkmode ui-tabbar[slim]>ui-tab-item:not([active]):hover {
+	background: var(--low);
+}
+
 
 .showFiles #tabs,
 .showFiles #ui_editor {
