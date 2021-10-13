@@ -267,19 +267,22 @@ const execCommandPrettify = () => {
 	} catch (e) {
 		console.warn("Unable to prettify", e)
 		const m = e.message
-		let match = m.match(/\>\s(\d*) \|/g)
-		// alert(`Oops... ${e.message}`)
-		if (match.length > 0) {
-			let l = parseInt(match[0].replace(/[\>\|\s]/g, "")) - 1
-			editor.getSession().setAnnotations([
-				{
-					row: l,
-					column: 0,
-					text: m, // Or the Json reply from the parser
-					type: "error", // also "warning" and "information"
-				},
-			])
-			editor.execCommand("goToNextError")
+		try {
+			let match = m.match(/\>\s(\d*) \|/g)
+			if (match.length > 0) {
+				let l = parseInt(match[0].replace(/[\>\|\s]/g, "")) - 1
+				editor.getSession().setAnnotations([
+					{
+						row: l,
+						column: 0,
+						text: m, // Or the Json reply from the parser
+						type: "error", // also "warning" and "information"
+					},
+				])
+				editor.execCommand("goToNextError")
+			}
+		} catch(er) {
+			console.error("Unable to prettify", e, er)
 		}
 	}
 }
