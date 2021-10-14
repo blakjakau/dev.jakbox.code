@@ -27,7 +27,7 @@ This app works _exclusively_ with local file editing, __*NOTHING*__ leaves your 
     - You can make suggestions, and they may be implemented, but the repository owner reserves the right to veto.
 
 ## Where can I try it?
-https://code.jakbox.net/code/
+https://code.jakbox.dev/code/
 
 ## I have other questions
 Check the [FAQ](FAQ.md) before asking them.

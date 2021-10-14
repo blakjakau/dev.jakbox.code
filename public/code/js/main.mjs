@@ -12,7 +12,7 @@
 // --- create "about" panel
 // --- link active tab(s) to file view
 // --- bind edit state between tabs and filelist?
-// infer file type from #!/ opening line
+// --- infer file type from #!/ opening line
 // look at restoring workspace during app load?
 // add save/load triggers for prettier with independant settings
 // addkeyboard navigation to menus
@@ -68,7 +68,7 @@ let permissionNotReloaded = true // should we re-request permission for folders 
 ui.create()
 window.ui = ui
 window.code = {
-	version: "0.2.5",
+	version: "0.2.6",
 }
 
 const app = {
@@ -158,42 +158,46 @@ window.ui.commands = {
 	},
 	bindToDocument() {
 		if (this.boundToDocument) return
-		document.addEventListener("keydown", (e) => {
-			const skipKeys = {
-				ControlLeft: true,
-				ShiftLeft: true,
-				AltLeft: true,
-				AltRight: true,
-				ShiftRight: true,
-				ControlRight: true,
-				MetaLeft: true,
-			}
+		document.addEventListener(
+			"keydown",
+			(e) => {
+				const skipKeys = {
+					ControlLeft: true,
+					ShiftLeft: true,
+					AltLeft: true,
+					AltRight: true,
+					ShiftRight: true,
+					ControlRight: true,
+					MetaLeft: true,
+				}
 
-			const ctrl = e.ctrlKey,
-				shift = e.shiftKey,
-				alt = e.altKey,
-				meta = e.metaKey
+				const ctrl = e.ctrlKey,
+					shift = e.shiftKey,
+					alt = e.altKey,
+					meta = e.metaKey
 
-			const cancelEvent = () => {
-				e.preventDefault()
-				e.stopPropagation()
-			}
-			if (e.code in skipKeys) return
+				const cancelEvent = () => {
+					e.preventDefault()
+					e.stopPropagation()
+				}
+				if (e.code in skipKeys) return
 
-			// build a key code string from this event
-			const bindKey = (
-				(ctrl ? "ctrl-" : "") +
-				(shift ? "shift-" : "") +
-				(alt ? "alt-" : "") +
-				(meta ? "meta-" : "") +
-				e.code.replace(/(Key|Digit)/, "")
-			).toLowerCase()
+				// build a key code string from this event
+				const bindKey = (
+					(ctrl ? "ctrl-" : "") +
+					(shift ? "shift-" : "") +
+					(alt ? "alt-" : "") +
+					(meta ? "meta-" : "") +
+					e.code.replace(/(Key|Digit)/, "")
+				).toLowerCase()
 
-			if (bindKey in this.byKeys) {
-				if(bindKey!=="escape") cancelEvent(e)
-				this.exec(this.byKeys[bindKey])
-			}
-		}, true)
+				if (bindKey in this.byKeys) {
+					if (bindKey !== "escape") cancelEvent(e)
+					this.exec(this.byKeys[bindKey])
+				}
+			},
+			true
+		)
 		this.boundToDocument = true
 	},
 }
@@ -202,12 +206,12 @@ window.ui.commands.bindToDocument()
 const saveFile = async (text, handle) => {
 	const tab = tabBar.activeTab
 	const file = fileList.activeItem
-	
+
 	const writable = await handle.createWritable()
 	await writable.write(text)
 	await writable.close()
 	tab.changed = false
-	if(file) {
+	if (file) {
 		file.changed = false
 	}
 }
@@ -248,9 +252,9 @@ const execCommandPrettify = () => {
 	let text = editor.getValue()
 	const mode = editor.getOption("mode")
 	if (!(mode in canPrettify)) return
-	
+
 	const parser = canPrettify[mode]
-	const activeRow = editor.getCursorPosition().row+1
+	const activeRow = editor.getCursorPosition().row + 1
 
 	try {
 		text = prettier.format(text, {
@@ -281,7 +285,7 @@ const execCommandPrettify = () => {
 				])
 				editor.execCommand("goToNextError")
 			}
-		} catch(er) {
+		} catch (er) {
 			console.error("Unable to prettify", e, er)
 		}
 	}
@@ -397,7 +401,6 @@ const execCommandNewFile = async () => {
 	tab.click()
 }
 
-
 const buildPath = (f) => {
 	if (!(f instanceof FileSystemFileHandle || f instanceof FileSystemDirectoryHandle)) {
 		return ""
@@ -408,23 +411,12 @@ const buildPath = (f) => {
 }
 
 const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
-	
 	// don't add a new tab if the file is already open in a tab
-	for (let i = 0, l = tabBar.tabs.length; i < l; i++) {
-		let tab = tabBar.tabs[i]
-		if (tab.config.handle === handle) {
-			console.warn("File already open")
-			tab.click()
-			return
-		}
-	}
-	// check tabs again, but this time by file path (tab.title)
 	const path = buildPath(handle)
 	{
 		let tab = tabBar.byTitle(path)
-		if(tab) return tab.click()
+		if (tab) return tab.click()
 	}
-
 
 	const file = await handle.getFile()
 	let text = await file.text()
@@ -439,28 +431,28 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
 			break
 		}
 	}
-	
-	if(fileMode.mode == "") {
+
+	if (fileMode.mode == "") {
 		// attempt to infer from line 1
 		const filters = {
 			"ace/mode/sh": /#!.*bash/,
-			"ace/mode/javascript": /#!.*node/
+			"ace/mode/javascript": /#!.*node/,
 		}
-		for(let n in filters) {
-			let filter = filters[n];
-			if(fileMode.mode == "") {
+		for (let n in filters) {
+			let filter = filters[n]
+			if (fileMode.mode == "") {
 				const match = filter.exec(text)
-				if(match && match.index===0) {
+				if (match && match.index === 0) {
 					fileMode.mode = n
 				}
 			}
 		}
 	}
-	
-	if(fileMode.mode=="") {
+
+	if (fileMode.mode == "") {
 		console.warn("Unsupported File", file)
 		alert(`Unsupported or unrecongnised file type: ${file.name.split(".").pop().toUpperCase()}`)
-		return;
+		return
 	}
 
 	if (fileMode.name == "javascript" && 1 == 0) {
@@ -528,11 +520,11 @@ folderMenu.click = topfolderMenu.click = (action) => {
 }
 fileList.context = (e) => {
 	let menu = folderMenu
-	
+
 	if (e.srcElement.parentElement.parentElement instanceof elements.FileList) {
 		menu = topfolderMenu
 	} else {
-		if(e.srcElement?.item?.kind == "file") {
+		if (e.srcElement?.item?.kind == "file") {
 			// menu = fileMenu
 			return
 		} else {
@@ -550,7 +542,7 @@ tabBar.click = (event) => {
 	const tab = event.tab
 	editor.setSession(tab.config.session)
 	fileList.active = tab.config.handle
-	if(tab.changed && fileList.activeItem) {
+	if (tab.changed && fileList.activeItem) {
 		fileList.activeItem.changed = true
 	}
 	thumbStrip.setValue(editor.getValue())
@@ -567,9 +559,9 @@ tabBar.close = (event) => {
 			return
 		}
 	}
-	
+
 	fileList.inactive = tab.config.handle
-	
+
 	tabBar.remove(tab)
 	if (tabBar.tabs.length == 0) {
 		defaultTab()
@@ -638,7 +630,7 @@ fileOpen.on("click", async () => {
 
 const keyBinds = [
 	{
-		target: "editor",
+		target: "app",
 		name: "find",
 		bindKey: { win: "Ctrl-F", mac: "Command-F" },
 		exec: () => {
@@ -646,7 +638,7 @@ const keyBinds = [
 		},
 	},
 	{
-		target: "editor",
+		target: "app",
 		name: "find-next",
 		bindKey: { win: "F3", mac: "F3" },
 		exec: () => {
@@ -662,7 +654,7 @@ const keyBinds = [
 		},
 	},
 	{
-		target: "editor",
+		target: "app",
 		name: "find-regex",
 		bindKey: { win: "Ctrl-Shift-F", mac: "Command-Shift-F" },
 		exec: () => {
@@ -670,7 +662,7 @@ const keyBinds = [
 		},
 	},
 	{
-		target: "editor",
+		target: "app",
 		name: "find-regex-multiline",
 		bindKey: { win: "Ctrl-Shift-Alt-F", mac: "Command-Shift-Alt-F" },
 		exec: () => {
@@ -678,7 +670,7 @@ const keyBinds = [
 		},
 	},
 	{
-		target: "editor",
+		target: "app",
 		name: "goto",
 		bindKey: { win: "Ctrl-G", mac: "Command-G" },
 		exec: () => {
@@ -815,7 +807,7 @@ const keyBinds = [
 	},
 ]
 
-keyBinds.forEach(bind=>{
+keyBinds.forEach((bind) => {
 	window.ui.commands.add(bind)
 })
 
@@ -900,8 +892,7 @@ setTimeout(async () => {
 				ui.themeModeToggle.click()
 			}
 		}
-		
-		
+
 		// set supported files in our FileList control
 		let regs = []
 		for (let n in ace_modes) {
@@ -909,7 +900,7 @@ setTimeout(async () => {
 			regs.push(mode.extRe)
 		}
 		ui.fileList.supported = regs
-		
+
 		let all = []
 		workspace.folders.forEach((handle) => {
 			let perm = verifyPermission(handle, true).then((res) => {
