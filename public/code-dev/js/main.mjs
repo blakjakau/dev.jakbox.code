@@ -12,7 +12,7 @@
 // --- create "about" panel
 // --- link active tab(s) to file view
 // --- bind edit state between tabs and filelist?
-// infer file type from #!/ opening line
+// --- infer file type from #!/ opening line
 // look at restoring workspace during app load?
 // add save/load triggers for prettier with independant settings
 // addkeyboard navigation to menus
@@ -410,21 +410,11 @@ const buildPath = (f) => {
 const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
 	
 	// don't add a new tab if the file is already open in a tab
-	for (let i = 0, l = tabBar.tabs.length; i < l; i++) {
-		let tab = tabBar.tabs[i]
-		if (tab.config.handle === handle) {
-			console.warn("File already open")
-			tab.click()
-			return
-		}
-	}
-	// check tabs again, but this time by file path (tab.title)
 	const path = buildPath(handle)
 	{
 		let tab = tabBar.byTitle(path)
 		if(tab) return tab.click()
 	}
-
 
 	const file = await handle.getFile()
 	let text = await file.text()

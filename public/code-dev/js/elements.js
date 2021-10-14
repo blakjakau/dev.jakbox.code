@@ -1288,7 +1288,8 @@ class FileList extends ContentFill {
 				if (this._active.indexOf(path) > -1) {
 					e.showRefresh = true
 					e.setAttribute("open", "")
-					e.refresh.on("click", () => {
+					e.refresh.on("pointerdown", () => {
+						console.warn("close file from filelist")
 						if ("function" == typeof this.close) {
 							this.close(e.item)
 						}
