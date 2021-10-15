@@ -1,4 +1,4 @@
-// TODO: top priority
+// TODO: enhancements
 // --- drag+drop tabs on the tabbar
 // --- disable live autocomplete
 // --- set text baseValue at load and save, use it for change tracking
