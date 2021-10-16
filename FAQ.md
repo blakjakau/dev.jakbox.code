@@ -23,12 +23,11 @@ For now a working copy of Code is hosted at https://code.jakbox.dev/
 
 If you're running Chrome (or another Chromium-based browser), you'll be prompted to trigger the local install (usually on your second visit).
 
-
 ## Can I contribute? 
 #### If so, how should I?
 Clone/Fork this repo, submit issues, submit pull requests.
 
-## I'm trying to use Regex and...
-This project uses EMCScript regex, provided directly by the Javascrpt runtime. In practice it’s fast and consistent across platforms, but likely doesn’t directly confirm to any “other” standard.
+## I'm trying to use RegEx find and...
+Code uses EMCScript regex, provided directly by the JavaScrpt runtime. In practice it’s pretty fast and consistent across platforms, but doesn’t necessarily map directly to any other "standard" of RegEx.
 
-I love this tool and cheat-sheet for fiddling, if I’m not sure how to regex something https://www.regexpal.com/
+I love this tool and its cheat-sheet for fiddling with Regex in JavaScript, https://www.regexpal.com/
