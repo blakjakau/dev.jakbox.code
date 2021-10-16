@@ -68,7 +68,7 @@ let permissionNotReloaded = true // should we re-request permission for folders 
 ui.create()
 window.ui = ui
 window.code = {
-	version: "0.2.6",
+	version: "0.2.7",
 }
 
 const app = {
