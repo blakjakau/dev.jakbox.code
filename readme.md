@@ -10,15 +10,16 @@ If you're passingly familiar with Sublime Text or VSCode the keyboard bindings s
 - it's super light-weight
 - it's 99% offline capable 
 	- (the 1% is any themes / modes not already loaded will not be available offline)
-- supports over 100 coding languages
 - has tabbed editing
 - common find/Regex Find/goto line
-- comment toggling
-- code folding
-- integrated '*[prettier](https://prettier.io/)' support for HTML/CSS/Javascript
-- built around the '*[ace editor](https://ace.c9.io)'
-- full multi-cursor support
-- many colour themes
+- built around the '[ace editor](https://ace.c9.io)'
+	- supports over 100 coding languages
+	- comment toggling
+	- code folding
+	- full multi-cursor support
+	- many colour themes
+- integrated '[prettier](https://prettier.io/)' 
+	- One touch code reformatting for your HTML/CSS/JavaScript files
 - dark mode
 
 >**Please Note**  
