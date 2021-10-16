@@ -1,0 +1,53 @@
+{
+  "short_name": "Code - DEV",
+  "name": "Code DEV",
+  "icons": [
+    {
+      "src": "/images/code-192-teal.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/images/code-512-teal.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+
+  ],
+  "start_url": "/index.html",
+  "display": "standalone",
+  "display_override": ["window-control-overlay", "standalone"],
+  "scope": "/",
+  "theme_color": "#00aabb",
+  "background_color": "#ffffff",
+  "description": "Super light code editing in your brower",
+  "screenshots": [
+    {
+      "src": "images/screen-small-720x540.png",
+      "type": "image/png",
+      "sizes": "720x540"
+    },
+    {
+      "src": "images/screen-mid-1024x662.png",
+      "type": "image/png",
+      "sizes": "1024x662"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/openFile.html",
+      "accept": {
+        "application/javascript": [".js",".mjs",".jsm",".json"],
+        "text/stylesheet": [".css"],
+        "text/html": [".html"]
+      },
+      "icons": [
+        {
+          "src": "/images/code-192-teal.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}
