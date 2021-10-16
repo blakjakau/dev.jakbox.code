@@ -16,7 +16,7 @@ If you're passingly familiar with Sublime Text or VSCode the keyboard bindings s
 	- supports over 100 coding languages
 	- comment toggling
 	- code folding
-	- full multi-cursor support
+	- multi-cursor support
 	- many colour themes
 - integrated '[prettier](https://prettier.io/)' 
 	- One touch code reformatting for your HTML/CSS/JavaScript files
