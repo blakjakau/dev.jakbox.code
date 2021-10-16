@@ -4,13 +4,13 @@
 
 Editing files on your local machine. 
 
-If you're passingly familiar with Sublime or VSCode the keyboard bindings should feel like home. 
+If you're passingly familiar with Sublime Text or VSCode the keyboard bindings should feel quite familiar. 
 
 ### Key features: 
 - it's super light-weight
 - it's 99% offline capable 
--- (the 1% is any themes / modes not already loaded will not be available offline)
-- It supports over 100 coding languages
+	- (the 1% is any themes / modes not already loaded will not be available offline)
+- supports over 100 coding languages
 - has tabbed editing
 - common find/Regex Find/goto line
 - comment toggling
@@ -32,12 +32,12 @@ The app works _exclusively_ with local file editing, your files don't leave your
 ## Where can I try it?
 For now a working copy of Code is hosted at https://code.jakbox.dev/
 
-Of course you can alway clone the repo, it includes node+express app to host PWA and run/install it from local host.
+Of course you can alway clone the repo, it includes a node+express app to host the PWA and run/install it from localhost, you could be up and running minutes from now...
 
 ## I have other questions
 Check the [FAQ](FAQ.md) before asking them.
 
 ## Licence
-Licenced under "[The 3-Clause BSD License](https://opensource.org/licenses/BSD-3-Clause)". [Licence](licence.md)
+Licenced under "[The 3-Clause BSD License](https://opensource.org/licenses/BSD-3-Clause)". 
 
-
+Actual [licence statement here](licence.md).

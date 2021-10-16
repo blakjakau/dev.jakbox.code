@@ -2,7 +2,7 @@
 
 ## Why another code editor?
 
-I like really web technologies and treating the browser as the platform, rather than reliance on the OS as the platform. I think that we can do just about anything in the browser (setting aside the question of whether or not we SHOULD...).
+I like really web technologies and treating the browser as the platform, rather than reliance on the OS as the platform. I think that we can do just about anything in the browser (setting aside the question of whether or not we SHOULD ;) ).
 
 To that end, I started a little passion project to build a functioning, modestly featured code editor as an installable web application (PWA/Progressive Web App). 
 
@@ -22,6 +22,8 @@ I write software for a living, I've used a lot of editors and IDEs, many have gr
 For now a working copy of Code is hosted at https://code.jakbox.dev/
 
 If you're running Chrome (or another Chromium-based browser), you'll be prompted to trigger the local install (usually on your second visit).
+
+Of course you can alway clone the repo, it includes a node+express app to host the PWA and run/install it from localhost, you could be up and running minutes from now...
 
 ## Can I contribute? 
 #### If so, how should I?
