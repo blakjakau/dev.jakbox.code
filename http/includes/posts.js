@@ -1,6 +1,6 @@
 /*
 	posts - request parser
-	author: jason@walkingwithattitude.com
+	author: jason@jakbox.net
 	created: 2016-04-01
 
 	middleware for handling querystrings and form body. for use with express or connect

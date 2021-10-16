@@ -39,8 +39,8 @@ const staticAssets = [
 	"images/code-192-blue.svg",
 	"images/code-192-teal.png",
 	"images/code-192-simple.svg",
-	"images/screen-small-720x540.png",
-	"images/screen-mid-1024x662.png",
+	// "images/screen-small-720x540.png",
+	// "images/screen-mid-1024x662.png",
 
 	"https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm",
 
@@ -194,7 +194,10 @@ self.addEventListener("fetch", function (event) {
 
 				if (networkResponse) {
 					console.debug("[service] [updating] ", event.request.url)
-					offline.add(new Request(event.request.url))
+					if(event.request.url.indexOf("http")===0) {
+						// let's only cache HTTP/S content	
+						offline.add(new Request(event.request.url))
+					}
 					return networkResponse
 				}
 

@@ -1,5 +1,5 @@
 (function() { 
-	// author blakjak.au@gmil.com
+	// author jason@jakbox.net
 	// extends the console with colour-coded output for info/debug/error
 	// adds stats output
 	var log = (function() {
