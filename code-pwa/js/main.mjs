@@ -3,36 +3,37 @@
 // --- disable live autocomplete
 // --- set text baseValue at load and save, use it for change tracking
 // --- Add "notSupported" page for firefox/brave other browsers that don't support the FileAPI
-// --- add "CTRL+N" to create a new file/untitlted document
-// --- find out why useSoftTabs isn't disbling with its setting
-// --- menus context / file
-// --- persist editor settings
+// --- add "CTRL+N" to create a new file/untitled document
+// --- find out why useSoftTabs isn't disbling with its setting (bug in ACE-setting ext)
+// --- Add menus (file/edit/etc) and context menu for FileList component
+// --- persist editor settings in localstorage / indexdb
 // --- implement "prettier" for code beautification
 // --- bind theme and mode menus
 // --- create "about" panel
+// --- dark mode
 // --- link active tab(s) to file view
 // --- bind edit state between tabs and filelist?
 // --- infer file type from #!/ opening line
-// look at restoring workspace during app load?
+// --- implement OS integration for file handling "Open with" (Chrome origin trial)
+// move ace settings panel into a tabbed modal with other application settings
+// add licence information (including prettier/ace credits to about)
+// look at restoring workspace open files during app load?
+// implement multiple workspaces (restore last open?)
 // add save/load triggers for prettier with independant settings
-// addkeyboard navigation to menus
+// add keyboard navigation to menus
 // implement @lookup in omnibox
+// implement indexing of filenames in workspace folders
 // implement side-by-side split view
 // look at ponyfilling file access https://github.com/jimmywarting/native-file-system-adapter/
-// add "delete file" in filelist context menu?
+// maybe add "delete file" in filelist context menu?
+// maybe consider at porting prettier modules for Kotline/Java/Sh/other?
 
-// experimental... run prettier on load and save of JS files...
+
 import prettier from "https://unpkg.com/prettier@2.4.1/esm/standalone.mjs"
 import parserBabel from "https://unpkg.com/prettier@2.4.1/esm/parser-babel.mjs"
 import parserHtml from "https://unpkg.com/prettier@2.4.1/esm/parser-html.mjs"
 import parserCss from "https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs"
 import { get, set } from 'https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm';
-
-// import parserJava from "https://unpkg.com/prettier@2.4.1/esm/parser-java.mjs"
-// import parserKotlin from "https://unpkg.com/prettier@2.4.1/esm/parser-kotlin.mjs"
-// import parserXml from "https://unpkg.com/prettier@2.4.1/esm/parser-xml.mjs"
-// import parserSh from "https://unpkg.com/prettier@2.4.1/esm/parser-sh.mjs"
-// import parserRuby from "https://unpkg.com/prettier@2.4.1/esm/parser-ruby.mjs"
 
 import ui from "./ui-main.mjs"
 
