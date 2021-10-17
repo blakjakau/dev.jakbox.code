@@ -23,7 +23,18 @@ For now a working copy of Code is hosted at https://code.jakbox.dev/
 
 If you're running Chrome (or another Chromium-based browser), you'll be prompted to trigger the local install (usually on your second visit).
 
-Of course you can alway clone the repo, it includes a node+express app to host the PWA and run/install it from localhost, you could be up and running minutes from now...
+Of course you can alway clone the repo, it includes a [node+express](readme.md#Getting%20Started) app to host the PWA and run/install it from localhost, you could be up and running minutes from now... See [getting started](readme.md#user-content-getting-started)
+
+## Can I run it in X browser
+
+Code only works in desktop, chromium-based browsers (Chrome, Chromium, Edge, Opera), which all have the *File System Access API* implemented and enabled. 
+
+Blocking access to an app based on a missing feature is somewhat antithetical to the premise of Web Applications, and even moreso "Progressive Web Applications". The unfortunate reality is that this app literally will not work this new API. 
+
+Sure a ponyfill could be implmented that would have the user literally download a new copy of a file every time they hit `save` but the experience would be unworthy of using by anyone.
+
+To see the current state of the *File System Access API* on other browsers check [Can I Use](https://caniuse.com/native-filesystem-api)
+
 
 ## Can I contribute? 
 #### If so, how should I?
