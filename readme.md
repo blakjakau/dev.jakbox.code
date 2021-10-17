@@ -39,6 +39,33 @@ For now a working copy of Code is hosted at https://code.jakbox.dev/
 
 Of course you can alway clone the repo, it includes a node+express app to host the PWA and run/install it from localhost, you could be up and running minutes from now...
 
+### Getting started
+
+Assuming you have a working terminal CLI with a working node.js install...
+
+- Clone the repo
+```shell
+git clone https://github.com/blakjakau/dev.jakbox.code.git
+```
+
+- Install the npm packages and `nodemon`
+```sh
+cd dev.jakbox.code
+
+npm i
+
+npm i -g nodemon
+```
+
+- Run the http app
+```sh
+cd http
+npm start
+```
+
+- open a supported browser, see [FAQ](FAQ.md#user-content-can-i-run-it-in-x-browser)
+- navigate to `localhost:8083`
+
 ## I have other questions
 Check the [FAQ](FAQ.md) before asking them.
 
