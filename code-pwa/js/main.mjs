@@ -632,6 +632,17 @@ fileOpen.on("click", async () => {
 const keyBinds = [
 	{
 		target: "app",
+	    name: "showKeyboardShortcuts",
+	    bindKey: {win: "ctrl-alt-k", mac: "Command-Alt-k"},
+	    exec: function() {
+	        ace.config.loadModule("ace/ext/keybinding_menu", function(module) {
+	            module.init(editor);
+	            editor.showKeyboardShortcuts()
+	        })
+	    },
+	},
+	{
+		target: "app",
 		name: "find",
 		bindKey: { win: "Ctrl-F", mac: "Command-F" },
 		exec: () => {

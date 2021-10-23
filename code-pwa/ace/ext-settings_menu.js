@@ -433,16 +433,16 @@ var optionGroups = {
             type: "select",
             items: themes
         },
-        // "Keybinding": {
-        //     type: "buttonBar",
-        //     path: "keyboardHandler",
-        //     items: [
-        //         { caption : "Ace", value : null },
-        //         { caption : "Vim", value : "ace/keyboard/vim" },
-        //         { caption : "Emacs", value : "ace/keyboard/emacs" },
-        //         { caption : "Sublime", value : "ace/keyboard/sublime" }
-        //     ]
-        // },
+        "Keybinding": {
+            type: "buttonBar",
+            path: "keyboardHandler",
+            items: [
+                { caption : "Default", value : "ace/keyboard/sublime" },
+                { caption : "VSCode", value : "ace/keyboard/vscode" },
+                { caption : "Vim", value : "ace/keyboard/vim" },
+                { caption : "Emacs", value : "ace/keyboard/emacs" },
+            ]
+        },
         "Font Size": {
             path: "fontSize",
             type: "number",
