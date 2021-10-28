@@ -31,8 +31,7 @@ The app works _exclusively_ with local file editing, your files don't leave your
 
 ## What is it _not_ for?
 - Storing your documents online (see above).
-- Serving extremely specific needs of others with no utility to me.
-    - You can make suggestions, and they may be implemented, but the repository owner reserves the right to veto.
+- Serving extremely specific or niche needs that add excessive complexity, bloat or performance cost
 
 ## Where can I try it?
 For now a working copy of Code is hosted at https://code.jakbox.dev/
