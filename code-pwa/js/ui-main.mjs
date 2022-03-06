@@ -207,6 +207,21 @@ const uiManager = {
 		omni = new Panel();
 		omni.results = new elements.Panel();
 		omni.results.classList.add("results")
+		omni.results.next = ()=>{
+			omni.resultItemIndex++	
+			if(omni.resultItemIndex >= omni.results.children.length) { omni.resultItemIndex = 0 }
+			for(let node of omni.results.children) { node.classList.remove("active") }
+			omni.results.children[omni.resultItemIndex].classList.add("active")
+			omni.results.children[omni.resultItemIndex].scrollIntoViewIfNeeded()
+		}
+		omni.results.prev = ()=>{
+			omni.resultItemIndex--
+			if(omni.resultItemIndex < 0) { omni.resultItemIndex = omni.results.children.length-1 }
+			for(let node of omni.results.children) { node.classList.remove("active") }
+			omni.results.children[omni.resultItemIndex].classList.add("active")
+			omni.results.children[omni.resultItemIndex].scrollIntoViewIfNeeded()
+		}
+		
 		omni.appendChild(omni.results);
 		
 		omni.titleElement = new elements.Block("omni box")
@@ -279,14 +294,22 @@ const uiManager = {
 						} else {
 							omni.results.show()
 							omni.results.empty()
+							omni.results.scrollTop = 0
 							if(matches.length>0) omni.resultItem = matches[0]
 							// console.log(matches)
 							let counter = 0
 							for(let item of matches) {
-								if(counter>10) continue
+								// if(counter>10) continue
 								const result = new ui.Block()
+								if(counter===0) result.classList.add("active");
+								result.itemIndex = counter
 								result.addEventListener("click", ()=>{
-									fileList.open(item)
+									fileList.open(item); results.hide();
+								})
+								result.addEventListener("pointerover", ()=>{
+									for(let node of omni.results.children) { node.classList.remove("active") }
+									result.classList.add("active")
+									omni.resultItemIndex = result.itemIndex
 								})
 								counter++
 								
@@ -296,6 +319,8 @@ const uiManager = {
 								result.innerHTML = `<big>${name}</big><br/><small>${path}</small>`
 								omni.results.append(result)
 							}
+							
+							
 						}
 					} else {
 						omni.results.hide()
@@ -319,21 +344,41 @@ const uiManager = {
 				omni.stack.shift()
 			}
 		}
-		omni.input.addEventListener("keyup", (e) => {
-			// 			console.debug(e.code, omni.stackPos, omni.stack.length)
-			
+		
+		omni.input.addEventListener("keydown", (e)=>{
 			if (omni.last === "goto" && omni.resultItem) {
 				if (e.code == "ArrowUp") {
 					e.preventDefault()
 					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
+					omni.results.prev()
 					return
 				}
 				
 				if (e.code == "ArrowDown") {
 					e.preventDefault()
 					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
+					omni.results.next()
 					return
 				}
+			}
+		})
+		omni.input.addEventListener("keyup", (e) => {
+			// 			console.debug(e.code, omni.stackPos, omni.stack.length)
+			
+			if (omni.last === "goto" && omni.resultItem) {
+				// if (e.code == "ArrowUp") {
+				// 	e.preventDefault()
+				// 	omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
+				// 	omni.results.prev()
+				// 	return
+				// }
+				
+				// if (e.code == "ArrowDown") {
+				// 	e.preventDefault()
+				// 	omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
+				// 	omni.results.next()
+				// 	return
+				// }
 			} else {
 				if (e.code == "ArrowUp") {
 					if (omni.stackPos > omni.stack.length) {
@@ -375,9 +420,9 @@ const uiManager = {
 
 			if (e.code == "Enter") {
 				if (omni.last === "goto") {
-					
 					if(omni.resultItem) {
-						fileList.open(omni.resultItem)
+						omni.results.children[omni.resultItemIndex].click()
+						results.hide();
 					}
 					uiManager.hideOmnibox()
 					editor.focus()
@@ -440,6 +485,7 @@ const uiManager = {
 
 		window.editor = editor = ace.edit(editorID)
 		window.thumbStrip = thumbstrip = ace.edit(thumbID)
+		window.omni = omni
 		ace.require("ace/keyboard/sublime")
 		ace.require("ace/etc/keybindings_menu")
 		// ace.require("ace/ext/")
