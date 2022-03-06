@@ -295,7 +295,11 @@ const uiManager = {
 							omni.results.show()
 							omni.results.empty()
 							omni.results.scrollTop = 0
-							if(matches.length>0) omni.resultItem = matches[0]
+							if(matches.length>0) { 
+								omni.resultItem = matches[0] 
+							} else {
+								omni.results.hide();
+							}
 							// console.log(matches)
 							let counter = 0
 							for(let item of matches) {
@@ -304,7 +308,7 @@ const uiManager = {
 								if(counter===0) result.classList.add("active");
 								result.itemIndex = counter
 								result.addEventListener("click", ()=>{
-									fileList.open(item); results.hide();
+									fileList.open(item); omni.results.hide();
 								})
 								result.addEventListener("pointerover", ()=>{
 									for(let node of omni.results.children) { node.classList.remove("active") }
@@ -323,6 +327,7 @@ const uiManager = {
 							
 						}
 					} else {
+						omni.resultItem = null
 						omni.results.hide()
 						editor.gotoLine(val)
 					}
@@ -366,19 +371,19 @@ const uiManager = {
 			// 			console.debug(e.code, omni.stackPos, omni.stack.length)
 			
 			if (omni.last === "goto" && omni.resultItem) {
-				// if (e.code == "ArrowUp") {
-				// 	e.preventDefault()
-				// 	omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
-				// 	omni.results.prev()
-				// 	return
-				// }
+				if (e.code == "ArrowUp") {
+					// e.preventDefault()
+					// omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
+					// omni.results.prev()
+					return
+				}
 				
-				// if (e.code == "ArrowDown") {
-				// 	e.preventDefault()
-				// 	omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
-				// 	omni.results.next()
-				// 	return
-				// }
+				if (e.code == "ArrowDown") {
+					// e.preventDefault()
+					// omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
+					// omni.results.next()
+					return
+				}
 			} else {
 				if (e.code == "ArrowUp") {
 					if (omni.stackPos > omni.stack.length) {
@@ -422,7 +427,7 @@ const uiManager = {
 				if (omni.last === "goto") {
 					if(omni.resultItem) {
 						omni.results.children[omni.resultItemIndex].click()
-						results.hide();
+						omni.results.hide();
 					}
 					uiManager.hideOmnibox()
 					editor.focus()
@@ -627,6 +632,7 @@ const uiManager = {
 
 	omnibox: (mode) => {
 		omni.classList.add("active")
+		omni.results.hide();
 		omni.input.focus()
 		omni.stackPos = omni.stack.length
 		if (omni.last == mode && "find regex regex-m".indexOf(mode) != -1) {
