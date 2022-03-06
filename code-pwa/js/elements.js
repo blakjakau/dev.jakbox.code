@@ -38,6 +38,8 @@ const addStylesheet = (u, id) => {
 	})
 }
 
+function sortOnName(a, b) { return a.name < b.name ? -1 : 1 }
+
 async function readAndOrderDirectory(handle) {
 	let files = [],
 		folders = []
@@ -50,14 +52,45 @@ async function readAndOrderDirectory(handle) {
 			folders.push(entry)
 		}
 	}
-	files.sort((a, b) => {
-		return a.name < b.name ? -1 : 1
-	})
-	folders.sort((a, b) => {
-		return a.name < b.name ? -1 : 1
-	})
+	files.sort(sortOnName)
+	folders.sort(sortOnName)
+	
 	return [...folders, ...files]
 }
+
+async function readAndOrderDirectoryRecursive(handle) {
+	let files = [],
+		folders = [];
+	const noindex = [".git", "node_modules"];
+	
+	try {
+		for await (const entry of handle.values()) {
+			// set the parent folder
+			entry.container = handle
+			entry.path = buildPath(entry)
+			
+			if (entry.kind == "file") {
+				files.push(entry)
+			} else {
+				folders.push(entry)
+			}
+		}
+		files.sort(sortOnName)
+		folders.sort(sortOnName)
+		
+		for(let folder of folders) {
+			if(folder.name.substr(0,1)==="." || noindex.indexOf(folder.name)>-1) continue
+			folder.tree = await readAndOrderDirectoryRecursive(folder)
+		}
+		handle.tree = [...folders, ...files] 
+		return [...folders, ...files]
+	} catch(e) {
+		throw(e)
+		return null
+	}
+}
+
+
 
 class Element extends HTMLElement {
 	constructor(content) {
@@ -1193,12 +1226,56 @@ class FileList extends ContentFill {
 			reg: regexes,
 		}
 	}
+	
+	async generateIndex(src) {
+		if(this.indexing == true) return null
+		setTimeout((self)=>{ self.indexing = false }, 500, [this])
+		
+		try {
+			this.indexing = true
+			const tree = await readAndOrderDirectoryRecursive(this._tree)
+			this.indexing = false
+			
+			// now flatten the tree into a single layer index file!
+			const files = []
+			const folders = []
+			const flatten = (tree)=>{
+				for(let item of tree) {
+					if(item.kind == "directory") {
+						folders.push(item)
+						if(item.tree) flatten(item.tree)
+					} else {
+						files.push(item)
+					}
+				}
+			}
+			flatten(tree)
+			
+			this.index = {
+				tree: tree,
+				folders: folders,
+				files: files,
+			}
+
+			console.log(this.index)
+			
+			return this.index
+		} catch(e) {
+			console.warn("unable to generate files index:", e.message)
+			this.indexing = false	
+			return null
+		}
+	}
 
 	_render(base, tree) {
+		// trigger an index generation (if not already done)
+		if(!this.index) { this.generateIndex(this._tree) }
+		
 		const codeFiles = "json js mjs c cpp h hpp css html".split(" ")
 		const imageFiles = "svg jpg jpeg gif tiff png ico bmp webp webm".split(" ")
 		const videoFiles = "avi mp4 webm wmv mov flv f4v mkv 3gp".split(" ")
 		const audioFiles = "mp3 aac wma ogg wav flac".split(" ")
+
 
 		this._contextElement = null
 		if (base.empty) {
@@ -1362,20 +1439,6 @@ class FileList extends ContentFill {
 				if (videoFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "movie"
 				if (audioFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "music_note"
 
-				// if (codeFiles.indexOf(item.name.split(".").pop()) !== -1) {
-				// 	e.icon = ""
-				// } else if (imageFiles.indexOf(item.name.split(".").pop()) !== -1) {
-				// 	e.icon = "image"
-				// } else {
-				// 	e.icon = "description"
-				// 	e.addEventListener("click", async (event) => {
-				// 		if ("function" == typeof this._open) {
-				// 			e.setAttribute("loading", "true")
-				// 			await this._open(item)
-				// 			e.removeAttribute("loading")
-				// 		}
-				// 	})
-				// }
 				e.text = " " + item.name
 
 				base.append(e)
@@ -1421,9 +1484,12 @@ class FileList extends ContentFill {
 
 	set files(tree) {
 		// file handles tree
+		this.index = null
 		this._tree = tree
 		this._render(this._inner, tree)
 	}
+	
+	
 }
 
 // Drag & Drop file uploader box
