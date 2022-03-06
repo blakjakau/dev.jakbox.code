@@ -1493,6 +1493,7 @@ class FileList extends ContentFill {
 		this.index = null
 		this._tree = tree
 		this._render(this._inner, tree)
+		this.generateIndex(this._tree)
 	}
 	
 	find(match) {
