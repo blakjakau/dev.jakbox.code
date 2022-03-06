@@ -453,12 +453,12 @@ ui-file-item[active] {
 	border-bottom: 1px solid var(--ui-shadow);
 }
 
-#omni .results ui-block:first-of-type {
-	color: var(--low);
-	background: var(--high);
-}
+/*#omni .results ui-block.active {*/
+/*	color: var(--low);*/
+/*	background: var(--high);*/
+/*}*/
 
-#omni .results ui-block:hover {
+#omni .results ui-block.active {
 	color:#fff;
 	background: var(--theme);
 	cursor:pointer;
