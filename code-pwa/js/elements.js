@@ -75,19 +75,25 @@ async function readAndOrderDirectoryRecursive(handle) {
 				folders.push(entry)
 			}
 		}
-		files.sort(sortOnName)
-		folders.sort(sortOnName)
-		
-		for(let folder of folders) {
-			if(folder.name.substr(0,1)==="." || noindex.indexOf(folder.name)>-1) continue
-			folder.tree = await readAndOrderDirectoryRecursive(folder)
-		}
-		handle.tree = [...folders, ...files] 
-		return [...folders, ...files]
 	} catch(e) {
 		throw(e)
 		return null
 	}
+		
+	files.sort(sortOnName)
+	folders.sort(sortOnName)
+	
+	for(let folder of folders) {
+		if(folder.name.substr(0,1)==="." || noindex.indexOf(folder.name)>-1) continue
+		try {
+			folder.tree = await readAndOrderDirectoryRecursive(folder)
+		} catch(e) {
+			console.warn("Unable to generate subindex", e.message)
+		}
+	}
+	handle.tree = [...folders, ...files] 
+	return [...folders, ...files]
+	
 }
 
 
@@ -1269,7 +1275,6 @@ class FileList extends ContentFill {
 
 	_render(base, tree) {
 		// trigger an index generation (if not already done)
-		if(!this.index) { this.generateIndex(this._tree) }
 		
 		const codeFiles = "json js mjs c cpp h hpp css html".split(" ")
 		const imageFiles = "svg jpg jpeg gif tiff png ico bmp webp webm".split(" ")
@@ -1309,6 +1314,7 @@ class FileList extends ContentFill {
 								item.tree = await readAndOrderDirectory(item)
 								item.open = true
 								this._render(base, tree)
+								this.generateIndex(this._tree)
 							}
 							e.removeAttribute("loading")
 						} else {
@@ -1487,6 +1493,26 @@ class FileList extends ContentFill {
 		this.index = null
 		this._tree = tree
 		this._render(this._inner, tree)
+	}
+	
+	find(match) {
+		const matches = []
+		for(let item of this.index.files) {
+			if(item.name.indexOf(match)>-1 || item.path.indexOf(match)>-1) {
+				matches.push(item)
+			}
+		}
+		
+		
+		// alphabetise
+		matches.sort((a, b)=>{ return a.name < b.name ? -1 : 1 } )
+		// then lowset position in string
+		matches.sort((a, b)=>{ 
+			if(a.name.indexOf(match) == -1) return 1
+			if(b.name.indexOf(match) == -1) return 0
+			return a.name.indexOf(match) < b.name.indexOf(match) ? -1 : 1 } )
+
+		return matches
 	}
 	
 	

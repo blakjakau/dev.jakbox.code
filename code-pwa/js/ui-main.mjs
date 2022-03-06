@@ -204,7 +204,11 @@ const uiManager = {
 
 		installer.hide()
 
-		omni = new Panel()
+		omni = new Panel();
+		omni.results = new elements.Panel();
+		omni.results.classList.add("results")
+		omni.appendChild(omni.results);
+		
 		omni.titleElement = new elements.Block("omni box")
 		omni.input = new elements.Input()
 		omni.input.value = ""
@@ -265,7 +269,38 @@ const uiManager = {
 					}
 					break
 				case "goto":
-					editor.gotoLine(val)
+					if(isNaN(val)) {
+						omni.resultItem = null
+						omni.resultItemIndex = 0
+						const matches = fileList.find(val)
+						if(matches.length == 0) {
+							omni.results.hide()
+							return
+						} else {
+							omni.results.show()
+							omni.results.empty()
+							if(matches.length>0) omni.resultItem = matches[0]
+							// console.log(matches)
+							let counter = 0
+							for(let item of matches) {
+								if(counter>10) continue
+								const result = new ui.Block()
+								result.addEventListener("click", ()=>{
+									fileList.open(item)
+								})
+								counter++
+								
+								const name = item.name.split(val).join(`<b>${val}</b>`)
+								const path = item.path.split(val).join(`<b>${val}</b>`)
+								
+								result.innerHTML = `<big>${name}</big><br/><small>${path}</small>`
+								omni.results.append(result)
+							}
+						}
+					} else {
+						omni.results.hide()
+						editor.gotoLine(val)
+					}
 					break
 				case "find":
 					// 	if(prev) { return editor.findPrevious({needle: val}); }
@@ -286,36 +321,50 @@ const uiManager = {
 		}
 		omni.input.addEventListener("keyup", (e) => {
 			// 			console.debug(e.code, omni.stackPos, omni.stack.length)
-
-			if (e.code == "ArrowUp") {
-				if (omni.stackPos > omni.stack.length) {
-					omni.stackPos == omni.stack.length
-				} else if (omni.stackPos == omni.stack.length) {
-					omni.saveStack()
+			
+			if (omni.last === "goto" && omni.resultItem) {
+				if (e.code == "ArrowUp") {
+					e.preventDefault()
+					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
+					return
 				}
-				if (omni.stack.length > 0) {
-					omni.stackPos--
-					if (omni.stackPos < 0) omni.stackPos = 0
-					omni.input.value = omni.stack[omni.stackPos]
-					omni.input.setSelectionRange(1, omni.input.value.length)
-					omni.perform(e)
+				
+				if (e.code == "ArrowDown") {
+					e.preventDefault()
+					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
+					return
 				}
-				return
-			}
-			if (e.code == "ArrowDown") {
-				if (omni.stackPos < omni.stack.length - 1) {
-					omni.stackPos++
-					if (omni.stackPos >= omni.stack.length) {
-						omni.input.value = ""
+			} else {
+				if (e.code == "ArrowUp") {
+					if (omni.stackPos > omni.stack.length) {
+						omni.stackPos == omni.stack.length
+					} else if (omni.stackPos == omni.stack.length) {
+						omni.saveStack()
 					}
-					omni.input.value = omni.stack[omni.stackPos]
-					omni.input.setSelectionRange(1, omni.input.value.length)
-					omni.perform(e)
-				} else {
-					omni.stackPos = omni.stack.length
-					// omni.input.value = omni.modePrefix
+					if (omni.stack.length > 0) {
+						omni.stackPos--
+						if (omni.stackPos < 0) omni.stackPos = 0
+						omni.input.value = omni.stack[omni.stackPos]
+						omni.input.setSelectionRange(1, omni.input.value.length)
+						omni.perform(e)
+					}
+					return
 				}
-				return
+				if (e.code == "ArrowDown") {
+					if (omni.stackPos < omni.stack.length - 1) {
+						omni.stackPos++
+						if (omni.stackPos >= omni.stack.length) {
+							omni.input.value = ""
+						}
+						omni.input.value = omni.stack[omni.stackPos]
+						omni.input.setSelectionRange(1, omni.input.value.length)
+						omni.perform(e)
+					} else {
+						omni.stackPos = omni.stack.length
+						// omni.input.value = omni.modePrefix
+					}
+					return
+				}
 			}
 
 			if (e.code == "Escape") {
@@ -326,6 +375,10 @@ const uiManager = {
 
 			if (e.code == "Enter") {
 				if (omni.last === "goto") {
+					
+					if(omni.resultItem) {
+						fileList.open(omni.resultItem)
+					}
 					uiManager.hideOmnibox()
 					editor.focus()
 					return
@@ -548,6 +601,7 @@ const uiManager = {
 					omni.input.setSelectionRange(1, 1)
 					break
 				case "goto":
+					omni.results.hide()
 					omni.input.value = ":"
 					omni.input.setSelectionRange(1, 1)
 					break
@@ -566,7 +620,7 @@ const uiManager = {
 
 	hideOmnibox: () => {
 		omni.saveStack()
-		omni.classList.remove("active")
+		setTimeout(()=>{ omni.classList.remove("active") },200)
 	},
 
 	showSettings: (opts) => {
