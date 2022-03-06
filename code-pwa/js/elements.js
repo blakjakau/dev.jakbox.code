@@ -1498,7 +1498,7 @@ class FileList extends ContentFill {
 	find(match) {
 		const matches = []
 		for(let item of this.index.files) {
-			if((item.name && item.name.indexOf(match)>-1) || (item.path && item.path.indexOf(match)>-1)) {
+			if(item?.name?.indexOf(match)>-1 || item?.path?.indexOf(match)>-1) {
 				matches.push(item)
 			}
 		}
