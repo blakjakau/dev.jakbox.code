@@ -295,8 +295,10 @@ const uiManager = {
 							omni.results.show()
 							omni.results.empty()
 							omni.results.scrollTop = 0
-							if(matches.length>0) omni.resultItem = matches[0] else {
-								results.hide();
+							if(matches.length>0) { 
+								omni.resultItem = matches[0] 
+							} else {
+								omni.results.hide();
 							}
 							// console.log(matches)
 							let counter = 0
