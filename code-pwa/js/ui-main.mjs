@@ -327,6 +327,7 @@ const uiManager = {
 							
 						}
 					} else {
+						omni.resultItem = null
 						omni.results.hide()
 						editor.gotoLine(val)
 					}
@@ -370,19 +371,19 @@ const uiManager = {
 			// 			console.debug(e.code, omni.stackPos, omni.stack.length)
 			
 			if (omni.last === "goto" && omni.resultItem) {
-				// if (e.code == "ArrowUp") {
-				// 	e.preventDefault()
-				// 	omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
-				// 	omni.results.prev()
-				// 	return
-				// }
+				if (e.code == "ArrowUp") {
+					// e.preventDefault()
+					// omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
+					// omni.results.prev()
+					return
+				}
 				
-				// if (e.code == "ArrowDown") {
-				// 	e.preventDefault()
-				// 	omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
-				// 	omni.results.next()
-				// 	return
-				// }
+				if (e.code == "ArrowDown") {
+					// e.preventDefault()
+					// omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
+					// omni.results.next()
+					return
+				}
 			} else {
 				if (e.code == "ArrowUp") {
 					if (omni.stackPos > omni.stack.length) {
