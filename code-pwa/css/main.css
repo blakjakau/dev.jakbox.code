@@ -1,7 +1,7 @@
 :root {
 	/*--theme: #00aabb;*/
 	--light: #fff;
-	--heigh: #dadada;
+	--high: #dadada;
 	--mid: #afafaf;
 	/*--dark: #272822;*/
 	--low: #455155;
@@ -67,7 +67,7 @@ ui-tabbar[slim]>ui-tab-item {
 ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme);  border:0px; color: var(--light)}
 /*ui-tabbar[slim]>ui-tab-item:hover+ui-tab-item { background: var(--dark);  }*/
 ui-tabbar[slim]>ui-tab-item:not([active]):hover {
-	background: var(--heigh);
+	background: var(--high);
 }
 ui-tabbar[slim]>ui-tab-item[active]:hover {
 	filter:brightness(1.1);
@@ -374,11 +374,11 @@ ui-file-item[active] {
 #omni {
 	position:fixed;
 	z-index:10;
-	width:300px;
+	width:400px;
 	height:90px;
 	left:50%;
 	top:4px;
-	margin-left:-150px;
+	margin-left:-200px;
 	border-radius:4px;
 	box-shadow: 0px 5px 10px rgba(0,0,0,0.25);
 	background:#fff;
@@ -433,6 +433,40 @@ ui-file-item[active] {
 	outline:none;
 	font-size: 1.3em;
 }
+
+#omni .results {
+	position:fixed;
+	width:400px;
+	max-height:400px;
+	overflow:auto;
+	box-shadow: 0px 5px 10px rgba(0,0,0,0.25);
+	background:#fff;
+	top: 100px;
+	z-index:10;
+	
+	border-radius:4px;
+	box-shadow: 0px 5px 10px rgba(0,0,0,0.25);
+	background:#fff;
+}
+#omni .results ui-block {
+	text-align:left;
+	border-bottom: 1px solid var(--ui-shadow);
+}
+
+#omni .results ui-block:first-of-type {
+	color: var(--low);
+	background: var(--high);
+}
+
+#omni .results ui-block:hover {
+	color:#fff;
+	background: var(--theme);
+	cursor:pointer;
+}
+#omni .results ui-block b {
+	background: rgba(0,0,0,0.05);
+}
+
 @media (max-width:799px) {
 	.showFiles #ui_editor { left: 0; }
 }
