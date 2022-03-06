@@ -15,15 +15,16 @@
 // --- bind edit state between tabs and filelist?
 // --- infer file type from #!/ opening line
 // --- implement OS integration for file handling "Open with" (Chrome origin trial)
-// move ace settings panel into a tabbed modal with other application settings
-// add licence information (including prettier/ace credits to about)
+// --- implement indexing of filenames in workspace folders
+// --- add licence information (including prettier/ace credits to about)
+// 
 // look at restoring workspace open files during app load?
 // implement multiple workspaces (restore last open?)
-// add save/load triggers for prettier with independant settings
-// add keyboard navigation to menus
+// move ace settings panel into a tabbed modal with other application settings
 // implement @lookup in omnibox
-// implement indexing of filenames in workspace folders
 // implement side-by-side split view
+// add keyboard navigation to menus
+// add save/load triggers for prettier with independant settings
 // look at ponyfilling file access https://github.com/jimmywarting/native-file-system-adapter/
 // maybe add "delete file" in filelist context menu?
 // maybe consider at porting prettier modules for Kotline/Java/Sh/other?
@@ -69,7 +70,7 @@ let permissionNotReloaded = true // should we re-request permission for folders 
 ui.create()
 window.ui = ui
 window.code = {
-	version: "0.2.8",
+	version: "0.2.9",
 }
 
 const app = {

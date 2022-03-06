@@ -23,7 +23,7 @@ If you're passingly familiar with Sublime Text or VSCode the keyboard bindings s
 - dark mode
 
 >**Please Note**  
-> Only works in desktop, chromium-based browsers (Chrome, Chromium, Edge, Opera) - turns out Brave disables the File System API, Firefox and Safari have not (and may never) implement, and AFAIK no mobile browsers support it.
+> Only works in desktop, chromium-based browsers (Chrome, Chromium, Edge, Opera) - turns out Brave disables the File System API (UPDATE: JAN 2022 apparently shortly after writing this Brave added a flag to enable file-system-access-api which can be turned on here  brave://flags/#file-system-access-api ), Firefox and Safari have not (and may never) implement, and AFAIK no mobile browsers support it.
 
 
 
@@ -31,8 +31,7 @@ The app works _exclusively_ with local file editing, your files don't leave your
 
 ## What is it _not_ for?
 - Storing your documents online (see above).
-- Serving extremely specific needs of others with no utility to me.
-    - You can make suggestions, and they may be implemented, but the repository owner reserves the right to veto.
+- Serving extremely specific or niche needs that add excessive complexity, bloat or performance cost
 
 ## Where can I try it?
 For now a working copy of Code is hosted at https://code.jakbox.dev/
