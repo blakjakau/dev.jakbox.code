@@ -474,6 +474,18 @@ ui-file-list > .inner > ui-file-item:not(:first-child) {
 	margin-top: 4px;
 }
 
+ui-file-list > ui-icon.indexing {
+	position:absolute;
+	bottom:4px;
+	right:4px;
+	animation: pulse 1000ms;
+	transition: opacity 333ms ease-in-out;
+	animation-iteration-count: infinite;
+	cursor:default;
+}
+
+
+
 ui-file-item > ui-icon:first-child,
 ui-file-item > ui-inline {
 	pointer-events: none;

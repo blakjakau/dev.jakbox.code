@@ -207,16 +207,24 @@ const uiManager = {
 		omni = new Panel();
 		omni.results = new elements.Panel();
 		omni.results.classList.add("results")
-		omni.results.next = ()=>{
-			omni.resultItemIndex++	
-			if(omni.resultItemIndex >= omni.results.children.length) { omni.resultItemIndex = 0 }
+		omni.results.next = (step=1)=>{
+			omni.resultItemIndex+=step
+			if(step==1) {
+				if(omni.resultItemIndex >= omni.results.children.length) { omni.resultItemIndex = 0 }
+			} else {
+				if(omni.resultItemIndex >= omni.results.children.length) { omni.resultItemIndex = omni.results.children.length - 1 }
+			}
 			for(let node of omni.results.children) { node.classList.remove("active") }
 			omni.results.children[omni.resultItemIndex].classList.add("active")
 			omni.results.children[omni.resultItemIndex].scrollIntoViewIfNeeded()
 		}
-		omni.results.prev = ()=>{
-			omni.resultItemIndex--
-			if(omni.resultItemIndex < 0) { omni.resultItemIndex = omni.results.children.length-1 }
+		omni.results.prev = (step=1)=>{
+			omni.resultItemIndex-=step
+			if(step==1) {
+				if(omni.resultItemIndex < 0) { omni.resultItemIndex = omni.results.children.length-1 }
+			} else {
+				if(omni.resultItemIndex < 0) { omni.resultItemIndex = 0 }
+			}
 			for(let node of omni.results.children) { node.classList.remove("active") }
 			omni.results.children[omni.resultItemIndex].classList.add("active")
 			omni.results.children[omni.resultItemIndex].scrollIntoViewIfNeeded()
@@ -352,6 +360,19 @@ const uiManager = {
 		
 		omni.input.addEventListener("keydown", (e)=>{
 			if (omni.last === "goto" && omni.resultItem) {
+				if (e.code == "PageUp") {
+					e.preventDefault()
+					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
+					omni.results.prev(10);
+					return
+				}
+				if (e.code == "PageDown") {
+					e.preventDefault()
+					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
+					omni.results.next(10);
+					return
+				}
+
 				if (e.code == "ArrowUp") {
 					e.preventDefault()
 					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)

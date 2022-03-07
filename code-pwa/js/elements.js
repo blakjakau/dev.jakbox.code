@@ -1129,7 +1129,12 @@ class FileList extends ContentFill {
 	constructor(content) {
 		super(content)
 		const inner = (this._inner = new Block()) //document.createElement("div")
+		const indexing = (this._indexing = new Icon("find_in_page"))
+		indexing.setAttribute("title", "indexing files")
+		
+		indexing.classList.add("indexing")
 		inner.classList.add("inner")
+		indexing.hide();
 
 		this._active = [] // maintain a list of the active files
 		this.tabGroup = tabIndexGroup++
@@ -1152,6 +1157,7 @@ class FileList extends ContentFill {
 	}
 	connectedCallback() {
 		this.append(this._inner)
+		this.append(this._indexing)
 		// this.append(this._progress);
 		this._inner.setAttribute("slim", "true")
 	}
@@ -1234,12 +1240,21 @@ class FileList extends ContentFill {
 	}
 	
 	async generateIndex(src) {
-		if(this.indexing == true) return null
+		if(this.indexing == true) {
+			this.indexIsStale = true
+			return null
+		}
+		
 		setTimeout((self)=>{ self.indexing = false }, 500, [this])
 		
 		try {
 			this.indexing = true
+			this.indexIsStale = false
+			this._indexing.show()
+			
 			const tree = await readAndOrderDirectoryRecursive(this._tree)
+			
+			this._indexing.hide()
 			this.indexing = false
 			
 			// now flatten the tree into a single layer index file!
@@ -1263,9 +1278,11 @@ class FileList extends ContentFill {
 				files: files,
 			}
 
-			console.log(this.index)
-			
-			return this.index
+			if(this.indexIsStale) {
+				return this.generateIndex(this._tree)
+			} else {
+				return this.index
+			}
 		} catch(e) {
 			console.warn("unable to generate files index:", e.message)
 			this.indexing = false	
