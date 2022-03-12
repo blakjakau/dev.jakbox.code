@@ -412,6 +412,10 @@ const buildPath = (f) => {
 	return n
 }
 
+const findInFile = async (handle, text)=>{
+	// open handle and look for text, return false or count for number of instances
+}
+
 const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
 	// don't add a new tab if the file is already open in a tab
 	const path = buildPath(handle)
@@ -669,7 +673,7 @@ const keyBinds = [
 	{
 		target: "app",
 		name: "find-regex",
-		bindKey: { win: "Ctrl-Shift-F", mac: "Command-Shift-F" },
+		bindKey: { win: "Ctrl-Alt-F", mac: "Command-Shift-F" },
 		exec: () => {
 			window.ui.omnibox("regex")
 		},
@@ -688,6 +692,14 @@ const keyBinds = [
 		bindKey: { win: "Ctrl-G", mac: "Command-G" },
 		exec: () => {
 			window.ui.omnibox("goto")
+		},
+	},
+	{
+		target: "app",
+		name: "find-in-files",
+		bindKey: { win: "Ctrl-Shift-F", mac: "Command-Shift-F" },
+		exec: () => {
+			window.ui.omnibox("find-in-files")
 		},
 	},
 	{

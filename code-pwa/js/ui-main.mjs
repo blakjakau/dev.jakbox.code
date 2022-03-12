@@ -205,6 +205,16 @@ const uiManager = {
 		installer.hide()
 
 		omni = new Panel();
+		omni.find = new elements.Panel();
+		// omni.find.style.background = "var(--light)"
+		omni.find.filter = new elements.Input()
+		omni.find.filter.label = "find exclusion paths: ( '-' to exclude a path pattern )"
+		omni.find.filter.placeholder = "no paths excluded"
+		omni.find.filter.value = "+.js +.mjs +.html +.css"
+		omni.find.append(omni.find.filter)
+		
+		
+		
 		omni.results = new elements.Panel();
 		omni.results.classList.add("results")
 		omni.results.next = (step=1)=>{
@@ -230,8 +240,6 @@ const uiManager = {
 			omni.results.children[omni.resultItemIndex].scrollIntoViewIfNeeded()
 		}
 		
-		omni.appendChild(omni.results);
-		
 		omni.titleElement = new elements.Block("omni box")
 		omni.input = new elements.Input()
 		omni.input.value = ""
@@ -239,9 +247,14 @@ const uiManager = {
 		omni.perform = (e, next = false, prev = false) => {
 			let val = omni.input.value
 			let mode = ""
+			omni.find.hide()
 
 			if (val.substr(0, 1) == "/") {
 				mode = "find"
+			}
+			if (val.substr(0, 1) == ">") {
+				mode = "find-in-files"
+				omni.find.show()
 			}
 			if (val.substr(0, 1) == ":") {
 				mode = "goto"
@@ -264,6 +277,69 @@ const uiManager = {
 			val = val.slice(1)
 
 			switch (mode) {
+				case "find-in-files":
+					if(val.length > 3) {
+						omni.cancelAction = false
+					omni.results.empty()
+					omni.resultItemIndex = 0
+
+					const filter = omni.find.filter.value.split(" ");
+					const include = filter.filter((a)=>{return a.substr(0,1)=="+"})
+					const exclude = filter.filter((a)=>{return a.substr(0,1)=="-"})
+					
+					console.log(include, exclude)
+					
+					const results = []
+					const matches = fileList.withFiles(async (handle)=>{
+						if(omni.cancelAction) {
+							omni.results.empty()
+							return
+						}
+						
+						// lookup editor modes
+						let any = false
+						for (let n in ace_modes) {
+							const mode = ace_modes[n]
+							if (handle.name.match(mode.extRe)) {
+								any = true
+							}
+						}
+						if(!any) return
+						
+						if(include.length>0) { 
+							let any = false
+							for(let inc of include) { 
+								if(handle?.path.toLowerCase().indexOf(inc.toLowerCase().substr(1))!=-1) { 
+									// console.log("matched path", inc)
+									any=true
+								}
+							}
+							if(!any) return
+						}
+						
+						if(exclude.length>0) { for(let exc of exclude) { if(handle?.path.toLowerCase().indexOf(exc.toLowerCase().substr(1))!=-1) return } }
+						
+						const file = await handle.getFile()
+						let text = await file.text()
+						if(text.toLowerCase().indexOf(omni.input.value.substr(1).toLowerCase())>-1) {
+							
+							const index = text.toLowerCase().indexOf(omni.input.value.substr(1).toLowerCase());
+							
+							const maxCut = 50 - omni.input.value.length
+							const cut = text.substr(Math.max(0, index-(maxCut/2)), omni.input.value.length+maxCut)
+							
+							handle.extract = "..."+cut+"...";
+							
+							results.push(handle)
+							omni.showResults(results, 'extract')
+							return handle
+						}
+					})
+					// console.log(matches)
+					// omni.showResults(matches, 'extract')
+					return 
+					}
+					break;
 				case "regex-m":
 				case "regex":
 					let reg
@@ -295,44 +371,14 @@ const uiManager = {
 					if(isNaN(val)) {
 						omni.resultItem = null
 						omni.resultItemIndex = 0
+						omni.results.empty()
 						const matches = fileList.find(val)
 						if(matches.length == 0) {
 							omni.results.hide()
 							return
 						} else {
-							omni.results.show()
-							omni.results.empty()
-							omni.results.scrollTop = 0
-							if(matches.length>0) { 
-								omni.resultItem = matches[0] 
-							} else {
-								omni.results.hide();
-							}
-							// console.log(matches)
-							let counter = 0
-							for(let item of matches) {
-								// if(counter>10) continue
-								const result = new ui.Block()
-								if(counter===0) result.classList.add("active");
-								result.itemIndex = counter
-								result.addEventListener("click", ()=>{
-									fileList.open(item); omni.results.hide();
-								})
-								result.addEventListener("pointerover", ()=>{
-									for(let node of omni.results.children) { node.classList.remove("active") }
-									result.classList.add("active")
-									omni.resultItemIndex = result.itemIndex
-								})
-								counter++
-								
-								const name = item.name.split(val).join(`<b>${val}</b>`)
-								const path = item.path.split(val).join(`<b>${val}</b>`)
-								
-								result.innerHTML = `<big>${name}</big><br/><small>${path}</small>`
-								omni.results.append(result)
-							}
-							
-							
+							omni.showResults(matches)
+							return
 						}
 					} else {
 						omni.resultItem = null
@@ -359,7 +405,11 @@ const uiManager = {
 		}
 		
 		omni.input.addEventListener("keydown", (e)=>{
-			if (omni.last === "goto" && omni.resultItem) {
+			
+			const skipCodes = "MetaLeft AltLeft AltRight ControlLeft ControlRight ShiftLeft ShiftRight".split(" ")
+			if(skipCodes.indexOf(e.code)>-1) return
+			
+			if ((omni.last === "goto" || omni.last == "find-in-files") && omni.resultItem) {
 				if (e.code == "PageUp") {
 					e.preventDefault()
 					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
@@ -387,11 +437,17 @@ const uiManager = {
 					return
 				}
 			}
+			
+			console.log(e.code)
+			if(omni.last == "find-in-files" && e.code != "Enter") {
+				omni.resultItemIndex=-1
+				omni.cancelAction = true
+			}
 		})
-		omni.input.addEventListener("keyup", (e) => {
+		omni.input.addEventListener("keyup", async (e) => {
 			// 			console.debug(e.code, omni.stackPos, omni.stack.length)
 			
-			if (omni.last === "goto" && omni.resultItem) {
+			if ((omni.last === "goto" || omni.last == "find-in-files") && omni.resultItem) {
 				if (e.code == "ArrowUp") {
 					// e.preventDefault()
 					// omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
@@ -439,13 +495,15 @@ const uiManager = {
 			}
 
 			if (e.code == "Escape") {
+				
 				uiManager.hideOmnibox()
 				editor.focus()
 				return
 			}
 
 			if (e.code == "Enter") {
-				if (omni.last === "goto") {
+				
+				if ((omni.last === "goto" || omni.last == "find-in-files") && omni.resultItemIndex>=0) {
 					if(omni.resultItem) {
 						omni.results.children[omni.resultItemIndex].click()
 						omni.results.hide();
@@ -454,6 +512,13 @@ const uiManager = {
 					editor.focus()
 					return
 				}
+
+				
+				if (omni.last == "find-in-files") {
+					omni.perform(e)
+					return
+				}
+				
 				if (e.ctrlKey) {
 					uiManager.hideOmnibox()
 					editor.focus()
@@ -471,9 +536,54 @@ const uiManager = {
 
 			omni.stackPos = omni.stack.length
 		})
+		omni.showResults = (matches, key)=>{
+			const val = omni.input.value
+			omni.results.show()
+			// omni.results.empty()
+			// omni.results.scrollTop = 0
+			if(matches.length>0) { 
+				omni.resultItem = matches[0] 
+			} else {
+				omni.results.hide();
+			}
+			// console.log(matches)
+			let counter = 0
+			for(let item of matches) {
+				if(counter < omni.results.children.length) {
+					counter++
+					continue
+				}
+				// if(counter>10) continue
+				const result = new ui.Block()
+				if(counter===omni.resultItemIndex) result.classList.add("active");
+				result.itemIndex = counter
+				result.addEventListener("click", ()=>{
+					fileList.open(item); 
+					omni.results.hide();
+					uiManager.hideOmnibox()
+				})
+				result.addEventListener("pointerover", ()=>{
+					for(let node of omni.results.children) { node.classList.remove("active") }
+					result.classList.add("active")
+					omni.resultItemIndex = result.itemIndex
+				})
+				counter++
+				
+				const name = (key=="extract"?item.extract:item.name).split(val).join(`<b>${val}</b>`)
+				const path = item.path.split(val).join(`<b>${val}</b>`)
+				
+				result.innerHTML = `<big>${name}</big><br/><small>${path}</small>`
+				omni.results.append(result)
+			}
+		}
+		
+		
 		omni.input.addEventListener("input", omni.perform)
 		omni.prepend(omni.titleElement)
 		omni.append(omni.input)
+		omni.append(omni.find)
+		omni.append(omni.results)
+		
 		omni.append(
 			new elements.Block(
 				`
@@ -481,6 +591,7 @@ const uiManager = {
 				&nbsp;&nbsp; <acronym title='Ctrl-F'>/Find</acronym> 
 				&nbsp;&nbsp; <acronym title='Ctrl-Shift-F'>~RegEx</acronym> 
 				&nbsp;&nbsp; <acronym title='Ctrl-Shift-Alt-F'>?RegEx-Multiline</acronym> 
+				&nbsp;&nbsp; <acronym title='Ctrl-Shift-F'>&gt;Find-in-Files</acronym> 
 				<!--&nbsp;&nbsp; <acronym title='Ctrl-R (Not implemented)'><strike>@Reference</strike></acronym>-->
 				&nbsp;&nbsp; `
 			)
@@ -654,6 +765,9 @@ const uiManager = {
 	omnibox: (mode) => {
 		omni.classList.add("active")
 		omni.results.hide();
+		omni.find.hide()
+		omni.supressBlur = false
+
 		omni.input.focus()
 		omni.stackPos = omni.stack.length
 		if (omni.last == mode && "find regex regex-m".indexOf(mode) != -1) {
@@ -661,6 +775,12 @@ const uiManager = {
 			omni.perform()
 		} else {
 			switch (mode) {
+				case "find-in-files":
+					omni.find.show()
+					omni.input.value = ">"
+					omni.input.setSelectionRange(1, 1)
+					omni.supressBlur = true
+					break;
 				case "find":
 					omni.input.value = "/"
 					omni.input.setSelectionRange(1, 1)
@@ -684,10 +804,15 @@ const uiManager = {
 					break
 			}
 		}
+		
+		omni.titleElement.innerHTML = `omni box - ${mode}`
 		omni.last = mode
 		omni.modePrefix = omni.input.value.substr(0, 1)
 		setTimeout(() => {
-			omni.input.addEventListener("blur", uiManager.hideOmnibox, { once: true })
+			omni.input.addEventListener("blur", ()=>{
+				if(omni.supressBlur) { return }
+				uiManager.hideOmnibox()
+			}, { once: true })
 		})
 	},
 

@@ -375,7 +375,7 @@ ui-file-item[active] {
 	position:fixed;
 	z-index:10;
 	width:400px;
-	height:90px;
+	min-height:90px;
 	left:50%;
 	top:4px;
 	margin-left:-200px;
@@ -412,9 +412,10 @@ ui-file-item[active] {
 	padding:4px 8px;
 }
 
-#omni ui-block:first-of-type {
+#omni>ui-block:first-of-type {
 	font-size:1.5em;
 }
+
 #omni ui-inline {
 	text-align:center;
 }

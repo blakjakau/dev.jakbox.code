@@ -338,6 +338,9 @@ class Input extends Element {
 	get value() {
 		return this._input.value
 	}
+	set placeholder(v) {
+		this._input.setAttribute("placeholder", v)
+	}
 	focus() {
 		this._input.focus()
 	}
@@ -1522,8 +1525,7 @@ class FileList extends ContentFill {
 				matches.push(item)
 			}
 		}
-		
-		
+
 		// alphabetise
 		matches.sort((a, b)=>{ return a.name < b.name ? -1 : 1 } )
 		// then lowset position in string
@@ -1534,8 +1536,22 @@ class FileList extends ContentFill {
 
 		return matches
 	}
+
+	async withFiles(func) {
+		this._indexing.show()
+		const results = []
+		for(const file of this?.index?.files) {
+			const result = await func(file)
+			if(result) {
+				results.push(result)
+			}
+		}
+		this._indexing.hide()
+		return results
+	}
 	
-	
+	showIndexing() { this._indexing.show() }
+	hideIndexing() { this._indexing.hide() }
 }
 
 // Drag & Drop file uploader box
