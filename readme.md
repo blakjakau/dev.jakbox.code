@@ -23,7 +23,11 @@ If you're passingly familiar with Sublime Text or VSCode the keyboard bindings s
 - dark mode
 
 >**Please Note**  
-> Only works in desktop, chromium-based browsers (Chrome, Chromium, Edge, Opera) - turns out Brave disables the File System API (UPDATE: JAN 2022 apparently shortly after writing this Brave added a flag to enable file-system-access-api which can be turned on here  brave://flags/#file-system-access-api ), Firefox and Safari have not (and may never) implement, and AFAIK no mobile browsers support it.
+> Only works in desktop, chromium-based browsers (Chrome, Chromium, Edge, Opera) - turns out Brave disables the File System API, Firefox and Safari have not (and may never) implement, and AFAIK no mobile browsers support it.
+
+> UPDATE: JAN 2022 apparently shortly after writing this Brave added a flag to enable file-system-access-api which can be turned on here  brave://flags/#file-system-access-api
+
+> UPDATE: Desktop Safari has partial support for the File System Access API some time after version 15, the current implementation is not usable for this project.
 
 
 
