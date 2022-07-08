@@ -81,8 +81,8 @@ const app = {
 	enableLiveAutocompletion: null,
 }
 
-let workspace = {
-	name: "unamed",
+const workspace = {
+	name: "default",
 	folders: [],
 	files: [],
 }
@@ -218,12 +218,19 @@ const saveFile = async (text, handle) => {
 	}
 }
 
+const saveWorkspace = async () =>{
+    let name = workspace.name;
+    set(`workspace_${workspace.name}`, workspace)
+    console.debug("saved", workspace)
+}
+
 const saveAppConfig = async () => {
 	app.sessionOptions = ui.editor.session.getOptions()
 	app.rendererOptions = ui.editor.renderer.getOptions()
 	app.enableLiveAutocompletion = ui.editor.$enableLiveAutocompletion
 	delete app.sessionOptions.mode // don't persist the mode, that's dumb
-	app.folders = workspace.folders
+	delete app.folders;//app.folders = workspace.folders
+	app.workspace = workspace.name
 	await set("appConfig", app)
 	console.debug("saved", app)
 }
@@ -335,7 +342,8 @@ const execCommandRemoveAllFolders = () => {
 					workspace.folders.pop()
 				}
 				ui.showFolders()
-				saveAppConfig()
+				// saveAppConfig()
+				saveWorkspace()
 			}
 		}
 	}, 400)
@@ -509,7 +517,8 @@ folderMenu.click = topfolderMenu.click = (action) => {
 					i--
 				}
 			}
-			saveAppConfig()
+// 			saveAppConfig()
+            saveWorkspace()
 			ui.showFolders()
 			break
 		case "refresh":
@@ -569,7 +578,8 @@ tabBar.close = (event) => {
 		defaultTab()
 	}
 	tab.config.session.destroy()
-	saveAppConfig()
+	//saveAppConfig()
+	saveWorkspace()
 }
 
 const defaultTab = () => {
@@ -626,7 +636,8 @@ fileOpen.on("click", async () => {
 	// verifyPermission
 	await verifyPermission(folderHandle)
 	if (addToFolders) workspace.folders.push(folderHandle)
-	saveAppConfig()
+// 	saveAppConfig()
+    saveWorkspace()
 	ui.showFolders()
 })
 
@@ -894,13 +905,35 @@ setTimeout(async () => {
 	editor.on("ready", async () => {
 		// preload stored file and folder handles
 		let stored = await get("appConfig")
+		
+		
+		
 		if ("undefined" != typeof stored) {
 			app.darkmode = stored.darkmode || false
 			app.sessionOptions = stored.sessionOptions || null
 			app.rendererOptions = stored.rendererOptions || null
 			app.enableLiveAutocompletion = stored.enableLiveAutocompletion || null
-			workspace.folders = stored.folders
-			app.folders = workspace.folders
+		    
+		    app.workspace = stored.workspace || "default"
+		    
+		    if(app.workspace) {
+		        let load = await get (`workspace_${app.workspace}`)
+		        if('undefined' != typeof load) {
+		            workspace.name = load.name
+		            workspace.folders = load.folders
+		            workspace.files = load.files
+		        } else {
+		          //  workspace = {
+		          //      name: "default",
+		          //      folders:[]
+		          //  }
+		        }
+		    }
+
+            
+// 			workspace.folders = stored.folders
+// 			app.folders = workspace.folders
+			
 			if (app.darkmode == true) {
 				ui.themeModeToggle.click()
 			}
