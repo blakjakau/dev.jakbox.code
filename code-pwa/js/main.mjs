@@ -575,6 +575,16 @@ fileList.context = (e) => {
 fileList.unlock = verifyPermission
 fileList.open = openFileHandle
 fileList.unsupported = openFileHandle
+fileList.expand = (item)=>{
+    for(const tab of tabBar.tabs) {
+        fileList.active = tab.config.handle
+        if(tab._changed) {
+            fileList.activeItem.changed = true
+        }
+    }
+    fileList.active = tabBar.activeTab.config.handle
+    
+}
 
 tabBar.click = (event) => {
 	const tab = event.tab
