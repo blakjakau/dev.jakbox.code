@@ -640,7 +640,7 @@ const uiManager = {
 	},
 
 	showFolders: async () => {
-		fileList.files = app.folders
+		fileList.files = workspace.folders
 	},
 
 	toggleFiles: () => {

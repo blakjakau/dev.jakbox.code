@@ -557,6 +557,10 @@ ui-icon {
 	font-feature-settings: "liga";
 }
 
+ui-file-item ui-icon {
+    font-size: 1.6em;
+}
+
 ui-menu {
 	position: absolute;
 	left: 0px;

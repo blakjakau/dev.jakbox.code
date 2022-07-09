@@ -1210,7 +1210,12 @@ class FileList extends ContentFill {
 		return file
 	}
 
-	refreshAll() {}
+	async refreshAll() {
+	    const items = this.querySelectorAll("ui-file-item")
+	    for(const item of items) {
+	        if(item.getAttribute("icon").indexOf("folder") == 0) await item.refresh.click()
+	    }
+	}
 
 	set supported(v) {
 		let ok = true,
@@ -1293,6 +1298,21 @@ class FileList extends ContentFill {
 	_render(base, tree) {
 		// trigger an index generation (if not already done)
 		
+		const fileTypes = {
+		    "javascript": "js mjs jsm".split(" "),
+		    "code": "c cpp h hpp".split(" "),
+		    "html": "htm html dhtml".split(" "),
+		    "css":"css".split(" "),
+		    "php":"php".split(" "),
+		    "picture_as_pdf":"pdf".split(" "),
+		    "data_object": "json".split(" "),
+		    "image": "svg jpg jpeg gif tiff png ico bmp webp webm".split(" "),
+		    "movie": "avi mp4 webm wmv mov flv f4v mkv 3gp".split(" "),
+		    "music_note": "mp3 acc wma ogg wav flac".split(" "),
+		}
+		
+		const hideMask = "Zone.Identifier .swo .swp".split(" ");
+		
 		const codeFiles = "json js mjs c cpp h hpp css html".split(" ")
 		const imageFiles = "svg jpg jpeg gif tiff png ico bmp webp webm".split(" ")
 		const videoFiles = "avi mp4 webm wmv mov flv f4v mkv 3gp".split(" ")
@@ -1303,7 +1323,14 @@ class FileList extends ContentFill {
 		if (base.empty) {
 			base.empty()
 		}
+		
 		tree.forEach((item) => {
+		    
+		    for(const hidden of hideMask) {
+		        if(item.name.indexOf(hidden)>-1)
+		        return
+		    }
+		    
 			if (item.kind == "directory") {
 				let e = new FileItem()
 				e.icon = "folder"
@@ -1456,11 +1483,17 @@ class FileList extends ContentFill {
 
 				e.icon = "insert_drive_file"
 				if (triggerOpen) e.icon = "description"
-				if (codeFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "code"
+				
+				for(const key in fileTypes) {
+				    const type = fileTypes[key]
+				    if(type.indexOf(item.name.split(".").pop()) !== -1) e.icon = key
+				}
+				
+				// if (codeFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "code"
 				if (imageFiles.indexOf(item.name.split(".").pop()) !== -1)
 					e.icon = triggerOpen ? "image" : "image_not_supported"
-				if (videoFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "movie"
-				if (audioFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "music_note"
+				// if (videoFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "movie"
+				// if (audioFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "music_note"
 
 				e.text = " " + item.name
 

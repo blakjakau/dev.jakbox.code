@@ -81,8 +81,8 @@ const app = {
 	enableLiveAutocompletion: null,
 }
 
-let workspace = {
-	name: "unamed",
+const workspace = {
+	name: "default",
 	folders: [],
 	files: [],
 }
@@ -92,7 +92,7 @@ window.app = app
 window.workspace = workspace
 
 const fileOpen = new elements.Button("Add Folder to Workspace")
-const fileAccess = new elements.Button("Unlock All")
+const fileAccess = new elements.Button("Restore")
 
 const editor = ui.editor
 const thumbs = ui.thumb
@@ -218,12 +218,19 @@ const saveFile = async (text, handle) => {
 	}
 }
 
+const saveWorkspace = async () =>{
+    let name = workspace.name;
+    set(`workspace_${workspace.name}`, workspace)
+    console.debug("saved", workspace)
+}
+
 const saveAppConfig = async () => {
 	app.sessionOptions = ui.editor.session.getOptions()
 	app.rendererOptions = ui.editor.renderer.getOptions()
 	app.enableLiveAutocompletion = ui.editor.$enableLiveAutocompletion
 	delete app.sessionOptions.mode // don't persist the mode, that's dumb
-	app.folders = workspace.folders
+	delete app.folders;//app.folders = workspace.folders
+	app.workspace = workspace.name
 	await set("appConfig", app)
 	console.debug("saved", app)
 }
@@ -335,7 +342,8 @@ const execCommandRemoveAllFolders = () => {
 					workspace.folders.pop()
 				}
 				ui.showFolders()
-				saveAppConfig()
+				// saveAppConfig()
+				saveWorkspace()
 			}
 		}
 	}, 400)
@@ -482,6 +490,8 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
 	thumbStrip.clearSelection()
 	thumbStrip.gotoLine(0)
 
+    
+
 	const tab = tabBar.add({
 		name: file.name,
 		mode: fileMode,
@@ -490,6 +500,20 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
 		folder: handle.container,
 	})
 	tab.click()
+    
+    let matched = false	
+    for(let i=0;i<workspace.files.length;i++) {
+        if(workspace.files[i].handle == tab.config.handle) {
+            matched = true
+        }
+    }
+    if(!matched) workspace.files.push({
+	    name:file.name,
+	    handle: handle,
+	    container: handle.container
+	})
+	
+    saveWorkspace()
 })
 
 const fileMenu = document.getElementById("file_context")
@@ -509,7 +533,8 @@ folderMenu.click = topfolderMenu.click = (action) => {
 					i--
 				}
 			}
-			saveAppConfig()
+// 			saveAppConfig()
+            saveWorkspace()
 			ui.showFolders()
 			break
 		case "refresh":
@@ -562,6 +587,15 @@ tabBar.close = (event) => {
 		}
 	}
 
+    // remove from workspace recent files
+    for(let i=0;i<workspace.files.length;i++) {
+        if(workspace.files[i].handle == tab.config.handle) {
+            workspace.files.splice(i,1)
+            i--
+        }
+    }
+    // if(workspace.files.indexOf(tab.config.handle)>-1) { workspace.files.splice(workspace.files.indexOf(tab.config.handle), 1) }
+
 	fileList.inactive = tab.config.handle
 
 	tabBar.remove(tab)
@@ -569,7 +603,8 @@ tabBar.close = (event) => {
 		defaultTab()
 	}
 	tab.config.session.destroy()
-	saveAppConfig()
+	//saveAppConfig()
+	saveWorkspace()
 }
 
 const defaultTab = () => {
@@ -600,6 +635,18 @@ fileAccess.on("click", async () => {
 		// hide this button now
 		fileAccess.remove()
 		fileOpen.text = "Add Folder to Workspace"
+		await fileList.refreshAll()
+		
+// 		setTimeout(()=>{
+            if(workspace.files.length>0) {
+                for (const file of workspace.files) {
+                    file.handle.container = file.container
+        			openFileHandle(file.handle)
+        			fileList.active = file.handle
+        		}
+            }
+// 		}, 1000)
+
 	}
 })
 
@@ -626,7 +673,8 @@ fileOpen.on("click", async () => {
 	// verifyPermission
 	await verifyPermission(folderHandle)
 	if (addToFolders) workspace.folders.push(folderHandle)
-	saveAppConfig()
+// 	saveAppConfig()
+    saveWorkspace()
 	ui.showFolders()
 })
 
@@ -894,13 +942,40 @@ setTimeout(async () => {
 	editor.on("ready", async () => {
 		// preload stored file and folder handles
 		let stored = await get("appConfig")
+		
+		
+		
 		if ("undefined" != typeof stored) {
 			app.darkmode = stored.darkmode || false
 			app.sessionOptions = stored.sessionOptions || null
 			app.rendererOptions = stored.rendererOptions || null
 			app.enableLiveAutocompletion = stored.enableLiveAutocompletion || null
-			workspace.folders = stored.folders
-			app.folders = workspace.folders
+		    
+		    app.workspace = stored.workspace || "default"
+		    
+		    if(app.workspace) {
+		        let load = await get (`workspace_${app.workspace}`)
+		        if('undefined' != typeof load) {
+		            workspace.name = load.name||"default"
+		            workspace.folders = load.folders||[]
+		            workspace.files = load.files||[]
+		            
+                    if (workspace.folders.length > 0) {
+                    	fileActions.append(fileAccess)
+                    	fileOpen.text = "Add Folder"
+                    }
+		        } else {
+		          //  workspace = {
+		          //      name: "default",
+		          //      folders:[]
+		          //  }
+		        }
+		    }
+
+            
+// 			workspace.folders = stored.folders
+// 			app.folders = workspace.folders
+			
 			if (app.darkmode == true) {
 				ui.themeModeToggle.click()
 			}
