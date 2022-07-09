@@ -261,6 +261,16 @@ ui-file-item[active] {
 	color: var(--light);
 }
 
+ui-file-item[icon=javascript] ui-icon:first-child { color:#cd0; }
+ui-file-item[icon=css] ui-icon:first-child { color:#0ca; }
+ui-file-item[icon=html] ui-icon:first-child { color:#d77; }
+ui-file-item[icon=php] ui-icon:first-child { color:#b0b; }
+ui-file-item[icon=data_object] ui-icon:first-child { var(--light); opacity: 0.75; }
+ui-file-item[icon=image_not_supported] ui-icon:first-child { var(--light); opacity: 0.33; }
+
+
+ui-file-item[active] ui-icon:first-child { color: var(--light); }
+
 
 #tabs {
 	position:absolute;

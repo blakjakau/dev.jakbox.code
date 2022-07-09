@@ -92,7 +92,7 @@ window.app = app
 window.workspace = workspace
 
 const fileOpen = new elements.Button("Add Folder to Workspace")
-const fileAccess = new elements.Button("Unlock All")
+const fileAccess = new elements.Button("Restore")
 
 const editor = ui.editor
 const thumbs = ui.thumb
@@ -490,6 +490,8 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
 	thumbStrip.clearSelection()
 	thumbStrip.gotoLine(0)
 
+    
+
 	const tab = tabBar.add({
 		name: file.name,
 		mode: fileMode,
@@ -498,6 +500,20 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
 		folder: handle.container,
 	})
 	tab.click()
+    
+    let matched = false	
+    for(let i=0;i<workspace.files.length;i++) {
+        if(workspace.files[i].handle == tab.config.handle) {
+            matched = true
+        }
+    }
+    if(!matched) workspace.files.push({
+	    name:file.name,
+	    handle: handle,
+	    container: handle.container
+	})
+	
+    saveWorkspace()
 })
 
 const fileMenu = document.getElementById("file_context")
@@ -571,6 +587,15 @@ tabBar.close = (event) => {
 		}
 	}
 
+    // remove from workspace recent files
+    for(let i=0;i<workspace.files.length;i++) {
+        if(workspace.files[i].handle == tab.config.handle) {
+            workspace.files.splice(i,1)
+            i--
+        }
+    }
+    // if(workspace.files.indexOf(tab.config.handle)>-1) { workspace.files.splice(workspace.files.indexOf(tab.config.handle), 1) }
+
 	fileList.inactive = tab.config.handle
 
 	tabBar.remove(tab)
@@ -610,6 +635,18 @@ fileAccess.on("click", async () => {
 		// hide this button now
 		fileAccess.remove()
 		fileOpen.text = "Add Folder to Workspace"
+		await fileList.refreshAll()
+		
+// 		setTimeout(()=>{
+            if(workspace.files.length>0) {
+                for (const file of workspace.files) {
+                    file.handle.container = file.container
+        			openFileHandle(file.handle)
+        			fileList.active = file.handle
+        		}
+            }
+// 		}, 1000)
+
 	}
 })
 
@@ -919,9 +956,14 @@ setTimeout(async () => {
 		    if(app.workspace) {
 		        let load = await get (`workspace_${app.workspace}`)
 		        if('undefined' != typeof load) {
-		            workspace.name = load.name
-		            workspace.folders = load.folders
-		            workspace.files = load.files
+		            workspace.name = load.name||"default"
+		            workspace.folders = load.folders||[]
+		            workspace.files = load.files||[]
+		            
+                    if (workspace.folders.length > 0) {
+                    	fileActions.append(fileAccess)
+                    	fileOpen.text = "Add Folder"
+                    }
 		        } else {
 		          //  workspace = {
 		          //      name: "default",
