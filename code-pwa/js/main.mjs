@@ -70,7 +70,7 @@ let permissionNotReloaded = true // should we re-request permission for folders 
 ui.create()
 window.ui = ui
 window.code = {
-	version: "0.3.1",
+	version: "0.3.2",
 }
 
 const app = {
@@ -974,7 +974,7 @@ setTimeout(async () => {
 		
 		
 		if ("undefined" != typeof stored) {
-			app.darkmode = stored.darkmode || false
+			app.darkmode = stored.darkmode || true
 			app.sessionOptions = stored.sessionOptions || null
 			app.rendererOptions = stored.rendererOptions || null
 			app.enableLiveAutocompletion = stored.enableLiveAutocompletion || null
