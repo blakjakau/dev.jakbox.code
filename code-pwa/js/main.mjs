@@ -420,9 +420,9 @@ const buildPath = (f) => {
 	return n
 }
 
-const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
+const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath=null) => {
 	// don't add a new tab if the file is already open in a tab
-	const path = buildPath(handle)
+	const path = knownPath!=null?knownPath:buildPath(handle)
 	{
 		let tab = tabBar.byTitle(path)
 		if (tab) return tab.click()
@@ -490,8 +490,6 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
 	thumbStrip.clearSelection()
 	thumbStrip.gotoLine(0)
 
-    
-
 	const tab = tabBar.add({
 		name: file.name,
 		mode: fileMode,
@@ -507,12 +505,25 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle) => {
             matched = true
         }
     }
-    if(!matched) workspace.files.push({
-	    name:file.name,
-	    handle: handle,
-	    container: handle.container
-	})
-	
+    
+    if(knownPath!=null) return
+    
+    if(!matched) {
+        workspace.files.push({
+    	    name:file.name,
+    	    path: path,
+    	    handle: handle,
+    	    containers: (()=>{
+    	        const containers = []
+    	        const recurse = (container)=>{
+    	            containers.push(container)
+    	            if(container.container) { recurse(container.container)}
+    	        }
+    	        recurse(handle.container)
+    	        return containers
+    	    })()
+    	})
+    }
     saveWorkspace()
 })
 
@@ -637,16 +648,23 @@ fileAccess.on("click", async () => {
 		fileOpen.text = "Add Folder to Workspace"
 		await fileList.refreshAll()
 		
-// 		setTimeout(()=>{
-            if(workspace.files.length>0) {
-                for (const file of workspace.files) {
-                    file.handle.container = file.container
-        			openFileHandle(file.handle)
-        			fileList.active = file.handle
-        		}
-            }
-// 		}, 1000)
-
+        if(workspace.files.length>0) {
+            for (const file of workspace.files) {
+                let newContainers = []
+                let fileContainers = { container: null }
+                let container = fileContainers
+                while(file.containers.length>0) {
+                    let next = file.containers.shift()
+                    newContainers.push(next)
+                    container.container = next
+                    if(file.containers.length>0) container = container.container
+                }
+                file.containers = newContainers
+                file.handle.container = fileContainers.container
+    			openFileHandle(file.handle, file.path)
+    			fileList.active = file.handle
+    		}
+        }
 	}
 })
 
