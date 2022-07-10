@@ -1076,13 +1076,18 @@ class TabBar extends Block {
 		}
 
 		tab.onpointerdown = (event) => {
-			if (event.which == 2) return
+    		if (event.which == 2) {
+				event.stopPropagation()
+				event.preventDefault()
+			    return
+			}
 			tab.click()
 		}
 
 		tab.onpointerup = (event) => {
 			if (event.which == 2) {
 				event.stopPropagation()
+				event.preventDefault()
 				event.tab = tab
 				if ("function" == typeof this._close) {
 					event.tab = tab
