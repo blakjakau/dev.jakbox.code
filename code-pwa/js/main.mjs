@@ -590,6 +590,10 @@ tabBar.click = (event) => {
 	const tab = event.tab
 	editor.setSession(tab.config.session)
 	fileList.active = tab.config.handle
+	
+	tab.scrollIntoViewIfNeeded()
+	tabBar.scrollTop = 0
+	
 	if (tab.changed && fileList.activeItem) {
 		fileList.activeItem.changed = true
 	}
