@@ -70,7 +70,7 @@ let permissionNotReloaded = true // should we re-request permission for folders 
 ui.create()
 window.ui = ui
 window.code = {
-	version: "0.3.1",
+	version: "0.3.2",
 }
 
 const app = {
@@ -575,11 +575,25 @@ fileList.context = (e) => {
 fileList.unlock = verifyPermission
 fileList.open = openFileHandle
 fileList.unsupported = openFileHandle
+fileList.expand = (item)=>{
+    for(const tab of tabBar.tabs) {
+        fileList.active = tab.config.handle
+        if(tab._changed) {
+            fileList.activeItem.changed = true
+        }
+    }
+    fileList.active = tabBar.activeTab.config.handle
+    
+}
 
 tabBar.click = (event) => {
 	const tab = event.tab
 	editor.setSession(tab.config.session)
 	fileList.active = tab.config.handle
+	
+	tab.scrollIntoViewIfNeeded()
+	tabBar.scrollTop = 0
+	
 	if (tab.changed && fileList.activeItem) {
 		fileList.activeItem.changed = true
 	}
@@ -964,7 +978,7 @@ setTimeout(async () => {
 		
 		
 		if ("undefined" != typeof stored) {
-			app.darkmode = stored.darkmode || false
+			app.darkmode = stored.darkmode || true
 			app.sessionOptions = stored.sessionOptions || null
 			app.rendererOptions = stored.rendererOptions || null
 			app.enableLiveAutocompletion = stored.enableLiveAutocompletion || null

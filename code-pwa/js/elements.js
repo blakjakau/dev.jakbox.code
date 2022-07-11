@@ -1076,13 +1076,18 @@ class TabBar extends Block {
 		}
 
 		tab.onpointerdown = (event) => {
-			if (event.which == 2) return
+    		if (event.which == 2) {
+				event.stopPropagation()
+				event.preventDefault()
+			    return
+			}
 			tab.click()
 		}
 
 		tab.onpointerup = (event) => {
 			if (event.which == 2) {
 				event.stopPropagation()
+				event.preventDefault()
 				event.tab = tab
 				if ("function" == typeof this._close) {
 					event.tab = tab
@@ -1188,6 +1193,15 @@ class FileList extends ContentFill {
 
 	get close() {
 		return this._close
+	}
+	
+	set expand(v) {
+		if (!isFunction(v)) throw new Error("expand must be a function")
+		this._expand = v
+	}
+
+	get expand() {
+		return this._expand
 	}
 
 	set context(v) {
@@ -1361,6 +1375,9 @@ class FileList extends ContentFill {
 								this.generateIndex(this._tree)
 							}
 							e.removeAttribute("loading")
+							if ("function" == typeof this.expand) {
+    							this.expand(e.item)
+    						}
 						} else {
 							console.warn(
 								"FileTree has no unlock function. Please provide an unlock to grant file access"
@@ -1385,6 +1402,10 @@ class FileList extends ContentFill {
 							// 			e.showRefresh = true
 							this._render(e.holder, item.tree)
 							e.removeAttribute("loading")
+							if ("function" == typeof this.expand) {
+    							this.expand(e.item)
+    						}
+
 						} else {
 							e.icon = "folder"
 							e.showRefresh = false
