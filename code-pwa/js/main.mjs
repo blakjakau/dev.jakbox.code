@@ -17,8 +17,9 @@
 // --- implement OS integration for file handling "Open with" (Chrome origin trial)
 // --- implement indexing of filenames in workspace folders
 // --- add licence information (including prettier/ace credits to about)
-// 
-// look at restoring workspace open files during app load?
+// --- restore workspace open files during app load
+// --- implement file-type icons in file view
+//
 // implement multiple workspaces (restore last open?)
 // move ace settings panel into a tabbed modal with other application settings
 // implement @lookup in omnibox
@@ -27,14 +28,14 @@
 // add save/load triggers for prettier with independant settings
 // look at ponyfilling file access https://github.com/jimmywarting/native-file-system-adapter/
 // maybe add "delete file" in filelist context menu?
-// maybe consider at porting prettier modules for Kotline/Java/Sh/other?
+// maybe consider porting prettier modules for Kotline/Java/Sh/other?
 
 
 import prettier from "https://unpkg.com/prettier@2.4.1/esm/standalone.mjs"
 import parserBabel from "https://unpkg.com/prettier@2.4.1/esm/parser-babel.mjs"
 import parserHtml from "https://unpkg.com/prettier@2.4.1/esm/parser-html.mjs"
 import parserCss from "https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs"
-import { get, set } from 'https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm';
+import { get, set, del } from 'https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm';
 
 import ui from "./ui-main.mjs"
 
@@ -63,6 +64,9 @@ async function verifyPermission(fileHandle, queryOnly = false) {
 	return false
 }
 
+function sleep(ms) { return new Promise((accept, reject)=>{ setTimeout(accept, ms) }) }
+function safeString(string) { return string.replace(/\ /g, "-").replace(/[^A-Za-z0-9\-]/g, "") }
+
 const editorElementID = "editor"
 const thumbElementID = "thumbstrip"
 let permissionNotReloaded = true // should we re-request permission for folders added
@@ -82,6 +86,7 @@ const app = {
 }
 
 const workspace = {
+	id: "default",
 	name: "default",
 	folders: [],
 	files: [],
@@ -153,8 +158,8 @@ window.ui.commands = {
 		}
 	},
 	exec(commandName, args) {
+		console.log("execCommand", commandName, args)
 		if (commandName in this.byName) {
-			// console.log("execCommand", commandName)
 			this.byName[commandName].exec(args)
 		}
 	},
@@ -218,11 +223,6 @@ const saveFile = async (text, handle) => {
 	}
 }
 
-const saveWorkspace = async () =>{
-    let name = workspace.name;
-    set(`workspace_${workspace.name}`, workspace)
-    console.debug("saved", workspace)
-}
 
 const saveAppConfig = async () => {
 	app.sessionOptions = ui.editor.session.getOptions()
@@ -231,13 +231,128 @@ const saveAppConfig = async () => {
 	delete app.sessionOptions.mode // don't persist the mode, that's dumb
 	delete app.folders;//app.folders = workspace.folders
 	
-	// ensure that the app config has links to the workspace name
-	if(app.workspaces.indexOf(workspace.name)==-1) { app.workspaces.push(workspace.name) }
+	// ensure that the app config has links to the current workspace name
+	if(app.workspaces.indexOf(workspace.id)==-1) { app.workspaces.push(workspace.id) }
+	app.workspace = workspace.id
+
+	// updateWorkspaceSelectors()
 	
-	app.workspace = workspace.name
 	await set("appConfig", app)
 	console.debug("saved", app)
 }
+
+
+let workspaceUnloading = false
+const saveWorkspace = async () =>{
+	if(workspaceUnloading) return
+    let name = workspace.name;
+    set(`workspace_${workspace.id}`, workspace)
+    console.debug("saved", workspace)
+}
+
+
+const updateWorkspaceSelectors = (()=>{
+	const close = document.querySelector("#workspaceClose")
+	const rename = document.querySelector("#workspaceRename")
+	const remove = document.querySelector("#workspaceDelete")
+	const selectors = document.querySelector("#workspaceSelectors")
+	const actions = document.querySelector("#workspaceActions")
+	return ()=>{
+		selectors.innerHTML = ""
+		for(const name of app.workspaces) {
+			// if(name == "default") continue
+			let item = document.createElement("ui-menu-item");
+			item.setAttribute("command", `app:workspaceOpen:${name}`)
+			item.text = name
+
+			selectors.appendChild(item)
+			
+			if(workspace.id == name) {
+				item.icon = "done"
+				if(name !== "default") {
+					actions.appendChild(close)
+					// actions.appendChild(rename)
+					actions.appendChild(remove)
+					
+					close.text = `Close workspace`
+					rename.text = `Rename workspace "${name}"`
+					remove.text = `Delete workspace "${name}"`
+				} else {
+					close.remove()
+					rename.remove()
+					remove.remove()
+				}
+			}
+		}
+	}
+})()
+
+const openWorkspace = (()=>{
+	const close = document.querySelector("#workspaceClose")
+	const rename = document.querySelector("#workspaceRename")
+	const remove = document.querySelector("#workspaceDelete")
+	const selectors = document.querySelector("#workspaceSelectors")
+	const actions = document.querySelector("#workspaceActions")
+	
+	// rename for possible future functionality
+	rename.remove()
+	
+	return async (name, triggered=false) =>{ 
+	    let load = await get (`workspace_${name}`)
+	    
+		const hideActions = ()=>{
+			close.remove(); rename.remove(); remove.remove()
+		}
+	    
+	    if('undefined' != typeof load) {
+			workspaceUnloading = true
+			// clear the tabBar 
+			while(tabBar.tabs.length > 1) { tabBar.tabs[0].close.click() }
+			if(tabBar.tabs[0]) tabBar.tabs[0].close.click()
+			
+	    	workspaceUnloading = false
+	
+	        workspace.name = load.name||"default"
+	        workspace.folders = load.folders||[]
+	        workspace.files = load.files||[]
+	        workspace.id = load.id || safeString(workspace.name)
+	        
+	        if (workspace.folders.length > 0) {
+	        	fileActions.append(fileAccess)
+	        	fileOpen.text = "Add Folder"
+	        	if(triggered) await fileAccess.click()
+	        }
+	
+			app.workspace = workspace.id
+			if(name === "default") { hideActions() }
+	
+			saveAppConfig()
+			ui.showFolders()
+			updateWorkspaceSelectors()
+	    } else {
+	    	if(name === "default") {
+	    		workspace.name = "default"
+	    		workspace.id = "default"
+	    		workspace.files  = []
+	    		workspace.folders = []
+				hideActions()
+				let item = document.createElement("ui-menu-item");
+				item.setAttribute("command", `app:workspaceOpen:default`)
+				item.text = name
+				selectors.appendChild(item)
+				if(name == workspace.name) { item.icon = "done" }
+				
+				saveWorkspace()
+	    	} else {
+		    	alert(`couldn't load workspace ${name}`)
+		    	app.workspaces.splice(app.workspaces.indexOf(name), 1)
+		    	saveAppConfig()
+		    	openWorkspace("default");
+	    	}
+	    }
+	}
+})()
+
 
 ui.themeModeToggle.on("click", () => {
 	setTimeout(() => {
@@ -401,6 +516,7 @@ const execCommandOpen = async () => {
 	fileList.open(newHandle[0])
 }
 
+
 const execCommandNewFile = async () => {
 	const srcTab = tabBar.activeTab
 	const mode = srcTab.config?.mode?.mode || ""
@@ -413,6 +529,10 @@ const execCommandNewFile = async () => {
 	editor.setSession(newSession)
 	execCommandEditorOptions()
 	tab.click()
+}
+
+const execCommandNewWindow = async () => {
+	window.open("/", "new-window", `width=${window.outerWidth},height=${window.outerHeight}`)
 }
 
 const buildPath = (f) => {
@@ -641,16 +761,16 @@ const defaultTab = () => {
 }
 
 // fileActions.hook="bottom";
-fileAccess.icon = "lock_open"
+fileAccess.icon = "settings_backup_restore"
 fileAccess.hook = "right"
-fileAccess.title = "Refresh Workspace File Permissions"
+fileAccess.title = "Unlock folders and restore open files"
 fileAccess.on("click", async () => {
 	let allGood = true
 	for (let i = 0, l = workspace.folders.length; i < l; i++) {
 		let handle = workspace.folders[i]
 		if (await verifyPermission(handle)) {
 			handle.locked = false
-			ui.showFolders()
+			// ui.showFolders(0)
 		} else {
 			allGood = false
 		}
@@ -679,6 +799,9 @@ fileAccess.on("click", async () => {
     			fileList.active = file.handle
     		}
         }
+        ui.showFolders(1)
+	} else {
+		ui.showFolders()
 	}
 })
 
@@ -818,6 +941,12 @@ const keyBinds = [
 	},
 	{
 		target: "app",
+		name: "newWindow",
+		bindKey: { win: "Ctrl+Shift+N", mac: "Command++Shift+N" },
+			exec: execCommandNewWindow,
+	},
+	{
+		target: "app",
 		name: "openFile",
 		bindKey: { win: "Ctrl+O", mac: "Command+O" },
 		exec: execCommandOpen,
@@ -898,6 +1027,95 @@ const keyBinds = [
 			window.ui.hideOmnibox()
 		},
 	},
+	{
+		target: "app",
+		name: "workspaceOpen",
+		exec: async(args) =>{
+			await sleep(400)
+			if(args === workspace.name) { return }
+			openWorkspace(args, true)
+		}
+	},
+	{
+		target: "app",
+		name: "workspaceRename",
+		exec: async() =>{
+			await sleep(400)
+		}
+	},
+	{
+		target: "app",
+		name: "workspaceDelete",
+		exec: async() =>{
+			await sleep(400)
+			if(workspace.name !== "default") {
+				if(confirm(`Really? Perminantly delete workspace ${workspace.name}?`)) {
+					// set(`workspace_${workspace.id}`console.warn("DELETE", workspace)
+					console.warn("DELETE", workspace)
+					del(`workspace_${workspace.id}`)
+					app.workspaces.splice(app.workspaces.indexOf(workspace.id), 1)
+					
+					// reset to default
+					app.workspace = "default"
+					workspace.id = "default"
+					saveAppConfig()
+					openWorkspace("default")
+				}
+			} else {
+				console.warn("unsupported")
+			}
+		}
+	},
+	{
+		target: "app",
+		name: "workspaceNew",
+		exec: async () => {
+			await sleep(400)
+			// ensure there are no unsaved edits
+			let unsaved = false
+			for(const tab of tabBar.tabs) {
+				if(tab._changed) unsaved = true
+			}
+			if(unsaved) {
+				if(!confirm("You have unsaved changes, are you sure?")) {
+					return
+				}
+			}
+			
+			let name = prompt("New workspace name")
+			if(name) {
+				const id = safeString(name);
+				if(app.workspaces.indexOf(id)!==-1) {
+					alert("workspace name already exists")
+					return
+				} 
+				app.workspaces.push(id)
+				app.workspace = id
+				
+				workspace.name = name
+				workspace.id = id
+				workspace.folders = []
+				workspace.files = []
+				
+				// clear the tabBar 
+				while(tabBar.tabs.length > 1) {
+					tabBar.tabs[0].close.click()
+				}
+				tabBar.tabs[0].close.click()
+				
+				console.log("new workspace", name)
+				// refresh the folder list
+				ui.showFolders()
+				// update the workspace menu
+				// update the app config object
+				saveAppConfig()
+				
+				updateWorkspaceSelectors()
+				
+				fileAccess.remove()
+			}
+		},
+	},
 ]
 
 keyBinds.forEach((bind) => {
@@ -974,9 +1192,7 @@ setTimeout(async () => {
 	editor.on("ready", async () => {
 		// preload stored file and folder handles
 		let stored = await get("appConfig")
-		
-		
-		
+
 		if ("undefined" != typeof stored) {
 			app.darkmode = stored.darkmode || true
 			app.sessionOptions = stored.sessionOptions || null
@@ -984,30 +1200,14 @@ setTimeout(async () => {
 			app.enableLiveAutocompletion = stored.enableLiveAutocompletion || null
 		    
 		    app.workspace = stored.workspace || "default"
+		    app.workspaces = stored.workspaces || [app.workspace]
 		    
 		    if(app.workspace) {
-		        let load = await get (`workspace_${app.workspace}`)
-		        if('undefined' != typeof load) {
-		            workspace.name = load.name||"default"
-		            workspace.folders = load.folders||[]
-		            workspace.files = load.files||[]
-		            
-                    if (workspace.folders.length > 0) {
-                    	fileActions.append(fileAccess)
-                    	fileOpen.text = "Add Folder"
-                    }
-		        } else {
-		          //  workspace = {
-		          //      name: "default",
-		          //      folders:[]
-		          //  }
-		        }
+		    	openWorkspace(app.workspace);
+		    } else {
+				updateWorkspaceSelectors()
 		    }
 
-            
-// 			workspace.folders = stored.folders
-// 			app.folders = workspace.folders
-			
 			if (app.darkmode == true) {
 				ui.themeModeToggle.click()
 			}
@@ -1042,9 +1242,9 @@ setTimeout(async () => {
 		})
 
 		if (workspace.folders.length > 0) {
-			ui.toggleFiles()
 			ui.showFolders()
 		}
+		ui.toggleFiles()
 		defaultTab()
 
 		if ("launchQueue" in window) {
