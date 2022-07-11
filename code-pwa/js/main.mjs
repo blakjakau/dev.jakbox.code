@@ -230,6 +230,10 @@ const saveAppConfig = async () => {
 	app.enableLiveAutocompletion = ui.editor.$enableLiveAutocompletion
 	delete app.sessionOptions.mode // don't persist the mode, that's dumb
 	delete app.folders;//app.folders = workspace.folders
+	
+	// ensure that the app config has links to the workspace name
+	if(app.workspaces.indexOf(workspace.name)==-1) { app.workspaces.push(workspace.name) }
+	
 	app.workspace = workspace.name
 	await set("appConfig", app)
 	console.debug("saved", app)
