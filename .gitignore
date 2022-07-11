@@ -48,4 +48,6 @@ Thumbs.db
 *.flv
 *.mov
 *.wmv
-
+*Zone.Identifier
+*.swo
+*.swp
