@@ -83,7 +83,7 @@
 
 	    <ui-button id="menu_file">File</ui-button>
 	    <ui-button id="menu_edit">Edit</ui-button>
-	    <ui-button id="menu_project">Folders</ui-button>
+	    <ui-button id="menu_project">Workspace</ui-button>
 	    <ui-button id="menu_settings">Settings</ui-button>
 	</ui-actionbar>
 
@@ -100,7 +100,7 @@
 
 	<ui-menu id="mode_menu" attachTo="#mode_select" slim onclick="(e)=>{ window.ui.execCommand(e) }">
 	</ui-menu>
-	
+
 	<ui-menu attachTo="#menu_file" onclick="(e)=>{ window.ui.execCommand(e) }">
 		<ui-menu-item command="app:newFile" icon="note_add" keyTag="Ctrl-N">New File</ui-menu-item>
 		<ui-menu-item command="app:openFile" keyTag="Ctrl-O">Open File</ui-menu-item>
@@ -140,7 +140,18 @@
 	    <ui-menu-split></ui-menu-split>
 	    <ui-menu-item command="app:addFolder" icon="create_new_folder">Add Folder</ui-menu-item>
 	    <ui-menu-item command="app:refreshFolders" icon="refresh">Refresh Folders</ui-menu-item>
-	    <ui-menu-item command="app:removeAllFolders" icon="close">Remove All Folders</ui-menu-item>
+	    <ui-menu-item command="app:removeAllFolders" icon="remove">Remove All Folders</ui-menu-item>
+	    <ui-menu-split></ui-menu-split>
+	    <ui-menu-item command="app:workspaceNew" icon="add">Create New Workspace</ui-menu-item>
+	    <ui-menu-split></ui-menu-split>
+	    <div id="workspaceSelectors"></div>
+	    <ui-menu-split></ui-menu-split>
+	    <div id="workspaceActions">
+	    	<ui-menu-item id="workspaceClose" command="app:workspaceOpen:default" icon="close"></ui-menu-item>
+	    	<ui-menu-item id="workspaceRename" command="app:workspaceRename" icon="edit"></ui-menu-item>
+	    	<ui-menu-item id="workspaceDelete" command="app:workspaceDelete" icon="delete"></ui-menu-item>
+	    </div>
+	    <!--<ui-menu-item command="app:workspaceOpen:default" icon="workspaces">default</ui-menu-item>-->
     </ui-menu>
 
 	<ui-menu attachTo="#menu_settings" onclick="(e)=>{ window.ui.execCommand(e) }">
@@ -151,7 +162,7 @@
 	
 	<ui-menu id="top_folder_context" onclick="(e)=>{ console.log(e) }">
 		<ui-menu-item command="refresh" icon="refresh">Refresh Folder</ui-menu-item>
-		<ui-menu-item command="remove" icon="close">Remove Folder</ui-menu-item>
+		<ui-menu-item command="remove" icon="remove">Remove Folder</ui-menu-item>
 	</ui-menu>
 
 	<ui-menu id="folder_context" onclick="(e)=>{ console.log(e) }">

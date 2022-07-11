@@ -20,8 +20,8 @@ var editorElement, editorHolder, thumbElement
 var menu, tabBar, openDir
 var files, fileActions, fileList
 var statusbar
-var statusTheme, statusMode
-var themeMenu, modeMenu
+var statusTheme, statusMode, statusWorkspace
+var themeMenu, modeMenu, workspaceMenu
 var omni
 var modal
 var installer
@@ -204,34 +204,46 @@ const uiManager = {
 
 		installer.hide()
 
-		omni = new Panel();
-		omni.results = new elements.Panel();
+		omni = new Panel()
+		omni.results = new elements.Panel()
 		omni.results.classList.add("results")
-		omni.results.next = (step=1)=>{
-			omni.resultItemIndex+=step
-			if(step==1) {
-				if(omni.resultItemIndex >= omni.results.children.length) { omni.resultItemIndex = 0 }
+		omni.results.next = (step = 1) => {
+			omni.resultItemIndex += step
+			if (step == 1) {
+				if (omni.resultItemIndex >= omni.results.children.length) {
+					omni.resultItemIndex = 0
+				}
 			} else {
-				if(omni.resultItemIndex >= omni.results.children.length) { omni.resultItemIndex = omni.results.children.length - 1 }
+				if (omni.resultItemIndex >= omni.results.children.length) {
+					omni.resultItemIndex = omni.results.children.length - 1
+				}
 			}
-			for(let node of omni.results.children) { node.classList.remove("active") }
+			for (let node of omni.results.children) {
+				node.classList.remove("active")
+			}
 			omni.results.children[omni.resultItemIndex].classList.add("active")
 			omni.results.children[omni.resultItemIndex].scrollIntoViewIfNeeded()
 		}
-		omni.results.prev = (step=1)=>{
-			omni.resultItemIndex-=step
-			if(step==1) {
-				if(omni.resultItemIndex < 0) { omni.resultItemIndex = omni.results.children.length-1 }
+		omni.results.prev = (step = 1) => {
+			omni.resultItemIndex -= step
+			if (step == 1) {
+				if (omni.resultItemIndex < 0) {
+					omni.resultItemIndex = omni.results.children.length - 1
+				}
 			} else {
-				if(omni.resultItemIndex < 0) { omni.resultItemIndex = 0 }
+				if (omni.resultItemIndex < 0) {
+					omni.resultItemIndex = 0
+				}
 			}
-			for(let node of omni.results.children) { node.classList.remove("active") }
+			for (let node of omni.results.children) {
+				node.classList.remove("active")
+			}
 			omni.results.children[omni.resultItemIndex].classList.add("active")
 			omni.results.children[omni.resultItemIndex].scrollIntoViewIfNeeded()
 		}
-		
-		omni.appendChild(omni.results);
-		
+
+		omni.appendChild(omni.results)
+
 		omni.titleElement = new elements.Block("omni box")
 		omni.input = new elements.Input()
 		omni.input.value = ""
@@ -292,47 +304,48 @@ const uiManager = {
 					}
 					break
 				case "goto":
-					if(isNaN(val)) {
+					if (isNaN(val)) {
 						omni.resultItem = null
 						omni.resultItemIndex = 0
 						const matches = fileList.find(val)
-						if(matches.length == 0) {
+						if (matches.length == 0) {
 							omni.results.hide()
 							return
 						} else {
 							omni.results.show()
 							omni.results.empty()
 							omni.results.scrollTop = 0
-							if(matches.length>0) { 
-								omni.resultItem = matches[0] 
+							if (matches.length > 0) {
+								omni.resultItem = matches[0]
 							} else {
-								omni.results.hide();
+								omni.results.hide()
 							}
 							// console.log(matches)
 							let counter = 0
-							for(let item of matches) {
+							for (let item of matches) {
 								// if(counter>10) continue
 								const result = new ui.Block()
-								if(counter===0) result.classList.add("active");
+								if (counter === 0) result.classList.add("active")
 								result.itemIndex = counter
-								result.addEventListener("click", ()=>{
-									fileList.open(item); omni.results.hide();
+								result.addEventListener("click", () => {
+									fileList.open(item)
+									omni.results.hide()
 								})
-								result.addEventListener("pointerover", ()=>{
-									for(let node of omni.results.children) { node.classList.remove("active") }
+								result.addEventListener("pointerover", () => {
+									for (let node of omni.results.children) {
+										node.classList.remove("active")
+									}
 									result.classList.add("active")
 									omni.resultItemIndex = result.itemIndex
 								})
 								counter++
-								
+
 								const name = item.name.split(val).join(`<b>${val}</b>`)
 								const path = item.path.split(val).join(`<b>${val}</b>`)
-								
+
 								result.innerHTML = `<big>${name}</big><br/><small>${path}</small>`
 								omni.results.append(result)
 							}
-							
-							
 						}
 					} else {
 						omni.resultItem = null
@@ -357,19 +370,19 @@ const uiManager = {
 				omni.stack.shift()
 			}
 		}
-		
-		omni.input.addEventListener("keydown", (e)=>{
+
+		omni.input.addEventListener("keydown", (e) => {
 			if (omni.last === "goto" && omni.resultItem) {
 				if (e.code == "PageUp") {
 					e.preventDefault()
 					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
-					omni.results.prev(10);
+					omni.results.prev(10)
 					return
 				}
 				if (e.code == "PageDown") {
 					e.preventDefault()
 					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
-					omni.results.next(10);
+					omni.results.next(10)
 					return
 				}
 
@@ -379,7 +392,7 @@ const uiManager = {
 					omni.results.prev()
 					return
 				}
-				
+
 				if (e.code == "ArrowDown") {
 					e.preventDefault()
 					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
@@ -390,7 +403,7 @@ const uiManager = {
 		})
 		omni.input.addEventListener("keyup", (e) => {
 			// 			console.debug(e.code, omni.stackPos, omni.stack.length)
-			
+
 			if (omni.last === "goto" && omni.resultItem) {
 				if (e.code == "ArrowUp") {
 					// e.preventDefault()
@@ -398,7 +411,7 @@ const uiManager = {
 					// omni.results.prev()
 					return
 				}
-				
+
 				if (e.code == "ArrowDown") {
 					// e.preventDefault()
 					// omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
@@ -446,9 +459,9 @@ const uiManager = {
 
 			if (e.code == "Enter") {
 				if (omni.last === "goto") {
-					if(omni.resultItem) {
+					if (omni.resultItem) {
 						omni.results.children[omni.resultItemIndex].click()
-						omni.results.hide();
+						omni.results.hide()
 					}
 					uiManager.hideOmnibox()
 					editor.focus()
@@ -562,18 +575,18 @@ const uiManager = {
 		editor.on("change", () => {
 			const pos = editor.getCursorPosition
 			cursorpos.innerHTML = `${pos.col}:${pos.row}`
-			if(!editor.session.getUndoManager().isClean()) {
-				if(editor.getValue() !== editor.session.baseValue) {
-					if(tabBar.activeTab) tabBar.activeTab.changed = true 
-					if(fileList.activeItem) fileList.activeItem.changed = true
+			if (!editor.session.getUndoManager().isClean()) {
+				if (editor.getValue() !== editor.session.baseValue) {
+					if (tabBar.activeTab) tabBar.activeTab.changed = true
+					if (fileList.activeItem) fileList.activeItem.changed = true
 				} else {
-					if(tabBar.activeTab) tabBar.activeTab.changed = false
-					if(fileList.activeItem) fileList.activeItem.changed = false
+					if (tabBar.activeTab) tabBar.activeTab.changed = false
+					if (fileList.activeItem) fileList.activeItem.changed = false
 					editor.session.getUndoManager().markClean()
 				}
 			} else {
-				if(tabBar.activeTab) tabBar.activeTab.changed = false
-				if(fileList.activeItem) fileList.activeItem.changed = false
+				if (tabBar.activeTab) tabBar.activeTab.changed = false
+				if (fileList.activeItem) fileList.activeItem.changed = false
 			}
 			// check if the buffer has edits
 			// 			tabBar.activeTab.changed = !!(editor.getSession().$undoManager.$undoStack.length>0)
@@ -584,11 +597,17 @@ const uiManager = {
 		return
 	},
 
+	updateWorkspace:(appConfig) =>{ 
+		window.workspaceMenu = workspaceMenu
+		
+	},
+
 	updateThemeAndMode: () => {
 		const c_mode = editor.getOption("mode")
 		const c_theme = editor.getOption("theme")
 		window.themeMenu = themeMenu
 		window.modeMenu = modeMenu
+		
 
 		if (window.ace_themes) {
 			// themeMenu.empty();
@@ -639,7 +658,8 @@ const uiManager = {
 		}
 	},
 
-	showFolders: async () => {
+	showFolders: async (expandLevels=1) => {
+		fileList.autoExpand = expandLevels
 		fileList.files = workspace.folders
 	},
 
@@ -653,7 +673,7 @@ const uiManager = {
 
 	omnibox: (mode) => {
 		omni.classList.add("active")
-		omni.results.hide();
+		omni.results.hide()
 		omni.input.focus()
 		omni.stackPos = omni.stack.length
 		if (omni.last == mode && "find regex regex-m".indexOf(mode) != -1) {
@@ -693,7 +713,9 @@ const uiManager = {
 
 	hideOmnibox: () => {
 		omni.saveStack()
-		setTimeout(()=>{ omni.classList.remove("active") },200)
+		setTimeout(() => {
+			omni.classList.remove("active")
+		}, 200)
 	},
 
 	showSettings: (opts) => {

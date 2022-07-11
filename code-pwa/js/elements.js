@@ -1140,7 +1140,8 @@ class FileList extends ContentFill {
 		indexing.classList.add("indexing")
 		inner.classList.add("inner")
 		indexing.hide();
-
+		
+		this._expandLevels = 0
 		this._active = [] // maintain a list of the active files
 		this.tabGroup = tabIndexGroup++
 		this._contextElement = null
@@ -1165,6 +1166,16 @@ class FileList extends ContentFill {
 		this.append(this._indexing)
 		// this.append(this._progress);
 		this._inner.setAttribute("slim", "true")
+	}
+	
+	set autoExpand(v) {
+		if(~isNaN(v)) {
+			this._expandLevels = v
+		}
+	}
+
+	get autoExpand() {
+		return this._expandLevels
 	}
 
 	set unlock(v) {
@@ -1309,7 +1320,7 @@ class FileList extends ContentFill {
 		}
 	}
 
-	_render(base, tree) {
+	_render(base, tree, depth=0) {
 		// trigger an index generation (if not already done)
 		
 		const fileTypes = {
@@ -1371,7 +1382,7 @@ class FileList extends ContentFill {
 								item.locked = false
 								item.tree = await readAndOrderDirectory(item)
 								item.open = true
-								this._render(base, tree)
+								this._render(base, tree,depth+1)
 								this.generateIndex(this._tree)
 							}
 							e.removeAttribute("loading")
@@ -1385,26 +1396,29 @@ class FileList extends ContentFill {
 						}
 					})
 				} else {
-					if (item.tree && item.open) {
+					if (item.tree && item.open) { 
 						e.icon = "folder_open"
 						// 		e.showRefresh = true
-						this._render(e.holder, item.tree)
+						this._render(e.holder, item.tree,depth+1)
+					} else if(depth<this._expandLevels) {
+						(async()=>{
+							if (!item.tree) { e.setAttribute("loading", "true"); item.tree = await readAndOrderDirectory(item) }
+							e.icon = "folder_open"
+							this._render(e.holder, item.tree,depth+1)
+							if ("function" == typeof this.expand) { this.expand(e.item) }
+							e.removeAttribute("loading")
+							item.open = true
+						})()
 					}
 
 					e.addEventListener("click", async (event) => {
 						item.open = !item.open
 						if (item.open) {
-							if (!item.tree) {
-								e.setAttribute("loading", "true")
-								item.tree = await readAndOrderDirectory(item)
-							}
+							if (!item.tree) { e.setAttribute("loading", "true"); item.tree = await readAndOrderDirectory(item) }
 							e.icon = "folder_open"
-							// 			e.showRefresh = true
-							this._render(e.holder, item.tree)
+							this._render(e.holder, item.tree,depth+1)
 							e.removeAttribute("loading")
-							if ("function" == typeof this.expand) {
-    							this.expand(e.item)
-    						}
+							if ("function" == typeof this.expand) { this.expand(e.item) }
 
 						} else {
 							e.icon = "folder"
@@ -2006,10 +2020,15 @@ class MenuItem extends Button {
 		this._icon = new Icon()
 		this._tag = new Inline()
 		this.addEventListener("click", () => {
+			// find first Menu ancestor, max 5 levels to allow for some nesting and dynamism in the menu object
+			let parent = this.parentElement, steps = 0;
+			while(parent.tagName != "UI-MENU" && steps<4) { parent = parent.parentElement; steps++ }
+			if(parent.tagName != "UI-MENU") return
+			
 			if (this.getAttribute("command")) {
-				this.parentElement.click(this.getAttribute("command"))
+				parent.click(this.getAttribute("command"))
 			} else {
-				this.parentElement.click(this)
+				parent.click(this)
 			}
 		})
 	}
