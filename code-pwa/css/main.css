@@ -159,9 +159,13 @@ header nav {
 	color:var(--light); }
 
 ui-actionbar#menu {
+	margin-left: env(titlebar-area-x, 0);
 	z-index:6;
-	background: var(--theme);;
+	background: var(--theme);
+	-webkit-app-region: drag;
+	app-region: drag;
 }
+
 ui-actionbar#menu ui-inline:first-of-type {
 	color:#000;
 	border-right: 1px solid rgba(0,0,0,0.5);
@@ -179,6 +183,9 @@ ui-actionbar[slim]#fileActions {
 
 ui-actionbar#menu ui-button {
 	color:#fff
+	-webkit-app-region: no-drag;
+	app-region: no-drag;
+
 }
 
 ui-actionbar#menu ui-panel ui-button {
