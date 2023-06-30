@@ -5,11 +5,11 @@ const OFFLINE_URL = "offline.html"
 const MAIN_URL = "index.html"
 const FILE_URL = "openFile.html"
 
-const deploy = false
-
+const deploy = true
 
 // Files here will be kept fresh every time the serviceworker is updated
 const essential = [
+	"/",
 	"index.html",
 	"js/main.mjs",
 	"js/ui-main.mjs",
@@ -63,8 +63,10 @@ self.addEventListener("install", function (event) {
 	event.waitUntil(
 		(async () => {
 			const cache = await caches.open(CACHE_PRELOAD)
+			const offline = await caches.open(CACHE_OFFLINE)
 
-			await caches.delete(CACHE_PRELOAD);
+			// await caches.delete(CACHE_PRELOAD);
+			// await caches.delete(CACHE_OFFLINE);
 			
 			// Setting {cache: 'reload'} in the new request will ensure that the response
 			// isn't fulfilled from the HTTP cache; i.e., it will be from the network.
@@ -76,16 +78,19 @@ self.addEventListener("install", function (event) {
 			for (let i = 0, l = staticAssets.length; i < l; i++) {
 				try {
 					await cache.add(new Request(staticAssets[i])) //, { cache: "reload" }))
+					await offline.add(new Request(staticAssets[i]))
 				} catch (e) {
 					console.error("failed to add cache", staticAssets[i])
 				}
 			}
 
-			// force cache theres only if we're deployed
+			// force cache these only if we're deployed
+			
 			if (deploy) {
 				for (let i = 0, l = essential.length; i < l; i++) {
 					try {
 						await cache.add(new Request(essential[i], { cache: "reload" }))
+						await offline.add(new Request(essential[i]))
 					} catch (e) {
 						console.error("failed to add cache", essential[i])
 					}
