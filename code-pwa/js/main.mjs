@@ -126,13 +126,15 @@ window.ui.commands = {
 					// register with ui
 					if (command.bindKey) {
 						if (command.bindKey.win && command.bindKey.mac) {
-							if (window.navigator.userAgent.indexOf("osx") !== -1) {
+							if (window.navigator.userAgent.toLowerCase().includes("os x")) {
 								command.bindKey = command.bindKey.mac
 							} else {
 								command.bindKey = command.bindKey.win
 							}
 						}
 					}
+					
+					
 					if (command.name in this.byName) {
 						console.warn(command.name, "already registered, removing existing")
 						if (this.byName[command.name].bindKey) {
@@ -143,12 +145,13 @@ window.ui.commands = {
 						delete this.byName[command.name]
 					}
 					this.byName[command.name] = command
+					
 					if (command.bindKey) {
 						command.bindKey = command.bindKey
-							.replace(/meta/g, "command")
+							.toLowerCase()
+							.replace(/command/g, "meta")
 							.replace(/option/g, "alt")
 							.replace(/\+/g, "-")
-							.toLowerCase()
 						this.byKeys[command.bindKey] = command.name
 					}
 					break
@@ -198,12 +201,15 @@ window.ui.commands = {
 					e.code.replace(/(Key|Digit)/, "")
 				).toLowerCase()
 
+				console.log(bindKey, e)
+				
 				if (bindKey in this.byKeys) {
 					if (bindKey !== "escape") cancelEvent(e)
 					this.exec(this.byKeys[bindKey])
 				}
+				
 			},
-			true
+			{capture: true}
 		)
 		this.boundToDocument = true
 	},
