@@ -30,12 +30,11 @@
 // maybe add "delete file" in filelist context menu?
 // maybe consider porting prettier modules for Kotline/Java/Sh/other?
 
-
 import prettier from "https://unpkg.com/prettier@2.4.1/esm/standalone.mjs"
 import parserBabel from "https://unpkg.com/prettier@2.4.1/esm/parser-babel.mjs"
 import parserHtml from "https://unpkg.com/prettier@2.4.1/esm/parser-html.mjs"
 import parserCss from "https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs"
-import { get, set, del } from 'https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm';
+import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
 
 import ui from "./ui-main.mjs"
 
@@ -64,8 +63,14 @@ async function verifyPermission(fileHandle, queryOnly = false) {
 	return false
 }
 
-function sleep(ms) { return new Promise((accept, reject)=>{ setTimeout(accept, ms) }) }
-function safeString(string) { return string.replace(/\ /g, "-").replace(/[^A-Za-z0-9\-]/g, "") }
+function sleep(ms) {
+	return new Promise((accept, reject) => {
+		setTimeout(accept, ms)
+	})
+}
+function safeString(string) {
+	return string.replace(/\ /g, "-").replace(/[^A-Za-z0-9\-]/g, "")
+}
 
 const editorElementID = "editor"
 const thumbElementID = "thumbstrip"
@@ -125,32 +130,48 @@ window.ui.commands = {
 				default:
 					// register with ui
 					if (command.bindKey) {
-						if (command.bindKey.win && command.bindKey.mac) {
-							if (window.navigator.userAgent.indexOf("osx") !== -1) {
-								command.bindKey = command.bindKey.mac
-							} else {
-								command.bindKey = command.bindKey.win
+						if (command.bindKey.mac) {
+							const win = command.bindKey.win
+							const mac = command.bindKey.mac
+
+							command.bindKey = win
+							if (window.navigator.userAgent.toLowerCase().includes("os x")) {
+								command.bindKeyAlt = mac
 							}
 						}
 					}
+
 					if (command.name in this.byName) {
 						console.warn(command.name, "already registered, removing existing")
 						if (this.byName[command.name].bindKey) {
 							if (this.byKeys[command.bindKey] == command.name) {
 								delete this.byKeys[command.bindKey]
 							}
+							if (this.byKeys[command.bindKeyAlt] == command.name) {
+								delete this.byKeys[command.bindKeyAlt]
+							}
 						}
 						delete this.byName[command.name]
 					}
 					this.byName[command.name] = command
+
 					if (command.bindKey) {
 						command.bindKey = command.bindKey
-							.replace(/meta/g, "command")
+							.toLowerCase()
+							.replace(/command/g, "meta")
 							.replace(/option/g, "alt")
 							.replace(/\+/g, "-")
-							.toLowerCase()
 						this.byKeys[command.bindKey] = command.name
 					}
+					if (command.bindKeyAlt) {
+						command.bindKeyAlt = command.bindKeyAlt
+							.toLowerCase()
+							.replace(/command/g, "meta")
+							.replace(/option/g, "alt")
+							.replace(/\+/g, "-")
+						this.byKeys[command.bindKeyAlt] = command.name
+					}
+
 					break
 			}
 		} else {
@@ -183,11 +204,13 @@ window.ui.commands = {
 					alt = e.altKey,
 					meta = e.metaKey
 
-				const cancelEvent = () => {
+				const cancelEvent = (e, bound) => {
 					e.preventDefault()
 					e.stopPropagation()
 				}
-				if (e.code in skipKeys) return
+				if (e.code in skipKeys) {
+					return
+				}
 
 				// build a key code string from this event
 				const bindKey = (
@@ -199,11 +222,11 @@ window.ui.commands = {
 				).toLowerCase()
 
 				if (bindKey in this.byKeys) {
-					if (bindKey !== "escape") cancelEvent(e)
+					if (bindKey !== "escape") cancelEvent(e, bindKey)
 					this.exec(this.byKeys[bindKey])
 				}
 			},
-			true
+			{ capture: true }
 		)
 		this.boundToDocument = true
 	},
@@ -223,57 +246,56 @@ const saveFile = async (text, handle) => {
 	}
 }
 
-
 const saveAppConfig = async () => {
 	app.sessionOptions = ui.editor.session.getOptions()
 	app.rendererOptions = ui.editor.renderer.getOptions()
 	app.enableLiveAutocompletion = ui.editor.$enableLiveAutocompletion
 	delete app.sessionOptions.mode // don't persist the mode, that's dumb
-	delete app.folders;//app.folders = workspace.folders
-	
+	delete app.folders //app.folders = workspace.folders
+
 	// ensure that the app config has links to the current workspace name
-	if(app.workspaces.indexOf(workspace.id)==-1) { app.workspaces.push(workspace.id) }
+	if (app.workspaces.indexOf(workspace.id) == -1) {
+		app.workspaces.push(workspace.id)
+	}
 	app.workspace = workspace.id
 
 	// updateWorkspaceSelectors()
-	
+
 	await set("appConfig", app)
 	console.debug("saved", app)
 }
 
-
 let workspaceUnloading = false
-const saveWorkspace = async () =>{
-	if(workspaceUnloading) return
-    let name = workspace.name;
-    set(`workspace_${workspace.id}`, workspace)
-    console.debug("saved", workspace)
+const saveWorkspace = async () => {
+	if (workspaceUnloading) return
+	let name = workspace.name
+	set(`workspace_${workspace.id}`, workspace)
+	console.debug("saved", workspace)
 }
 
-
-const updateWorkspaceSelectors = (()=>{
+const updateWorkspaceSelectors = (() => {
 	const close = document.querySelector("#workspaceClose")
 	const rename = document.querySelector("#workspaceRename")
 	const remove = document.querySelector("#workspaceDelete")
 	const selectors = document.querySelector("#workspaceSelectors")
 	const actions = document.querySelector("#workspaceActions")
-	return ()=>{
+	return () => {
 		selectors.innerHTML = ""
-		for(const name of app.workspaces) {
+		for (const name of app.workspaces) {
 			// if(name == "default") continue
-			let item = document.createElement("ui-menu-item");
+			let item = document.createElement("ui-menu-item")
 			item.setAttribute("command", `app:workspaceOpen:${name}`)
 			item.text = name
 
 			selectors.appendChild(item)
-			
-			if(workspace.id == name) {
+
+			if (workspace.id == name) {
 				item.icon = "done"
-				if(name !== "default") {
+				if (name !== "default") {
 					actions.appendChild(close)
 					// actions.appendChild(rename)
 					actions.appendChild(remove)
-					
+
 					close.text = `Close workspace`
 					rename.text = `Rename workspace "${name}"`
 					remove.text = `Delete workspace "${name}"`
@@ -287,72 +309,79 @@ const updateWorkspaceSelectors = (()=>{
 	}
 })()
 
-const openWorkspace = (()=>{
+const openWorkspace = (() => {
 	const close = document.querySelector("#workspaceClose")
 	const rename = document.querySelector("#workspaceRename")
 	const remove = document.querySelector("#workspaceDelete")
 	const selectors = document.querySelector("#workspaceSelectors")
 	const actions = document.querySelector("#workspaceActions")
-	
+
 	// rename for possible future functionality
 	rename.remove()
-	
-	return async (name, triggered=false) =>{ 
-	    let load = await get (`workspace_${name}`)
-	    
-		const hideActions = ()=>{
-			close.remove(); rename.remove(); remove.remove()
+
+	return async (name, triggered = false) => {
+		let load = await get(`workspace_${name}`)
+
+		const hideActions = () => {
+			close.remove()
+			rename.remove()
+			remove.remove()
 		}
-	    
-	    if('undefined' != typeof load) {
+
+		if ("undefined" != typeof load) {
 			workspaceUnloading = true
-			// clear the tabBar 
-			while(tabBar.tabs.length > 1) { tabBar.tabs[0].close.click() }
-			if(tabBar.tabs[0]) tabBar.tabs[0].close.click()
-			
-	    	workspaceUnloading = false
-	
-	        workspace.name = load.name||"default"
-	        workspace.folders = load.folders||[]
-	        workspace.files = load.files||[]
-	        workspace.id = load.id || safeString(workspace.name)
-	        
-	        if (workspace.folders.length > 0) {
-	        	fileActions.append(fileAccess)
-	        	fileOpen.text = "Add Folder"
-	        	if(triggered) await fileAccess.click()
-	        }
-	
+			// clear the tabBar
+			while (tabBar.tabs.length > 1) {
+				tabBar.tabs[0].close.click()
+			}
+			if (tabBar.tabs[0]) tabBar.tabs[0].close.click()
+
+			workspaceUnloading = false
+
+			workspace.name = load.name || "default"
+			workspace.folders = load.folders || []
+			workspace.files = load.files || []
+			workspace.id = load.id || safeString(workspace.name)
+
+			if (workspace.folders.length > 0) {
+				fileActions.append(fileAccess)
+				fileOpen.text = "Add Folder"
+				if (triggered) await fileAccess.click()
+			}
+
 			app.workspace = workspace.id
-			if(name === "default") { hideActions() }
-	
+			if (name === "default") {
+				hideActions()
+			}
+
 			saveAppConfig()
 			ui.showFolders()
 			updateWorkspaceSelectors()
-	    } else {
-	    	if(name === "default") {
-	    		workspace.name = "default"
-	    		workspace.id = "default"
-	    		workspace.files  = []
-	    		workspace.folders = []
+		} else {
+			if (name === "default") {
+				workspace.name = "default"
+				workspace.id = "default"
+				workspace.files = []
+				workspace.folders = []
 				hideActions()
-				let item = document.createElement("ui-menu-item");
+				let item = document.createElement("ui-menu-item")
 				item.setAttribute("command", `app:workspaceOpen:default`)
 				item.text = name
 				selectors.appendChild(item)
-				if(name == workspace.name) { item.icon = "done" }
-				
+				if (name == workspace.name) {
+					item.icon = "done"
+				}
+
 				saveWorkspace()
-	    	} else {
-		    	alert(`couldn't load workspace ${name}`)
-		    	app.workspaces.splice(app.workspaces.indexOf(name), 1)
-		    	saveAppConfig()
-		    	openWorkspace("default");
-	    	}
-	    }
+			} else {
+				alert(`couldn't load workspace ${name}`)
+				app.workspaces.splice(app.workspaces.indexOf(name), 1)
+				saveAppConfig()
+				openWorkspace("default")
+			}
+		}
 	}
 })()
-
 
 ui.themeModeToggle.on("click", () => {
 	setTimeout(() => {
@@ -516,7 +545,6 @@ const execCommandOpen = async () => {
 	fileList.open(newHandle[0])
 }
 
-
 const execCommandNewFile = async () => {
 	const srcTab = tabBar.activeTab
 	const mode = srcTab.config?.mode?.mode || ""
@@ -544,9 +572,9 @@ const buildPath = (f) => {
 	return n
 }
 
-const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath=null) => {
+const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath = null) => {
 	// don't add a new tab if the file is already open in a tab
-	const path = knownPath!=null?knownPath:buildPath(handle)
+	const path = knownPath != null ? knownPath : buildPath(handle)
 	{
 		let tab = tabBar.byTitle(path)
 		if (tab) return tab.click()
@@ -622,33 +650,35 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath=null) =
 		folder: handle.container,
 	})
 	tab.click()
-    
-    let matched = false	
-    for(let i=0;i<workspace.files.length;i++) {
-        if(workspace.files[i].handle == tab.config.handle) {
-            matched = true
-        }
-    }
-    
-    if(knownPath!=null) return
-    
-    if(!matched) {
-        workspace.files.push({
-    	    name:file.name,
-    	    path: path,
-    	    handle: handle,
-    	    containers: (()=>{
-    	        const containers = []
-    	        const recurse = (container)=>{
-    	            containers.push(container)
-    	            if(container.container) { recurse(container.container)}
-    	        }
-    	        recurse(handle.container)
-    	        return containers
-    	    })()
-    	})
-    }
-    saveWorkspace()
+
+	let matched = false
+	for (let i = 0; i < workspace.files.length; i++) {
+		if (workspace.files[i].handle == tab.config.handle) {
+			matched = true
+		}
+	}
+
+	if (knownPath != null) return
+
+	if (!matched) {
+		workspace.files.push({
+			name: file.name,
+			path: path,
+			handle: handle,
+			containers: (() => {
+				const containers = []
+				const recurse = (container) => {
+					containers.push(container)
+					if (container.container) {
+						recurse(container.container)
+					}
+				}
+				recurse(handle.container)
+				return containers
+			})(),
+		})
+	}
+	saveWorkspace()
 })
 
 const fileMenu = document.getElementById("file_context")
@@ -668,8 +698,8 @@ folderMenu.click = topfolderMenu.click = (action) => {
 					i--
 				}
 			}
-// 			saveAppConfig()
-            saveWorkspace()
+			// 			saveAppConfig()
+			saveWorkspace()
 			ui.showFolders()
 			break
 		case "refresh":
@@ -699,25 +729,24 @@ fileList.context = (e) => {
 fileList.unlock = verifyPermission
 fileList.open = openFileHandle
 fileList.unsupported = openFileHandle
-fileList.expand = (item)=>{
-    for(const tab of tabBar.tabs) {
-        fileList.active = tab.config.handle
-        if(tab._changed) {
-            fileList.activeItem.changed = true
-        }
-    }
-    fileList.active = tabBar.activeTab.config.handle
-    
+fileList.expand = (item) => {
+	for (const tab of tabBar.tabs) {
+		fileList.active = tab.config.handle
+		if (tab._changed) {
+			fileList.activeItem.changed = true
+		}
+	}
+	fileList.active = tabBar.activeTab.config.handle
 }
 
 tabBar.click = (event) => {
 	const tab = event.tab
 	editor.setSession(tab.config.session)
 	fileList.active = tab.config.handle
-	
+
 	tab.scrollIntoViewIfNeeded()
 	tabBar.scrollTop = 0
-	
+
 	if (tab.changed && fileList.activeItem) {
 		fileList.activeItem.changed = true
 	}
@@ -736,14 +765,14 @@ tabBar.close = (event) => {
 		}
 	}
 
-    // remove from workspace recent files
-    for(let i=0;i<workspace.files.length;i++) {
-        if(workspace.files[i].handle == tab.config.handle) {
-            workspace.files.splice(i,1)
-            i--
-        }
-    }
-    // if(workspace.files.indexOf(tab.config.handle)>-1) { workspace.files.splice(workspace.files.indexOf(tab.config.handle), 1) }
+	// remove from workspace recent files
+	for (let i = 0; i < workspace.files.length; i++) {
+		if (workspace.files[i].handle == tab.config.handle) {
+			workspace.files.splice(i, 1)
+			i--
+		}
+	}
+	// if(workspace.files.indexOf(tab.config.handle)>-1) { workspace.files.splice(workspace.files.indexOf(tab.config.handle), 1) }
 
 	fileList.inactive = tab.config.handle
 
@@ -785,25 +814,25 @@ fileAccess.on("click", async () => {
 		fileAccess.remove()
 		fileOpen.text = "Add Folder to Workspace"
 		await fileList.refreshAll()
-		
-        if(workspace.files.length>0) {
-            for (const file of workspace.files) {
-                let newContainers = []
-                let fileContainers = { container: null }
-                let container = fileContainers
-                while(file.containers.length>0) {
-                    let next = file.containers.shift()
-                    newContainers.push(next)
-                    container.container = next
-                    if(file.containers.length>0) container = container.container
-                }
-                file.containers = newContainers
-                file.handle.container = fileContainers.container
-    			openFileHandle(file.handle, file.path)
-    			fileList.active = file.handle
-    		}
-        }
-        ui.showFolders(1)
+
+		if (workspace.files.length > 0) {
+			for (const file of workspace.files) {
+				let newContainers = []
+				let fileContainers = { container: null }
+				let container = fileContainers
+				while (file.containers.length > 0) {
+					let next = file.containers.shift()
+					newContainers.push(next)
+					container.container = next
+					if (file.containers.length > 0) container = container.container
+				}
+				file.containers = newContainers
+				file.handle.container = fileContainers.container
+				openFileHandle(file.handle, file.path)
+				fileList.active = file.handle
+			}
+		}
+		ui.showFolders(1)
 	} else {
 		ui.showFolders()
 	}
@@ -832,22 +861,22 @@ fileOpen.on("click", async () => {
 	// verifyPermission
 	await verifyPermission(folderHandle)
 	if (addToFolders) workspace.folders.push(folderHandle)
-// 	saveAppConfig()
-    saveWorkspace()
+	// 	saveAppConfig()
+	saveWorkspace()
 	ui.showFolders()
 })
 
 const keyBinds = [
 	{
 		target: "app",
-	    name: "showKeyboardShortcuts",
-	    bindKey: {win: "ctrl-alt-k", mac: "Command-Alt-k"},
-	    exec: function() {
-	        ace.config.loadModule("ace/ext/keybinding_menu", function(module) {
-	            module.init(editor);
-	            editor.showKeyboardShortcuts()
-	        })
-	    },
+		name: "showKeyboardShortcuts",
+		bindKey: { win: "ctrl-alt-k", mac: "Command-Alt-k" },
+		exec: function () {
+			ace.config.loadModule("ace/ext/keybinding_menu", function (module) {
+				module.init(editor)
+				editor.showKeyboardShortcuts()
+			})
+		},
 	},
 	{
 		target: "app",
@@ -946,8 +975,8 @@ const keyBinds = [
 	{
 		target: "app",
 		name: "newWindow",
-		bindKey: { win: "Ctrl+Shift+N", mac: "Command++Shift+N" },
-			exec: execCommandNewWindow,
+		bindKey: { win: "Ctrl+Shift+N", mac: "Command+Shift+N" },
+		exec: execCommandNewWindow,
 	},
 	{
 		target: "app",
@@ -1034,31 +1063,33 @@ const keyBinds = [
 	{
 		target: "app",
 		name: "workspaceOpen",
-		exec: async(args) =>{
+		exec: async (args) => {
 			await sleep(400)
-			if(args === workspace.name) { return }
+			if (args === workspace.name) {
+				return
+			}
 			openWorkspace(args, true)
-		}
+		},
 	},
 	{
 		target: "app",
 		name: "workspaceRename",
-		exec: async() =>{
+		exec: async () => {
 			await sleep(400)
-		}
+		},
 	},
 	{
 		target: "app",
 		name: "workspaceDelete",
-		exec: async() =>{
+		exec: async () => {
 			await sleep(400)
-			if(workspace.name !== "default") {
-				if(confirm(`Really? Perminantly delete workspace ${workspace.name}?`)) {
+			if (workspace.name !== "default") {
+				if (confirm(`Really? Perminantly delete workspace ${workspace.name}?`)) {
 					// set(`workspace_${workspace.id}`console.warn("DELETE", workspace)
 					console.warn("DELETE", workspace)
 					del(`workspace_${workspace.id}`)
 					app.workspaces.splice(app.workspaces.indexOf(workspace.id), 1)
-					
+
 					// reset to default
 					app.workspace = "default"
 					workspace.id = "default"
@@ -1068,7 +1099,7 @@ const keyBinds = [
 			} else {
 				console.warn("unsupported")
 			}
-		}
+		},
 	},
 	{
 		target: "app",
@@ -1077,45 +1108,45 @@ const keyBinds = [
 			await sleep(400)
 			// ensure there are no unsaved edits
 			let unsaved = false
-			for(const tab of tabBar.tabs) {
-				if(tab._changed) unsaved = true
+			for (const tab of tabBar.tabs) {
+				if (tab._changed) unsaved = true
 			}
-			if(unsaved) {
-				if(!confirm("You have unsaved changes, are you sure?")) {
+			if (unsaved) {
+				if (!confirm("You have unsaved changes, are you sure?")) {
 					return
 				}
 			}
-			
+
 			let name = prompt("New workspace name")
-			if(name) {
-				const id = safeString(name);
-				if(app.workspaces.indexOf(id)!==-1) {
+			if (name) {
+				const id = safeString(name)
+				if (app.workspaces.indexOf(id) !== -1) {
 					alert("workspace name already exists")
 					return
-				} 
+				}
 				app.workspaces.push(id)
 				app.workspace = id
-				
+
 				workspace.name = name
 				workspace.id = id
 				workspace.folders = []
 				workspace.files = []
-				
-				// clear the tabBar 
-				while(tabBar.tabs.length > 1) {
+
+				// clear the tabBar
+				while (tabBar.tabs.length > 1) {
 					tabBar.tabs[0].close.click()
 				}
 				tabBar.tabs[0].close.click()
-				
+
 				console.log("new workspace", name)
 				// refresh the folder list
 				ui.showFolders()
 				// update the workspace menu
 				// update the app config object
 				saveAppConfig()
-				
+
 				updateWorkspaceSelectors()
-				
+
 				fileAccess.remove()
 			}
 		},
@@ -1202,15 +1233,15 @@ setTimeout(async () => {
 			app.sessionOptions = stored.sessionOptions || null
 			app.rendererOptions = stored.rendererOptions || null
 			app.enableLiveAutocompletion = stored.enableLiveAutocompletion || null
-		    
-		    app.workspace = stored.workspace || "default"
-		    app.workspaces = stored.workspaces || [app.workspace]
-		    
-		    if(app.workspace) {
-		    	openWorkspace(app.workspace);
-		    } else {
+
+			app.workspace = stored.workspace || "default"
+			app.workspaces = stored.workspaces || [app.workspace]
+
+			if (app.workspace) {
+				openWorkspace(app.workspace)
+			} else {
 				updateWorkspaceSelectors()
-		    }
+			}
 
 			if (app.darkmode == true) {
 				ui.themeModeToggle.click()
@@ -1262,3 +1293,4 @@ setTimeout(async () => {
 		}
 	})
 })
+

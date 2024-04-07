@@ -349,10 +349,10 @@ exports.handler.addCommands([{
     bindKey: { mac: "cmd-a", win: "ctrl-a" },
     name: "selectall"
 }, {
-    bindKey: { linux: "alt-shift-down", mac: "ctrl-shift-down", win: "ctrl-alt-down" },
+    bindKey: { linux: "alt-shift-down", mac: "alt-shift-down", win: "ctrl-alt-down" },
     name: "addCursorBelow"
 }, {
-    bindKey: { linux: "alt-shift-up", mac: "ctrl-shift-up", win: "ctrl-alt-up" },
+    bindKey: { linux: "alt-shift-up", mac: "alt-shift-up", win: "ctrl-alt-up" },
     name: "addCursorAbove"
 },
 
@@ -375,18 +375,18 @@ exports.handler.addCommands([{
     bindKey: { mac: "cmd-shift-l", win: "ctrl-shift-l" },
     name: "splitIntoLines"
 }, {
-    bindKey: { mac: "ctrl-cmd-down", win: "ctrl-shift-down" },
+    bindKey: { mac: "cmd-shift-down", win: "ctrl-shift-down" },
     name: "movelinesdown"
 }, {
-    bindKey: { mac: "ctrl-cmd-up", win: "ctrl-shift-up" },
+    bindKey: { mac: "cmd-shift-up", win: "ctrl-shift-up" },
     name: "movelinesup"
-}, {
+}, /*{
     bindKey: { mac: "alt-down", win: "alt-down" },
     name: "modifyNumberDown"
 }, {
     bindKey: { mac: "alt-up", win: "alt-up" },
     name: "modifyNumberUp"
-}, {
+},*/ {
     bindKey: { mac: "cmd-/", win: "ctrl-/" },
     name: "togglecomment"
 }, {
