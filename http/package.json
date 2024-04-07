@@ -5,6 +5,7 @@
   "main": "index.mjs",
   "scripts": {
     "start": "PORT=8083 nodemon index.mjs",
+    "start-dev": "PORT=8084 nodemon index.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

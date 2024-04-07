@@ -72,7 +72,7 @@
 	</script>
 	<style id="rootCSS"></style>
 	<script>
-		themeCSS = (window.location.hostname === "localhost")?":root { --theme: #00AABB!important; }":":root { --theme: #0077bb!important; }"
+		themeCSS = (window.location.hostname === "localhost" || window.location.hostname.includes("-beta"))?":root { --theme: #00AABB!important; }":":root { --theme: #0077bb!important; }"
 		const css = document.getElementById("rootCSS")
 		css.innerText = themeCSS;
 	</script>
