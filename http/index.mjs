@@ -24,6 +24,19 @@ app.use((req, res, next)=>{
 
 // --- Any fancy endpoint handling stuff goes right here!
 
+app.use((req,res,next)=>{
+
+	if(req.headers['host'].includes("localhost") || req.headers['host'].includes("-beta")) {
+		switch(req.url) {
+			case "/manifest.json":
+				console.log(`Service manifest_dev.json due to hostname ${req.headers['host']}`)
+				return res.sendFile(`${publicHTTP}/manifest_dev.json`);
+			case "/favicon.png":
+				return res.sendFile(`${publicHTTP}/favicon_dev.png`);
+		}
+	}
+	return next()
+})
 
 // ---
 

@@ -30,7 +30,8 @@
     {
       "src": "images/screen-mid-1024x662.png",
       "type": "image/png",
-      "sizes": "1024x662"
+      "sizes": "1024x662",
+      "form_factor":"wide"
     }
   ],
   "file_handlers": [
