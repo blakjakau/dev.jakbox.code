@@ -1320,8 +1320,20 @@ class FileList extends ContentFill {
 		}
 	}
 
-	_render(base, tree, depth=0) {
+	openPaths() {
+		const open = []
+		const openNodes = this._inner.querySelectorAll("[open-folder]")
+		openNodes.forEach(node=>{
+			const path = node.getAttribute("title")
+			open.push(path)
+		})
+		return open
+	}
+
+	_render(base, tree, depth=0, openPaths=null) {
 		// trigger an index generation (if not already done)
+		
+		if(!openPaths) openPaths = this.openPaths()
 		
 		const fileTypes = {
 		    "javascript": "js mjs jsm".split(" "),
@@ -1358,6 +1370,8 @@ class FileList extends ContentFill {
 		    
 			if (item.kind == "directory") {
 				let e = new FileItem()
+				
+				const itemPath = buildPath(item)
 				e.icon = "folder"
 				e.text = " " + item.name
 				e.showRefresh = false
@@ -1367,7 +1381,8 @@ class FileList extends ContentFill {
 				e.setAttribute("tabindex", this.tabGroup)
 				e.open = false
 				e.item = item
-				e.setAttribute("title", buildPath(item))
+				
+				e.setAttribute("title", itemPath)
 				// e.setAttribute("title", buildPath(item));
 				base.append(e, e.holder)
 
@@ -1382,6 +1397,7 @@ class FileList extends ContentFill {
 								item.locked = false
 								item.tree = await readAndOrderDirectory(item)
 								item.open = true
+								e.setAttribute("open-folder", "true")
 								this._render(base, tree,depth+1)
 								this.generateIndex(this._tree)
 							}
@@ -1398,22 +1414,35 @@ class FileList extends ContentFill {
 				} else {
 					if (item.tree && item.open) { 
 						e.icon = "folder_open"
-						// 		e.showRefresh = true
-						this._render(e.holder, item.tree,depth+1)
-					} else if(depth<this._expandLevels) {
+						e.setAttribute("open-folder", "true")
+						this._render(e.holder, item.tree,depth+1, openPaths)
+					} else if(openPaths.includes(itemPath)) {
 						(async()=>{
 							if (!item.tree) { e.setAttribute("loading", "true"); item.tree = await readAndOrderDirectory(item) }
 							e.icon = "folder_open"
-							this._render(e.holder, item.tree,depth+1)
+							e.setAttribute("open-folder", "true")
+							this._render(e.holder, item.tree,depth+1, openPaths)
 							if ("function" == typeof this.expand) { this.expand(e.item) }
 							e.removeAttribute("loading")
 							item.open = true
 						})()
 					}
+					// } else if(depth<this._expandLevels) {
+					// 	(async()=>{
+					// 		if (!item.tree) { e.setAttribute("loading", "true"); item.tree = await readAndOrderDirectory(item) }
+					// 		e.icon = "folder_open"
+					// 		e.setAttribute("open-folder", "true")
+					// 		this._render(e.holder, item.tree,depth+1)
+					// 		if ("function" == typeof this.expand) { this.expand(e.item) }
+					// 		e.removeAttribute("loading")
+					// 		item.open = true
+					// 	})()
+					// }
 
 					e.addEventListener("click", async (event) => {
 						item.open = !item.open
 						if (item.open) {
+							e.setAttribute("open-folder", "true")
 							if (!item.tree) { e.setAttribute("loading", "true"); item.tree = await readAndOrderDirectory(item) }
 							e.icon = "folder_open"
 							this._render(e.holder, item.tree,depth+1)
@@ -1421,6 +1450,7 @@ class FileList extends ContentFill {
 							if ("function" == typeof this.expand) { this.expand(e.item) }
 
 						} else {
+							e.removeAttribute("open-folder")
 							e.icon = "folder"
 							e.showRefresh = false
 							e.holder.empty()
