@@ -155,7 +155,7 @@ self.addEventListener("fetch", function (event) {
 
 
 				// filter some url's for DEV
-				const dev = self.location.hostname=="localhost"
+				const dev = self.location.hostname=="localhost"||self.location.hostname.includes("-beta")
 				if(dev) {
 					let substitute
 					if(event.request.url.indexOf("manifest.json") > 0) {
