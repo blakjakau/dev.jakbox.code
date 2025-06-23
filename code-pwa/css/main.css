@@ -313,6 +313,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	top:var(--menuHeight) !important;
 	bottom: var(--statusHeight);
 	overflow:auto;
+	pointer-events:none;
 }
 
 #tabs, #files, #ui_editor, #statusbar, ui-actionbar, ui-file-list {
@@ -382,6 +383,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 .showFiles #files {
 	opacity:1;
 	left: 0;
+	pointer-events:auto;
 }
 
 .showThumb #ui_editor {

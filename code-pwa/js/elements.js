@@ -698,6 +698,86 @@ class Panel extends Block {
 	constructor(content) {
 		super(content)
 		this.blanker = new Blank()
+		this.resizeListeners = []
+		this.resizeEndListeners= []
+		this.resize = false
+		this.activeBorder = "4px solid var(--theme)";
+		this.inactiveBorder = "4px solid var(--dark)";
+		this.on("pointerleave", (e)=>{
+			if(this.resize==1) {
+				this.style.borderLeft = this.inactiveBorder
+			} else {
+				this.style.borderRight = this.inactiveBorder
+			}
+		})
+		this.on("pointermove", (e)=>{
+			if(!this.resize) { return }
+			if(this.hotSpot(e)) {
+				if(this.resize==1) {
+					this.style.borderLeft = this.activeBorder
+				} else {
+					this.style.borderRight = this.activeBorder
+				}
+				this.style.cursor = "ew-resize"
+			} else {
+				if(this.resize==1) {
+					this.style.borderLeft = this.inactiveBorder
+				} else {
+					this.style.borderRight = this.inactiveBorder
+				}
+				this.style.cursor = ""
+			}
+		})
+		
+		this.on("pointerdown", (e)=>{
+			if(!this.hotSpot(e) || !this.resize) return
+			document.body.style.cursor = "ew-resize"
+			const move = (e)=>{
+				const nw = (this.offsetWidth + e.movementX - 4)
+				this.style.width = Math.max(200, nw)+"px"
+				
+				this.resizeListeners.forEach(f=>{
+					f(this.offsetWidth+2)
+				})
+			}
+			const release = (e) =>{
+				document.removeEventListener("pointermove", move)
+				document.removeEventListener("pointerup", release)
+				document.body.style.cursor = ""
+				this.resizeEndListeners.forEach(f=>{ f(this.offsetWidth+4) })
+			}
+			
+			document.addEventListener("pointermove", move)
+			document.addEventListener("pointerup", release)
+		})
+
+	}
+	resizeListener(f) {
+		if("function" == typeof f) {
+			if(!this.resizeListeners.includes(f)) this.resizeListeners.push(f)
+		}
+	}
+
+	resizeEndListener(f) {
+		if("function" == typeof f) {
+			if(!this.resizeEndListeners.includes(f)) this.resizeEndListeners.push(f)
+		}
+	}
+	
+	hotSpot(e) {
+		if(this.resize == 1 && e?.x < 5) { return true }
+		if(this.resize == 2 && e?.x > this.offsetWidth - 5) { return true }
+	}
+	
+	set resizable(state) {
+		switch(state) {
+			case 0: case false: case "none": this.resize = false; break;
+			case 1: case "left": this.resize = 1; this.style.borderLeft = this.inactiveBorder; break;
+			case 2: case "right": this.resize = 2; this.style.borderRight = this.inactiveBorder; break;
+		}
+	}
+	get resizable() {
+		return this.resize
 	}
 	connectedCallback() {
 		super.connectedCallback.apply(this)

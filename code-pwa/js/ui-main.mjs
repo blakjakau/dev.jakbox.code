@@ -61,6 +61,8 @@ const uiManager = {
 		files.setAttribute("id", "files")
 		files.append(fileActions)
 		files.append(fileList)
+		files.resizable = 2
+		let sidebarWidth = 258
 
 		menu = document.querySelector("#menu")
 		if (menu == null) {
@@ -78,9 +80,13 @@ const uiManager = {
 			if (toggleBodyClass("showFiles")) {
 				openDir.icon = "menu_open"
 				openDir.setAttribute("title", "hide file list")
+				tabs.style.left = sidebarWidth+"px"
+				editorHolder.style.left = sidebarWidth + "px"
 			} else {
 				openDir.icon = "menu"
 				openDir.setAttribute("title", "show file list")
+				tabs.style.left = ""
+				editorHolder.style.left = ""
 			}
 			setTimeout(() => {
 				editor.resize()
@@ -139,6 +145,20 @@ const uiManager = {
 		editorElement.setAttribute("id", editorID)
 
 		editorHolder.appendChild(editorElement)
+		
+		files.resizeListener((width)=>{
+			sidebarWidth = width
+			
+			tabs.style.transition = "none"
+			editorHolder.style.transition = "none"
+			
+			tabs.style.left = width+"px"
+			editorHolder.style.left = width + "px"
+		})
+		files.resizeEndListener(()=>{
+			tabs.style.transition = ""
+			editorHolder.style.transition = ""
+		})
 
 		thumbElement = document.createElement("pre")
 		thumbElement.setAttribute("id", thumbID)
@@ -252,21 +272,11 @@ const uiManager = {
 			let val = omni.input.value
 			let mode = ""
 
-			if (val.substr(0, 1) == "/") {
-				mode = "find"
-			}
-			if (val.substr(0, 1) == ":") {
-				mode = "goto"
-			}
-			if (val.substr(0, 1) == "~") {
-				mode = "regex"
-			}
-			if (val.substr(0, 1) == "?") {
-				mode = "regex-m"
-			}
-			if (val.substr(0, 1) == "@") {
-				mode = "index"
-			}
+			if (val.substr(0, 1) == "/") { mode = "find" }
+			if (val.substr(0, 1) == ":") { mode = "goto" }
+			if (val.substr(0, 1) == "~") { mode = "regex" }
+			if (val.substr(0, 1) == "?") { mode = "regex-m" }
+			if (val.substr(0, 1) == "@") { mode = "index" }
 
 			if (mode === "" && val.length > 0) {
 				mode = "find"
@@ -385,14 +395,12 @@ const uiManager = {
 					omni.results.next(10)
 					return
 				}
-
 				if (e.code == "ArrowUp") {
 					e.preventDefault()
 					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
 					omni.results.prev()
 					return
 				}
-
 				if (e.code == "ArrowDown") {
 					e.preventDefault()
 					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
