@@ -588,6 +588,10 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath = null)
 	// lookup editor modes
 	for (let n in ace_modes) {
 		const mode = ace_modes[n]
+
+		// HTML should be html, not django
+		if(mode.name == "django") continue
+		
 		if (file.name.match(mode.extRe)) {
 			fileMode = mode
 			break
@@ -607,6 +611,25 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath = null)
 				if (match && match.index === 0) {
 					fileMode.mode = n
 				}
+			}
+		}
+	}
+
+	if (fileMode.mode == "") {
+		if(file.name.startsWith(".")) {
+			fileMode.mode = "ace/mode/sh"
+		} else {
+			// specific filter files for now... images!
+			// there are others, but these ones we def CAN display
+			const images = "png|jpg|jpeg|bmp|tiff|gif|webp|ico".split("|")
+			for(const i of images) {
+				if(file.name.endsWith(i)) {
+					console.warn("branch for image handling?!", file.name)
+					//TODO build in an image preview layer to handle here
+				}
+			}
+			if (fileMode.mode == "") {
+				fileMode.mode = "ace/mode/text"
 			}
 		}
 	}
