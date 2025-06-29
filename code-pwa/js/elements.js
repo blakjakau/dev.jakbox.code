@@ -703,15 +703,20 @@ class Panel extends Block {
 		this.resize = false
 		this.activeBorder = "4px solid var(--theme)";
 		this.inactiveBorder = "4px solid var(--dark)";
+		this.active;
+		
 		this.on("pointerleave", (e)=>{
+			if(this.active) return
 			if(this.resize==1) {
 				this.style.borderLeft = this.inactiveBorder
 			} else {
 				this.style.borderRight = this.inactiveBorder
 			}
 		})
+		
 		this.on("pointermove", (e)=>{
 			if(!this.resize) { return }
+			
 			if(this.hotSpot(e)) {
 				if(this.resize==1) {
 					this.style.borderLeft = this.activeBorder
@@ -720,6 +725,7 @@ class Panel extends Block {
 				}
 				this.style.cursor = "ew-resize"
 			} else {
+				if(this.active) return
 				if(this.resize==1) {
 					this.style.borderLeft = this.inactiveBorder
 				} else {
@@ -731,6 +737,7 @@ class Panel extends Block {
 		
 		this.on("pointerdown", (e)=>{
 			if(!this.hotSpot(e) || !this.resize) return
+			this.active = true
 			document.body.style.cursor = "ew-resize"
 			const move = (e)=>{
 				const nw = (this.offsetWidth + e.movementX - 4)
@@ -744,6 +751,7 @@ class Panel extends Block {
 				document.removeEventListener("pointermove", move)
 				document.removeEventListener("pointerup", release)
 				document.body.style.cursor = ""
+				this.active = false
 				this.resizeEndListeners.forEach(f=>{ f(this.offsetWidth+4) })
 			}
 			
