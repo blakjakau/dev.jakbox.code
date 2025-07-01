@@ -18,7 +18,7 @@ const defaultSettings = {
 var editor, thumbstrip
 var editorElement, editorHolder, thumbElement
 var menu, tabBar, openDir
-var files, fileActions, fileList, drawer
+var files, fileActions, fileList, drawer, mediaView
 var statusbar
 var statusTheme, statusMode, statusWorkspace
 var themeMenu, modeMenu, workspaceMenu
@@ -145,6 +145,22 @@ const uiManager = {
 		editorElement.setAttribute("id", editorID)
 
 		editorHolder.appendChild(editorElement)
+
+mediaView = new elements.Panel()
+mediaView.setAttribute("id", "mediaView")
+mediaView.style.cssText = `
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 5;
+	background: linear-gradient(45deg, #444 25%, transparent 25%), linear-gradient(-45deg, #444 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #444 75%), linear-gradient(-45deg, transparent 75%, #444 75%);
+	background-size: 80px 80px;
+	background-color: #ccc;
+	display: none;
+`
+editorHolder.appendChild(mediaView)
 		
 		files.resizeListener((width)=>{
 			sidebarWidth = width
@@ -778,6 +794,9 @@ const uiManager = {
 	},
 	get themeModeToggle() {
 		return themeModeToggle
+	},
+	get mediaView() {
+		return mediaView
 	},
 }
 
