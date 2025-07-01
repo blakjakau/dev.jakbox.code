@@ -18,7 +18,7 @@ const defaultSettings = {
 var editor, thumbstrip
 var editorElement, editorHolder, thumbElement
 var menu, tabBar, openDir
-var files, fileActions, fileList
+var files, fileActions, fileList, drawer
 var statusbar
 var statusTheme, statusMode, statusWorkspace
 var themeMenu, modeMenu, workspaceMenu
@@ -61,7 +61,7 @@ const uiManager = {
 		files.setAttribute("id", "files")
 		files.append(fileActions)
 		files.append(fileList)
-		files.resizable = 2
+		files.resizable = "right"
 		let sidebarWidth = 258
 
 		menu = document.querySelector("#menu")
@@ -80,12 +80,12 @@ const uiManager = {
 			if (toggleBodyClass("showFiles")) {
 				openDir.icon = "menu_open"
 				openDir.setAttribute("title", "hide file list")
-				tabs.style.left = sidebarWidth+"px"
+				tabBar.style.left = sidebarWidth+"px"
 				editorHolder.style.left = sidebarWidth + "px"
 			} else {
 				openDir.icon = "menu"
 				openDir.setAttribute("title", "show file list")
-				tabs.style.left = ""
+				tabBar.style.left = ""
 				editorHolder.style.left = ""
 			}
 			setTimeout(() => {
@@ -149,15 +149,32 @@ const uiManager = {
 		files.resizeListener((width)=>{
 			sidebarWidth = width
 			
-			tabs.style.transition = "none"
+			tabBar.style.transition = "none"
 			editorHolder.style.transition = "none"
 			
-			tabs.style.left = width+"px"
+			tabBar.style.left = width+"px"
 			editorHolder.style.left = width + "px"
 		})
 		files.resizeEndListener(()=>{
-			tabs.style.transition = ""
+			tabBar.style.transition = ""
 			editorHolder.style.transition = ""
+		})
+
+		drawer = new elements.Panel()
+		drawer.setAttribute("id", "drawer")
+		drawer.resizable = "top"
+		let drawerHeight = 32
+		drawer.style.height = drawerHeight + "px"
+		editorHolder.style.bottom = drawerHeight + "px"
+
+		drawer.resizeListener((height)=>{
+			editorHolder.style.transition = "none"
+			editorHolder.style.bottom = height + "px"
+		})
+
+		drawer.resizeEndListener(()=>{
+			editorHolder.style.transition = ""
+			editor.resize()
 		})
 
 		thumbElement = document.createElement("pre")
@@ -224,7 +241,7 @@ const uiManager = {
 
 		installer.hide()
 
-		omni = new Panel()
+		omni = new elements.Panel()
 		omni.results = new elements.Panel()
 		omni.results.classList.add("results")
 		omni.results.next = (step = 1) => {
@@ -334,7 +351,7 @@ const uiManager = {
 							let counter = 0
 							for (let item of matches) {
 								// if(counter>10) continue
-								const result = new ui.Block()
+								const result = new elements.Block()
 								if (counter === 0) result.classList.add("active")
 								result.itemIndex = counter
 								result.addEventListener("click", () => {
@@ -528,6 +545,7 @@ const uiManager = {
 		document.body.appendChild(thumbElement)
 		document.body.appendChild(editorHolder)
 		document.body.appendChild(files)
+		document.body.appendChild(drawer)
 		document.body.appendChild(omni)
 
 		window.editor = editor = ace.edit(editorID)

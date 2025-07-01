@@ -707,10 +707,14 @@ class Panel extends Block {
 		
 		this.on("pointerleave", (e)=>{
 			if(this.active) return
-			if(this.resize==1) {
+			if(this.resize=="left") {
 				this.style.borderLeft = this.inactiveBorder
-			} else {
+			} else if (this.resize=="right") {
 				this.style.borderRight = this.inactiveBorder
+			} else if (this.resize=="top") {
+				this.style.borderTop = this.inactiveBorder
+			} else if (this.resize=="bottom") {
+				this.style.borderBottom = this.inactiveBorder
 			}
 		})
 		
@@ -718,18 +722,29 @@ class Panel extends Block {
 			if(!this.resize) { return }
 			
 			if(this.hotSpot(e)) {
-				if(this.resize==1) {
+				if(this.resize=="left") {
 					this.style.borderLeft = this.activeBorder
-				} else {
+					this.style.cursor = "ew-resize"
+				} else if (this.resize=="right") {
 					this.style.borderRight = this.activeBorder
+					this.style.cursor = "ew-resize"
+				} else if (this.resize=="top") {
+					this.style.borderTop = this.activeBorder
+					this.style.cursor = "ns-resize"
+				} else if (this.resize=="bottom") {
+					this.style.borderBottom = this.activeBorder
+					this.style.cursor = "ns-resize"
 				}
-				this.style.cursor = "ew-resize"
 			} else {
 				if(this.active) return
-				if(this.resize==1) {
+				if(this.resize=="left") {
 					this.style.borderLeft = this.inactiveBorder
-				} else {
+				} else if (this.resize=="right") {
 					this.style.borderRight = this.inactiveBorder
+				} else if (this.resize=="top") {
+					this.style.borderTop = this.inactiveBorder
+				} else if (this.resize=="bottom") {
+					this.style.borderBottom = this.inactiveBorder
 				}
 				this.style.cursor = ""
 			}
@@ -738,21 +753,50 @@ class Panel extends Block {
 		this.on("pointerdown", (e)=>{
 			if(!this.hotSpot(e) || !this.resize) return
 			this.active = true
-			document.body.style.cursor = "ew-resize"
+			
 			const move = (e)=>{
-				const nw = (this.offsetWidth + e.movementX - 4)
-				this.style.width = Math.max(200, nw)+"px"
-				
-				this.resizeListeners.forEach(f=>{
-					f(this.offsetWidth+2)
-				})
+				if(this.resize == "left" || this.resize == "right") { // horizontal
+					let nw;
+					// assumes 4px border
+					if (this.resize === "left") {
+						nw = (this.offsetWidth - e.movementX - 4)
+					} else {
+						nw = (this.offsetWidth + e.movementX - 4)
+					}
+					this.style.width = Math.max(200, nw)+"px"
+					this.resizeListeners.forEach(f=>{
+						f(this.offsetWidth)
+					})
+				} else { // vertical
+					let nh;
+					// assumes 4px border
+					if (this.resize === "top") {
+						nh = (this.offsetHeight - e.movementY - 4)
+					} else {
+						nh = (this.offsetHeight + e.movementY - 4)
+					}
+					this.style.height = Math.max(32, nh)+"px"
+					this.resizeListeners.forEach(f=>{
+						f(this.offsetHeight)
+					})
+				}
 			}
 			const release = (e) =>{
 				document.removeEventListener("pointermove", move)
 				document.removeEventListener("pointerup", release)
 				document.body.style.cursor = ""
 				this.active = false
-				this.resizeEndListeners.forEach(f=>{ f(this.offsetWidth+4) })
+				if(this.resize == "left" || this.resize == "right") {
+					this.resizeEndListeners.forEach(f=>{ f(this.offsetWidth) })
+				} else {
+					this.resizeEndListeners.forEach(f=>{ f(this.offsetHeight) })
+				}
+			}
+			
+			if(this.resize == "left" || this.resize == "right") {
+				document.body.style.cursor = "ew-resize"
+			} else {
+				document.body.style.cursor = "ns-resize"
 			}
 			
 			document.addEventListener("pointermove", move)
@@ -773,15 +817,20 @@ class Panel extends Block {
 	}
 	
 	hotSpot(e) {
-		if(this.resize == 1 && e?.x < 5) { return true }
-		if(this.resize == 2 && e?.x > this.offsetWidth - 5) { return true }
+		if(this.resize == "left" && e?.layerX < 5) { return true }
+		if(this.resize == "right" && e?.layerX > this.offsetWidth - 5) { return true }
+		if(this.resize == "top" && e?.layerY < 5) { return true }
+		if(this.resize == "bottom" && e?.layerY > this.offsetHeight - 5) { return true }
 	}
 	
 	set resizable(state) {
 		switch(state) {
 			case 0: case false: case "none": this.resize = false; break;
-			case 1: case "left": this.resize = 1; this.style.borderLeft = this.inactiveBorder; break;
-			case 2: case "right": this.resize = 2; this.style.borderRight = this.inactiveBorder; break;
+			case 1: case "left": this.resize = "left"; this.style.borderLeft = this.inactiveBorder; break;
+			case 2: case "right": this.resize = "right"; this.style.borderRight = this.inactiveBorder; break;
+			case 3: case "top": this.resize = "top"; this.style.borderTop = this.inactiveBorder; break;
+			case 4: case "bottom": this.resize = "bottom"; this.style.borderBottom = this.inactiveBorder; break;
+			default: this.resize = state; break;
 		}
 	}
 	get resizable() {

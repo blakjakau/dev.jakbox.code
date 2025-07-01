@@ -360,6 +360,11 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	color: var(--mid);
 }
 
+.darkmode #drawer {
+	background: var(--dark);
+	color: var(--mid);
+}
+
 .darkmode ui-actionbar {
 	color: var(--light); 
 }
