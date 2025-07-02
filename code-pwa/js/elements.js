@@ -854,6 +854,115 @@ class Panel extends Block {
 	}
 }
 
+class MediaView extends Panel {
+    constructor(content) {
+        super(content);
+        this.image = new Image();
+        this.image.style.maxWidth = "100%";
+        this.image.style.maxHeight = "100%";
+        this.image.style.objectFit = "contain";
+        this.image.style.transformOrigin = "50% 50%;";
+        this.image.style.cursor = "grab";
+        this.image.style.pointerEvents = "none";
+        this.append(this.image);
+
+        this.scale = 1;
+        this.translateX = 0;
+        this.translateY = 0;
+        this.isDragging = false;
+        this.lastPointerX = 0;
+        this.lastPointerY = 0;
+
+        this.on("pointerdown", this.handlePointerDown.bind(this));
+        this.on("pointermove", this.handlePointerMove.bind(this));
+        this.on("pointerup", this.handlePointerUp.bind(this));
+        this.on("wheel", this.handleWheel.bind(this));
+
+        this.image.onload = () => {
+            this.resetTransform();
+        };
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        this.style.overflow = "hidden";
+        this.style.display = "flex";
+        this.style.justifyContent = "center";
+        this.style.alignItems = "center";
+    }
+
+    setImage(src) {
+        this.image.src = src;
+        // resetTransform will be called by onload
+    }
+
+    resetTransform() {
+        this.scale = 1;
+        this.translateX = 0;
+        this.translateY = 0;
+        this.applyTransform();
+    }
+
+    applyTransform() {
+        this.image.style.transform = `translate(${this.translateX}px, ${this.translateY}px) scale(${this.scale})`;
+    }
+
+    handlePointerDown(event) {
+        if (event.button === 0) { // Left mouse button
+            this.isDragging = true;
+            this.lastPointerX = event.clientX;
+            this.lastPointerY = event.clientY;
+            this.image.style.cursor = "grabbing";
+            this.setPointerCapture(event.pointerId);
+        }
+    }
+
+    handlePointerMove(event) {
+        if (!this.isDragging) return;
+
+        const dx = event.clientX - this.lastPointerX;
+        const dy = event.clientY - this.lastPointerY;
+
+        this.translateX += dx;
+        this.translateY += dy;
+
+        this.lastPointerX = event.clientX;
+        this.lastPointerY = event.clientY;
+
+        this.applyTransform();
+    }
+
+    handlePointerUp() {
+        this.isDragging = false;
+        this.image.style.cursor = "grab";
+    }
+
+    handleWheel(event) {
+        event.preventDefault();
+        const scaleAmount = 1.1;
+        const mouseX = event.clientX - this.getBoundingClientRect().left;
+        const mouseY = event.clientY - this.getBoundingClientRect().top;
+
+        if (event.deltaY < 0) {
+            // Zoom in
+            this.translateX -= (mouseX / this.scale) * (scaleAmount - 1) * this.scale;
+            this.translateY -= (mouseY / this.scale) * (scaleAmount - 1) * this.scale;
+            this.scale *= scaleAmount;
+        } else {
+            // Zoom out
+            this.translateX += (mouseX / this.scale) * (1 - 1 / scaleAmount) * this.scale;
+            this.translateY += (mouseY / this.scale) * (1 - 1 / scaleAmount) * this.scale;
+            this.scale /= scaleAmount;
+        }
+        this.applyTransform();
+    }
+    
+    setImage(src) {
+        this.image.src = src;
+        this.resetTransform();
+    }
+}
+
 const actionBars = []
 let actionBarResize = null
 window.addEventListener("resize", (e) => {
@@ -2230,6 +2339,7 @@ customElements.define("ui-tab-item", TabItem)
 customElements.define("ui-file-upload-list", FileUploadList)
 
 customElements.define("ui-panel", Panel)
+customElements.define("ui-media-view", MediaView)
 customElements.define("ui-inner", Inner)
 customElements.define("ui-blank", Blank)
 customElements.define("ui-icon", Icon)
@@ -2256,6 +2366,7 @@ const ui = {
 	Button: Button,
 	CounterButton: CounterButton,
 	Panel: Panel,
+	MediaView: MediaView,
 
 	Menu: Menu,
 	MenuItem: MenuItem,

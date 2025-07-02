@@ -772,11 +772,7 @@ tabBar.click = async (event) => {
 
 		const file = await tab.config.handle.getFile();
 		const imageUrl = URL.createObjectURL(file);
-		ui.mediaView.style.backgroundImage = `url(${imageUrl})`;
-		ui.mediaView.style.backgroundSize = 'auto';
-		ui.mediaView.style.backgroundRepeat = 'no-repeat';
-		ui.mediaView.style.backgroundPosition = 'center center';
-		ui.mediaView.style.backgroundColor = 'rgb(39, 45, 47)';
+		ui.mediaView.setImage(imageUrl);
 
 		fileList.active = tab.config.handle;
 		tab.scrollIntoViewIfNeeded();
@@ -785,8 +781,8 @@ tabBar.click = async (event) => {
 	} else {
 		ui.editorElement.style.display = 'block';
 		ui.mediaView.style.display = 'none';
-		ui.mediaView.style.backgroundImage = ''; // Clear background image
-		ui.mediaView.style.backgroundColor = ''; // Reset background color
+		// ui.mediaView.style.backgroundImage = ''; // Clear background image - handled by setImage
+		// ui.mediaView.style.backgroundColor = ''; // Reset background color - handled by setImage
 
 		editor.setSession(tab.config.session);
 		fileList.active = tab.config.handle;

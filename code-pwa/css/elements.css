@@ -755,3 +755,16 @@ ui-panel[type="modal"] h1 small {
 	background: var(--ui-pri-bg);
 	box-shadow: 0 -5px 5px var(--ui-shadow);
 }
+
+ui-media-view {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 5;
+	background: linear-gradient(45deg, rgba(0,0,0,0.1) 25%, transparent 25%), linear-gradient(-45deg, rgba(0,0,0,0.1) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.1) 75%), linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.1) 75%);
+	background-size: 20px 20px;
+	background-color: #ccc;
+	display: none;
+}
