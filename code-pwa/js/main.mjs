@@ -626,6 +626,7 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath = null)
 				if(file.name.endsWith(i)) {
 					console.warn("branch for image handling?!", file.name)
 					//TODO build in an image preview layer to handle here
+					fileMode.mode = "media"
 				}
 			}
 			if (fileMode.mode == "") {
@@ -762,22 +763,42 @@ fileList.expand = (item) => {
 	fileList.active = tabBar.activeTab.config.handle
 }
 
-tabBar.click = (event) => {
+tabBar.click = async (event) => {
 	const tab = event.tab
-	editor.setSession(tab.config.session)
-	fileList.active = tab.config.handle
 
-	tab.scrollIntoViewIfNeeded()
-	tabBar.scrollTop = 0
+	if (tab.config.mode.mode === "media") {
+		ui.editorElement.style.display = 'none';
+		ui.mediaView.style.display = 'block';
 
-	if (tab.changed && fileList.activeItem) {
-		fileList.activeItem.changed = true
+		const file = await tab.config.handle.getFile();
+		const imageUrl = URL.createObjectURL(file);
+		ui.mediaView.setImage(imageUrl);
+
+		fileList.active = tab.config.handle;
+		tab.scrollIntoViewIfNeeded();
+		tabBar.scrollTop = 0;
+		updateThemeAndMode();
+	} else {
+		ui.editorElement.style.display = 'block';
+		ui.mediaView.style.display = 'none';
+		// ui.mediaView.style.backgroundImage = ''; // Clear background image - handled by setImage
+		// ui.mediaView.style.backgroundColor = ''; // Reset background color - handled by setImage
+
+		editor.setSession(tab.config.session);
+		fileList.active = tab.config.handle;
+
+		tab.scrollIntoViewIfNeeded();
+		tabBar.scrollTop = 0;
+
+		if (tab.changed && fileList.activeItem) {
+			fileList.activeItem.changed = true;
+		}
+		thumbStrip.setValue(editor.getValue());
+		thumbStrip.clearSelection();
+		thumbStrip.gotoLine(editor.getCursorPosition().row + 1);
+		updateThemeAndMode();
+		editor.focus();
 	}
-	thumbStrip.setValue(editor.getValue())
-	thumbStrip.clearSelection()
-	thumbStrip.gotoLine(editor.getCursorPosition().row + 1)
-	updateThemeAndMode()
-	editor.focus()
 }
 
 tabBar.close = (event) => {
@@ -788,6 +809,12 @@ tabBar.close = (event) => {
 		}
 	}
 
+	// If the tab is a media file, revoke the object URL
+	if (tab.config.mode.mode === "media" && ui.mediaView.style.backgroundImage) {
+		const imageUrl = ui.mediaView.style.backgroundImage.replace(/url\("|"\)/g, '');
+		URL.revokeObjectURL(imageUrl);
+	}
+
 	// remove from workspace recent files
 	for (let i = 0; i < workspace.files.length; i++) {
 		if (workspace.files[i].handle == tab.config.handle) {
@@ -795,7 +822,7 @@ tabBar.close = (event) => {
 			i--
 		}
 	}
-	// if(workspace.files.indexOf(tab.config.handle)>-1) { workspace.files.splice(workspace.files.indexOf(tab.config.handle), 1) }
+	//if(workspace.files.indexOf(tab.config.handle)>-1) { workspace.files.splice(workspace.files.indexOf(tab.config.handle), 1) }
 
 	fileList.inactive = tab.config.handle
 
