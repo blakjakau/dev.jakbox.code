@@ -861,7 +861,7 @@ class MediaView extends Panel {
         this.image.style.maxWidth = "100%";
         this.image.style.maxHeight = "100%";
         this.image.style.objectFit = "contain";
-        this.image.style.transformOrigin = "50% 50%;";
+        
         this.image.style.cursor = "grab";
         this.image.style.pointerEvents = "none";
         this.append(this.image);
@@ -869,18 +869,22 @@ class MediaView extends Panel {
         this.scale = 1;
         this.translateX = 0;
         this.translateY = 0;
-        this.isDragging = false;
-        this.lastPointerX = 0;
-        this.lastPointerY = 0;
-
-        this.on("pointerdown", this.handlePointerDown.bind(this));
-        this.on("pointermove", this.handlePointerMove.bind(this));
-        this.on("pointerup", this.handlePointerUp.bind(this));
-        this.on("wheel", this.handleWheel.bind(this));
 
         this.image.onload = () => {
-            this.resetTransform();
+            setTimeout(() => {
+                this.resetTransform();
+            }, 0);
         };
+
+        this.resizeObserver = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                if (entry.target === this) {
+                    setTimeout(() => {
+                        this.resetTransform();
+                    }, 0);
+                }
+            }
+        });
     }
 
     connectedCallback() {
@@ -889,6 +893,7 @@ class MediaView extends Panel {
         this.style.display = "flex";
         this.style.justifyContent = "center";
         this.style.alignItems = "center";
+        this.resizeObserver.observe(this);
     }
 
     setImage(src) {
@@ -896,10 +901,20 @@ class MediaView extends Panel {
         // resetTransform will be called by onload
     }
 
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        this.resizeObserver.disconnect();
+    }
+
     resetTransform() {
         this.scale = 1;
-        this.translateX = 0;
-        this.translateY = 0;
+        const viewWidth = this.offsetWidth;
+        const viewHeight = this.offsetHeight;
+        const imageRenderedWidth = this.image.offsetWidth;
+        const imageRenderedHeight = this.image.offsetHeight;
+
+        this.translateX = (viewWidth - imageRenderedWidth) / 2;
+        this.translateY = (viewHeight - imageRenderedHeight) / 2;
         this.applyTransform();
     }
 
@@ -937,25 +952,7 @@ class MediaView extends Panel {
         this.image.style.cursor = "grab";
     }
 
-    handleWheel(event) {
-        event.preventDefault();
-        const scaleAmount = 1.1;
-        const mouseX = event.clientX - this.getBoundingClientRect().left;
-        const mouseY = event.clientY - this.getBoundingClientRect().top;
-
-        if (event.deltaY < 0) {
-            // Zoom in
-            this.translateX -= (mouseX / this.scale) * (scaleAmount - 1) * this.scale;
-            this.translateY -= (mouseY / this.scale) * (scaleAmount - 1) * this.scale;
-            this.scale *= scaleAmount;
-        } else {
-            // Zoom out
-            this.translateX += (mouseX / this.scale) * (1 - 1 / scaleAmount) * this.scale;
-            this.translateY += (mouseY / this.scale) * (1 - 1 / scaleAmount) * this.scale;
-            this.scale /= scaleAmount;
-        }
-        this.applyTransform();
-    }
+    
     
     setImage(src) {
         this.image.src = src;
