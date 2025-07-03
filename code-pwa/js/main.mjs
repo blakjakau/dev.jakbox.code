@@ -180,7 +180,7 @@ window.ui.commands = {
 		}
 	},
 	exec(commandName, args) {
-		console.log("execCommand", commandName, args)
+		// console.log("execCommand", commandName, args)
 		if (commandName in this.byName) {
 			this.byName[commandName].exec(args)
 		}
@@ -729,13 +729,13 @@ const folderMenu = document.getElementById("folder_context")
 const topfolderMenu = document.getElementById("top_folder_context")
 
 folderMenu.click = topfolderMenu.click = (action) => {
-	console.log(action)
+	//console.log(action)
 	const active = fileList.contextElement
 	const file = active.item
 	switch (action) {
 		case "remove":
 			for (let i = 0; i < workspace.folders.length; i++) {
-				console.log(workspace.folders[i] === file)
+				//console.log(workspace.folders[i] === file)
 				if (workspace.folders[i] === file) {
 					workspace.folders.splice(i, 1)
 					i--
@@ -1207,7 +1207,7 @@ const keyBinds = [
 				}
 				tabBar.tabs[0].close.click()
 
-				console.log("new workspace", name)
+				//console.log("new workspace", name)
 				// refresh the folder list
 				ui.showFolders()
 				// update the workspace menu

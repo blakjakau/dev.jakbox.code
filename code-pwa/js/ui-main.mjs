@@ -708,8 +708,8 @@ editorHolder.appendChild(mediaView)
 			}
 
 			// Set the 'done' icon for the currently selected mode in the menu
-			console.log('app.darkmode:', app.darkmode);
-			console.log('Querying for:', `[args='${app.darkmode}']`);
+			//console.log('app.darkmode:', app.darkmode);
+			//console.log('Querying for:', `[args='${app.darkmode}']`);
 			const selectedMenuItem = darkmodeMenu.querySelector(`[args='${app.darkmode}']`);
 			if (selectedMenuItem) {
 				selectedMenuItem.icon = "done";
