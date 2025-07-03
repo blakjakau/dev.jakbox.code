@@ -89,7 +89,8 @@
 
 	<ui-actionbar id="statusbar" slim hook="bottom">
 		<ui-button id="settings" icon="settings_application" hook=right onclick="window.ui.execCommand('app:showEditorSettings')"></ui-button>
-		<ui-button id="themeModeToggle" hook=right icon="dark_mode"></ui-button>
+		<ui-button id="darkmode_select" hook=right></ui-button>
+		
 		<ui-button id="theme_select" hook=right></ui-button>
 		<ui-button  id="mode_select" hook=right></ui-button>
 		<ui-button id="prettier" onclick="editor.execCommand('prettify')" hook=right disabled>{&nbsp;}</ui-button>
@@ -99,6 +100,12 @@
 	</ui-menu>
 
 	<ui-menu id="mode_menu" attachTo="#mode_select" slim onclick="(e)=>{ window.ui.execCommand(e) }">
+	</ui-menu>
+
+	<ui-menu id="darkmode_menu" attachTo="#darkmode_select" slim onclick="(e)=>{ window.ui.execCommand(e) }">
+		<ui-menu-item command="app:setDarkMode:light" args="light">Light Mode</ui-menu-item>
+		<ui-menu-item command="app:setDarkMode:dark" args="dark">Dark Mode</ui-menu-item>
+		<ui-menu-item command="app:setDarkMode:system" args="system">System</ui-menu-item>
 	</ui-menu>
 
 	<ui-menu attachTo="#menu_file" onclick="(e)=>{ window.ui.execCommand(e) }">
