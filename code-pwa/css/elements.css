@@ -763,8 +763,12 @@ ui-media-view {
 	right: 0;
 	bottom: 0;
 	z-index: 5;
-	background: linear-gradient(45deg, rgba(0,0,0,0.1) 25%, transparent 25%), linear-gradient(-45deg, rgba(0,0,0,0.1) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.1) 75%), linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.1) 75%);
+	background: linear-gradient(45deg, rgba(0,0,0,0.05) 25%, transparent 25%), linear-gradient(-45deg, rgba(0,0,0,0.1) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.05) 75%), linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.1) 75%);
 	background-size: 20px 20px;
-	background-color: #ccc;
+	background-color: var(--mid);
 	display: none;
+}
+
+ui-media-view img {
+	box-shadow: 0px 0px 50px rgba(0,0,0,0.5);
 }
