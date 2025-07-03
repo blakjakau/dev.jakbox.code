@@ -94,15 +94,24 @@ ui-tab-item:hover::after {
     width:100%;
 }
 
-.ace_scrollbar::-webkit-scrollbar {
+.ace_scrollbar::-webkit-scrollbar,
+ui-file-list .inner::-webkit-scrollbar,
+ui-menu::-webkit-scrollbar,
+#ace_settingsmenu::-webkit-scrollbar {
 	width: .66em; height: .66em;
 }
 
-.ace_scrollbar-v::-webkit-scrollbar-track {
+.ace_scrollbar-v::-webkit-scrollbar-track,
+ui-file-list .inner::-webkit-scrollbar-track,
+ui-menu::-webkit-scrollbar-track,
+#ace_settingsmenu::-webkit-scrollbar-track {
 	box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
 }
 
-.ace_scrollbar::-webkit-scrollbar-thumb {
+.ace_scrollbar::-webkit-scrollbar-thumb,
+ui-file-list .inner::-webkit-scrollbar-thumb,
+ui-menu::-webkit-scrollbar-thumb,
+#ace_settingsmenu::-webkit-scrollbar-thumb {
 	background-color: darkgrey;
 	border-radius:4px;
 }
