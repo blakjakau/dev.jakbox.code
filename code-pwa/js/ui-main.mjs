@@ -637,7 +637,10 @@ editorHolder.appendChild(mediaView)
 		const c_theme = editor.getOption("theme")
 		window.themeMenu = themeMenu
 		window.modeMenu = modeMenu
-		
+
+		// Query darkmode elements directly within the function
+		const darkmodeSelect = document.querySelector("#darkmode_select");
+		const darkmodeMenu = document.querySelector("#darkmode_menu");
 
 		if (window.ace_themes) {
 			// themeMenu.empty();
@@ -686,6 +689,32 @@ editorHolder.appendChild(mediaView)
 				}
 			})
 		}
+
+		// Update dark mode menu
+		setTimeout(() => {
+			// Clear all existing 'done' icons from dark mode menu items
+			const allDarkModeMenuItems = darkmodeMenu.querySelectorAll("ui-menu-item"); // Query all menu items
+			allDarkModeMenuItems.forEach(item => item.icon = "");
+
+			const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
+
+			// Apply the darkmode class to the body based on app.darkmode setting
+			if (app.darkmode === 'dark' || (app.darkmode === 'system' && prefersDarkMode.matches)) {
+				document.body.classList.add("darkmode");
+				darkmodeSelect.icon = "dark_mode";
+			} else {
+				document.body.classList.remove("darkmode");
+				darkmodeSelect.icon = "light_mode";
+			}
+
+			// Set the 'done' icon for the currently selected mode in the menu
+			console.log('app.darkmode:', app.darkmode);
+			console.log('Querying for:', `[args='${app.darkmode}']`);
+			const selectedMenuItem = darkmodeMenu.querySelector(`[args='${app.darkmode}']`);
+			if (selectedMenuItem) {
+				selectedMenuItem.icon = "done";
+			}
+		});
 	},
 
 	showFolders: async (expandLevels=1) => {
@@ -780,8 +809,11 @@ editorHolder.appendChild(mediaView)
 	get tabBar() {
 		return tabBar
 	},
-	get themeModeToggle() {
-		return themeModeToggle
+	get darkmodeSelect() {
+		return darkmodeSelect
+	},
+	get darkmodeMenu() {
+		return darkmodeMenu
 	},
 	get mediaView() {
 		return mediaView

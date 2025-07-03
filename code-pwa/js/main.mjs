@@ -88,6 +88,7 @@ const app = {
 	sessionOptions: null,
 	rendererOptions: null,
 	enableLiveAutocompletion: null,
+	darkmode: 'system',
 }
 
 const workspace = {
@@ -383,16 +384,34 @@ const openWorkspace = (() => {
 	}
 })()
 
-ui.themeModeToggle.on("click", () => {
-	setTimeout(() => {
-		if (document.body.classList.contains("darkmode")) {
-			app.darkmode = true
-		} else {
-			app.darkmode = false
-		}
-		saveAppConfig()
-	})
-})
+const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
+
+const execCommandSetDarkMode = (mode) => {
+    app.darkmode = mode;
+    switch (mode) {
+        case 'light':
+            document.body.classList.remove("darkmode");
+            break;
+        case 'dark':
+            document.body.classList.add("darkmode");
+            break;
+        case 'system':
+            if (prefersDarkMode.matches) {
+                document.body.classList.add("darkmode");
+            } else {
+                document.body.classList.remove("darkmode");
+            }
+            break;
+    }
+    saveAppConfig();
+    updateThemeAndMode();
+};
+
+prefersDarkMode.addEventListener('change', () => {
+    if (app.darkmode === 'system') {
+        execCommandSetDarkMode('system');
+    }
+});
 
 const updateThemeAndMode = (doSave = false) => {
 	ui.updateThemeAndMode()
@@ -1201,6 +1220,13 @@ const keyBinds = [
 			}
 		},
 	},
+	{
+		target: "app",
+		name: "setDarkMode",
+		exec: (mode) => {
+			execCommandSetDarkMode(mode);
+		},
+	},
 ]
 
 keyBinds.forEach((bind) => {
@@ -1293,8 +1319,8 @@ setTimeout(async () => {
 				updateWorkspaceSelectors()
 			}
 
-			if (app.darkmode == true) {
-				ui.themeModeToggle.click()
+			if (app.darkmode) {
+				execCommandSetDarkMode(app.darkmode);
 			}
 		}
 
