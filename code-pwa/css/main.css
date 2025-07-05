@@ -94,6 +94,31 @@ ui-tab-item:hover::after {
     width:100%;
 }
 
+#secondaryEditorHolder {
+    opacity: 1;
+    transition: opacity 333ms;
+    margin: 0;
+    position: absolute;
+    top: var(--editorTop);
+    bottom: var(--statusHeight);
+    right: 0;
+    width: 0;
+    line-height: 1.3em;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+
+#secondaryEditor {
+    margin: 0;
+    height: 100%;
+    width: 100%;
+}
+
+#secondaryMediaView {
+    height: 100%;
+    width: 100%;
+}
+
 .ace_scrollbar::-webkit-scrollbar,
 ui-file-list .inner::-webkit-scrollbar,
 ui-menu::-webkit-scrollbar,

@@ -19,6 +19,7 @@ var editor, thumbstrip
 var editorElement, editorHolder, thumbElement
 var menu, tabBar, openDir
 var files, fileActions, fileList, drawer, mediaView
+var secondaryEditor, secondaryEditorElement, secondaryEditorHolder, secondaryMediaView, secondaryTabBar, toggleSplitViewBtn
 var statusbar
 var statusTheme, statusMode, statusWorkspace
 var themeMenu, modeMenu, workspaceMenu
@@ -82,15 +83,39 @@ const uiManager = {
 				openDir.setAttribute("title", "hide file list")
 				tabBar.style.left = sidebarWidth+"px"
 				editorHolder.style.left = sidebarWidth + "px"
+				
 			} else {
 				openDir.icon = "menu"
 				openDir.setAttribute("title", "show file list")
 				tabBar.style.left = ""
 				editorHolder.style.left = ""
+				secondaryEditorHolder.style.left = ""
 			}
-			setTimeout(() => {
 				editor.resize()
-			}, 500)
+				secondaryEditor.resize()
+		})
+
+		toggleSplitViewBtn = new elements.Button()
+		toggleSplitViewBtn.icon = "vertical_split"
+		toggleSplitViewBtn.setAttribute("title", "Toggle split view")
+		toggleSplitViewBtn.on("click", () => {
+			if (toggleBodyClass("showSplitView")) {
+				toggleSplitViewBtn.icon = "view_column"
+				toggleSplitViewBtn.setAttribute("title", "Hide split view")
+				secondaryEditorHolder.style.width = "50%"
+				editorHolder.style.right = "50%"
+				secondaryTabBar.style.width = "50%"
+				tabBar.style.right = "50%"
+			} else {
+				toggleSplitViewBtn.icon = "vertical_split"
+				toggleSplitViewBtn.setAttribute("title", "Show split view")
+				secondaryEditorHolder.style.width = "0px"
+				editorHolder.style.right = "0px"
+				secondaryTabBar.style.width = "0px"
+				tabBar.style.right = "0px"
+			}
+				editor.resize()
+				secondaryEditor.resize()
 		})
 
 		tabBar = new elements.TabBar()
@@ -98,6 +123,12 @@ const uiManager = {
 		tabBar.setAttribute("id", "tabs")
 		tabBar.setAttribute("slim", "true")
 		tabBar.append(openDir)
+		tabBar.append(toggleSplitViewBtn)
+
+		secondaryTabBar = new elements.TabBar()
+		secondaryTabBar.type = "tabs"
+		secondaryTabBar.setAttribute("id", "secondaryTabs")
+		secondaryTabBar.setAttribute("slim", "true")
 
 		statusbar = document.querySelector("#statusbar")
 		if (statusbar == null) {
@@ -138,30 +169,71 @@ const uiManager = {
 			true
 		)
 
-		editorHolder = document.createElement("div")
+		editorHolder = new elements.Panel()
 		editorHolder.setAttribute("id", holderID)
 		editorElement = document.createElement("div")
 		editorElement.classList.add("loading")
 		editorElement.setAttribute("id", editorID)
 
-		editorHolder.appendChild(editorElement)
+					editorHolder.appendChild(editorElement)
 
-mediaView = new elements.MediaView()
-mediaView.setAttribute("id", "mediaView")
-editorHolder.appendChild(mediaView)
+		mediaView = new elements.MediaView()
+		mediaView.setAttribute("id", "mediaView")
+		editorHolder.appendChild(mediaView)
+
+		secondaryEditorHolder = new elements.Panel()
+		secondaryEditorHolder.setAttribute("id", "secondaryEditorHolder")
+		secondaryEditorHolder.style.width = "0px"
+		secondaryEditorHolder.style.right = "0px"
+		secondaryEditorHolder.resizable = "left"
+
+		secondaryEditorElement = document.createElement("div")
+		secondaryEditorElement.classList.add("loading")
+		secondaryEditorElement.setAttribute("id", "secondaryEditor")
+		secondaryEditorHolder.appendChild(secondaryEditorElement)
+
+		secondaryMediaView = new elements.MediaView()
+		secondaryMediaView.setAttribute("id", "secondaryMediaView")
+		secondaryEditorHolder.appendChild(secondaryMediaView)
 		
 		files.resizeListener((width)=>{
 			sidebarWidth = width
 			
 			tabBar.style.transition = "none"
 			editorHolder.style.transition = "none"
+			secondaryEditorHolder.style.transition = "none"
+			secondaryTabBar.style.transition = "none"
 			
 			tabBar.style.left = width+"px"
 			editorHolder.style.left = width + "px"
+			secondaryEditorHolder.style.left = width + "px"
+			secondaryTabBar.style.left = width + "px"
 		})
 		files.resizeEndListener(()=>{
 			tabBar.style.transition = ""
 			editorHolder.style.transition = ""
+			secondaryEditorHolder.style.transition = ""
+			secondaryTabBar.style.transition = ""
+			editor.resize()
+			secondaryEditor.resize()
+		})
+
+		secondaryEditorHolder.resizeListener((width)=>{
+			editorHolder.style.transition = "none"
+			tabBar.style.transition = "none"
+			secondaryTabBar.style.transition = "none"
+
+			editorHolder.style.right = width + "px"
+			tabBar.style.right = width + "px"
+			secondaryTabBar.style.width = width + "px"
+		})
+
+		secondaryEditorHolder.resizeEndListener(()=>{
+			editorHolder.style.transition = ""
+			tabBar.style.transition = ""
+			secondaryTabBar.style.transition = ""
+			editor.resize()
+			secondaryEditor.resize()
 		})
 
 		drawer = new elements.Panel()
@@ -548,11 +620,16 @@ editorHolder.appendChild(mediaView)
 		document.body.appendChild(statusbar)
 		document.body.appendChild(thumbElement)
 		document.body.appendChild(editorHolder)
+		document.body.appendChild(secondaryEditorHolder)
+		document.body.appendChild(secondaryTabBar)
 		document.body.appendChild(files)
 		document.body.appendChild(drawer)
 		document.body.appendChild(omni)
 
 		window.editor = editor = ace.edit(editorID)
+		secondaryEditorElement.innerHTML = ''; // Ensure the element is empty
+		console.log('secondaryEditorElement innerHTML before ace.edit:', secondaryEditorElement.innerHTML);
+		window.secondaryEditor = secondaryEditor = ace.edit("secondaryEditor")
 		window.thumbStrip = thumbstrip = ace.edit(thumbID)
 		window.omni = omni
 		ace.require("ace/keyboard/sublime")
@@ -817,6 +894,21 @@ editorHolder.appendChild(mediaView)
 	},
 	get mediaView() {
 		return mediaView
+	},
+	get secondaryEditor() {
+		return secondaryEditor
+	},
+	get secondaryEditorElement() {
+		return secondaryEditorElement
+	},
+	get secondaryEditorHolder() {
+		return secondaryEditorHolder
+	},
+	get secondaryMediaView() {
+		return secondaryMediaView
+	},
+	get secondaryTabBar() {
+		return secondaryTabBar
 	},
 }
 

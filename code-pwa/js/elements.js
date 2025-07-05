@@ -100,8 +100,11 @@ async function readAndOrderDirectoryRecursive(handle) {
 
 class Element extends HTMLElement {
 	constructor(content) {
-		super(content)
-		if (isset(content)) this.innerHTML = content
+		super()
+		this._initialContent = content;
+		// It's generally safer to set innerHTML in connectedCallback or after the element is appended to the DOM
+		// However, given the existing structure, we'll keep it here for now, but be aware of potential future issues.
+		// If this continues to cause problems, we might need to defer setting innerHTML.
 		this.on = this.addEventListener
 		this.off = this.removeEventListener
 		this._displayType = "inline-block"
@@ -129,6 +132,7 @@ class Element extends HTMLElement {
 	}
 	connectedCallback() {
 		this._inDOM = true
+		if (isset(this._initialContent)) this.innerHTML = this._initialContent
 		// this.addClass("ui", "element")
 	}
 	disconnectedCallback() {
@@ -296,12 +300,15 @@ let inputCount = 0
 class Input extends Element {
 	// input handler with base input element and built in validation hooks
 	constructor(content) {
-		super(content)
+		super()
 		this._id = "ui_input_" + inputCount++
 		const input = (this._input = document.createElement("input"))
 		const label = (this._label = document.createElement("label"))
 		this.id = this._id
-		super.append.apply(this, [label, input])
+	}
+	connectedCallback() {
+		super.connectedCallback()
+		super.append.apply(this, [this._label, this._input])
 	}
 	setSelectionRange(x, y) {
 		this._input.setSelectionRange(x, y)
@@ -349,9 +356,6 @@ class Button extends Element {
 		// like a regular button, but automatically maintains an internal icon/text sub-elements
 		this._icon = new Icon()
 		this._text = new Inline()
-		this._text.innerHTML = this.innerHTML
-		this.innerHTML = ""
-		if (isset(content)) this._text.innerHTML = content
 
 		this._effect = new Effects()
 		this._ripple = new Ripple()
@@ -379,6 +383,11 @@ class Button extends Element {
 
 	connectedCallback() {
 		super.connectedCallback.apply(this)
+
+		if (this.innerHTML) {
+			this._text.innerHTML = this.innerHTML
+			this.innerHTML = ""
+		}
 
 		this.append(this._effect)
 		this.prepend(this._text, this._icon)
@@ -423,7 +432,8 @@ class Button extends Element {
 
 class FileItem extends Button {
 	constructor(content) {
-		super(content)
+		super()
+		if (isset(content)) this.innerHTML = content
 		this._refresh = new Icon()
 		this._refresh.innerHTML = "refresh"
 		this._refresh.style.visibility = "hidden"
@@ -565,7 +575,8 @@ const dragleave = function (e) {
 
 class TabItem extends Button {
 	constructor(content) {
-		super(content)
+		super()
+		if (isset(content)) this.innerHTML = content
 		this._close = new Icon()
 		this._close.innerHTML = "close"
 		this._close.style.visibility = "visible"
@@ -576,7 +587,7 @@ class TabItem extends Button {
 		this.ondragstart = (e) => {
 			this.ondrop = this.parentElement.tabDrop
 			e.dataTransfer.effectAllowed = "move"
-			e.dataTransfer.setData("movingTab", this)
+			e.dataTransfer.setData("text/plain", this.id)
 
 			this.parentElement.animating = true
 			this.parentElement.setAttribute("dragging", "true")
@@ -652,7 +663,8 @@ class TabItem extends Button {
 
 class CounterButton extends Button {
 	constructor(content) {
-		super(content)
+		super()
+		if (isset(content)) this.innerHTML = content
 		this._counter = new Element()
 	}
 	connectedCallback() {
@@ -696,7 +708,8 @@ class Blank extends Block {
 
 class Panel extends Block {
 	constructor(content) {
-		super(content)
+		super()
+		if (isset(content)) this.innerHTML = content
 		this.blanker = new Blank()
 		this.resizeListeners = []
 		this.resizeEndListeners= []
@@ -856,7 +869,8 @@ class Panel extends Block {
 
 class MediaView extends Panel {
     constructor(content) {
-        super(content);
+        super()
+        if (isset(content)) this.innerHTML = content
         this.image = new Image();
         this.image.style.maxWidth = "100%";
         this.image.style.maxHeight = "100%";
@@ -1220,27 +1234,52 @@ class TabBar extends Block {
 			Promise.all(delayed).then((res) => {
 				res.forEach(this.dropFileHandle)
 			})
-		} else if (this.movingItem instanceof HTMLElement) {
-			if (this?.dropPosition == "before") {
-				this.insertBefore(this.movingItem, this.dropTarget)
-			} else {
-				if (this?.dropTarget?.nextElementSibling) {
-					this.insertBefore(this.movingItem, this.dropTarget.nextElementSibling)
+		} else {
+			let movingTabId = e.dataTransfer.getData("text/plain")
+			let movingTab = document.getElementById(movingTabId)
+			
+			if (movingTab && movingTab.parentElement !== this) {
+				// Remove from old TabBar's _tabs array
+				let oldTabBar = movingTab.parentElement
+				oldTabBar._tabs = oldTabBar._tabs.filter(tab => tab !== movingTab)
+				
+				// Add to new TabBar's _tabs array
+				this._tabs.push(movingTab)
+				
+				if (this?.dropPosition == "before") {
+					this.insertBefore(movingTab, this.dropTarget)
+				} else if (this?.dropTarget?.nextElementSibling) {
+					this.insertBefore(movingTab, this.dropTarget.nextElementSibling)
 				} else {
-					this.appendChild(this.movingItem)
+					this.appendChild(movingTab)
 				}
-			}
+				
+				// Rebuild _tabs array for the new TabBar
+				this._tabs = Array.from(this.children).filter(child => child instanceof TabItem)
+				
+				movingTab.click()
+			} else if (this.movingItem instanceof HTMLElement) {
+				if (this?.dropPosition == "before") {
+					this.insertBefore(this.movingItem, this.dropTarget)
+				} else {
+					if (this?.dropTarget?.nextElementSibling) {
+						this.insertBefore(this.movingItem, this.dropTarget.nextElementSibling)
+					} else {
+						this.appendChild(this.movingItem)
+					}
+				}
 
-			// rebuilt the _tabs array with the new item order
-			while (this._tabs.length > 0) {
-				this._tabs.pop()
+				// rebuilt the _tabs array with the new item order
+				while (this._tabs.length > 0) {
+					this._tabs.pop()
+				}
+				let tabs = this.children
+				for (let i = 0, l = tabs.length; i < l; i++) {
+					if (!(tabs[i] instanceof TabItem)) continue
+					this._tabs.push(tabs[i])
+				}
+				this.movingItem.click()
 			}
-			let tabs = this.children
-			for (let i = 0, l = tabs.length; i < l; i++) {
-				if (!(tabs[i] instanceof TabItem)) continue
-				this._tabs.push(tabs[i])
-			}
-			this.movingItem.click()
 		}
 	}
 

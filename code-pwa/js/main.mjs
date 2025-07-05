@@ -82,6 +82,16 @@ window.code = {
 	version: "0.3.2",
 }
 
+const editor = ui.editor
+const secondaryEditor = ui.secondaryEditor
+const thumbs = ui.thumb
+const installer = ui.installer
+const fileActions = ui.fileActions
+const fileList = ui.fileList
+const tabBar = ui.tabBar
+const secondaryTabBar = ui.secondaryTabBar
+const prettify = document.querySelector("#prettier")
+
 const app = {
 	folders: [],
 	workspaces: [],
@@ -105,13 +115,7 @@ window.workspace = workspace
 const fileOpen = new elements.Button("Add Folder to Workspace")
 const fileAccess = new elements.Button("Restore")
 
-const editor = ui.editor
-const thumbs = ui.thumb
-const installer = ui.installer
-const fileActions = ui.fileActions
-const fileList = ui.fileList
-const tabBar = ui.tabBar
-const prettify = document.querySelector("#prettier")
+
 
 window.ui.commands = {
 	byKeys: {},
@@ -468,14 +472,25 @@ const execCommandPrettify = () => {
 }
 
 const execCommandEditorOptions = () => {
-	if (app.sessionOptions) editor.session.setOptions(app.sessionOptions)
-	if (app.rendererOptions) editor.renderer.setOptions(app.rendererOptions)
-	if (app.enableLiveAutocompletion) editor.$enableLiveAutocompletion = app.enableLiveAutocompletion
+	if (app.sessionOptions) {
+		editor.session.setOptions(app.sessionOptions);
+		secondaryEditor.session.setOptions(app.sessionOptions);
+	}
+	if (app.rendererOptions) {
+		editor.renderer.setOptions(app.rendererOptions);
+		secondaryEditor.renderer.setOptions(app.rendererOptions);
+	}
+	if (app.enableLiveAutocompletion) {
+		editor.$enableLiveAutocompletion = app.enableLiveAutocompletion;
+		secondaryEditor.$enableLiveAutocompletion = app.enableLiveAutocompletion;
+	}
 
 	if (editor.getOption("mode") === "ace/mode/javascript") {
-		editor.setOption("useWorker", false)
+		editor.setOption("useWorker", false);
+		secondaryEditor.setOption("useWorker", false);
 	} else {
-		editor.setOption("useWorker", true)
+		editor.setOption("useWorker", true);
+		secondaryEditor.setOption("useWorker", true);
 	}
 }
 
@@ -565,17 +580,22 @@ const execCommandOpen = async () => {
 }
 
 const execCommandNewFile = async () => {
-	const srcTab = tabBar.activeTab
-	const mode = srcTab.config?.mode?.mode || ""
-	const folder = srcTab.config?.folder || undefined
-	const newSession = ace.createEditSession("", mode)
-	newSession.baseValue = ""
+	const srcTab = tabBar.activeTab || secondaryTabBar.activeTab;
+	const mode = srcTab?.config?.mode?.mode || "";
+	const folder = srcTab?.config?.folder || undefined;
+	const newSession = ace.createEditSession("", mode);
+	newSession.baseValue = "";
 
-	const tab = tabBar.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder })
+	let targetTabBar = tabBar;
+	if (secondaryTabBar.activeTab) {
+		targetTabBar = secondaryTabBar;
+	}
 
-	editor.setSession(newSession)
-	execCommandEditorOptions()
-	tab.click()
+	const tab = targetTabBar.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder });
+
+	currentEditor.setSession(newSession);
+	execCommandEditorOptions();
+	tab.click();
 }
 
 const execCommandNewWindow = async () => {
@@ -591,7 +611,13 @@ const buildPath = (f) => {
 	return n
 }
 
-const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath = null) => {
+let currentEditor = editor;
+let currentMediaView = ui.mediaView;
+
+const openFileHandle = async (handle, knownPath = null) => {
+    // This function will be assigned to tabBar.dropFileHandle and secondaryTabBar.dropFileHandle later
+    // So, we don't need to assign it here.
+
 	// don't add a new tab if the file is already open in a tab
 	const path = knownPath != null ? knownPath : buildPath(handle)
 	{
@@ -679,13 +705,20 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath = null)
 	const newSession = ace.createEditSession(text, fileMode.mode)
 	newSession.baseValue = text
 
-	editor.setSession(newSession)
+	currentEditor.setSession(newSession)
 	execCommandEditorOptions()
-	thumbstrip.setValue(editor.getValue())
+	thumbstrip.setValue(currentEditor.getValue())
 	thumbStrip.clearSelection()
 	thumbStrip.gotoLine(0)
 
-	const tab = tabBar.add({
+	let targetTabBar = tabBar;
+	if (secondaryTabBar.activeTab) {
+		targetTabBar = secondaryTabBar;
+	} else if (tabBar.activeTab) {
+		targetTabBar = tabBar;
+	}
+
+	const tab = targetTabBar.add({
 		name: file.name,
 		mode: fileMode,
 		session: newSession,
@@ -718,11 +751,11 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath = null)
 				}
 				recurse(handle.container)
 				return containers
-			})(),
+			})()
 		})
 	}
 	saveWorkspace()
-})
+}
 
 const fileMenu = document.getElementById("file_context")
 const folderMenu = document.getElementById("folder_context")
@@ -770,8 +803,7 @@ fileList.context = (e) => {
 }
 
 fileList.unlock = verifyPermission
-fileList.open = openFileHandle
-fileList.unsupported = openFileHandle
+
 fileList.expand = (item) => {
 	for (const tab of tabBar.tabs) {
 		fileList.active = tab.config.handle
@@ -782,82 +814,101 @@ fileList.expand = (item) => {
 	fileList.active = tabBar.activeTab.config.handle
 }
 
-tabBar.click = async (event) => {
-	const tab = event.tab
+const updateEditorUI = async (targetEditor, targetMediaView, tab) => {
+    if (tab.config.mode.mode === "media") {
+        targetEditor.container.style.display = 'none';
+        targetMediaView.style.display = 'block';
 
-	if (tab.config.mode.mode === "media") {
-		ui.editorElement.style.display = 'none';
-		ui.mediaView.style.display = 'block';
-
-		const file = await tab.config.handle.getFile();
-		const imageUrl = URL.createObjectURL(file);
-		ui.mediaView.setImage(imageUrl);
-
-		fileList.active = tab.config.handle;
-		tab.scrollIntoViewIfNeeded();
-		tabBar.scrollTop = 0;
-		updateThemeAndMode();
-	} else {
-		ui.editorElement.style.display = 'block';
-		ui.mediaView.style.display = 'none';
-		// ui.mediaView.style.backgroundImage = ''; // Clear background image - handled by setImage
-		// ui.mediaView.style.backgroundColor = ''; // Reset background color - handled by setImage
-
-		editor.setSession(tab.config.session);
-		fileList.active = tab.config.handle;
-
-		tab.scrollIntoViewIfNeeded();
-		tabBar.scrollTop = 0;
-
-		if (tab.changed && fileList.activeItem) {
-			fileList.activeItem.changed = true;
-		}
-		thumbStrip.setValue(editor.getValue());
-		thumbStrip.clearSelection();
-		thumbStrip.gotoLine(editor.getCursorPosition().row + 1);
-		updateThemeAndMode();
-		editor.focus();
-	}
+        const file = await tab.config.handle.getFile();
+        const imageUrl = URL.createObjectURL(file);
+        targetMediaView.setImage(imageUrl);
+    } else {
+        targetEditor.container.style.display = 'block';
+        targetMediaView.style.display = 'none';
+        targetEditor.setSession(tab.config.session);
+        thumbStrip.setValue(targetEditor.getValue());
+        thumbStrip.clearSelection();
+        thumbStrip.gotoLine(targetEditor.getCursorPosition().row + 1);
+        targetEditor.focus();
+    }
+    fileList.active = tab.config.handle;
+    tab.scrollIntoViewIfNeeded();
+    tab.parentElement.scrollTop = 0;
+    updateThemeAndMode();
+    if (tab.changed && fileList.activeItem) {
+        fileList.activeItem.changed = true;
+    }
 }
+
+tabBar.click = async (event) => {
+    const tab = event.tab;
+    updateEditorUI(editor, ui.mediaView, tab);
+};
+
+secondaryTabBar.click = async (event) => {
+    const tab = event.tab;
+    updateEditorUI(secondaryEditor, ui.secondaryMediaView, tab);
+};
+
+const closeTab = (targetTabBar, event) => {
+    const tab = event.tab;
+    if (tab.changed) {
+        if (!confirm("This file has unsaved changes, are you sure?")) {
+            return;
+        }
+    }
+
+    // If the tab is a media file, revoke the object URL
+    if (tab.config.mode.mode === "media") {
+        if (targetTabBar === tabBar && ui.mediaView.style.backgroundImage) {
+            const imageUrl = ui.mediaView.style.backgroundImage.replace(/url\("|"\)/g, '');
+            URL.revokeObjectURL(imageUrl);
+        } else if (targetTabBar === secondaryTabBar && ui.secondaryMediaView.style.backgroundImage) {
+            const imageUrl = ui.secondaryMediaView.style.backgroundImage.replace(/url\("|"\)/g, '');
+            URL.revokeObjectURL(imageUrl);
+        }
+    }
+
+    // remove from workspace recent files
+    for (let i = 0; i < workspace.files.length; i++) {
+        if (workspace.files[i].handle == tab.config.handle) {
+            workspace.files.splice(i, 1);
+            i--;
+        }
+    }
+
+    fileList.inactive = tab.config.handle;
+
+    targetTabBar.remove(tab);
+    if (targetTabBar.tabs.length == 0) {
+        defaultTab(targetTabBar);
+    }
+    tab.config.session.destroy();
+    saveWorkspace();
+};
 
 tabBar.close = (event) => {
-	const tab = event.tab
-	if (tab.changed) {
-		if (!confirm("This file has unsaved changes, are you sure?")) {
-			return
-		}
-	}
+    closeTab(tabBar, event);
+};
 
-	// If the tab is a media file, revoke the object URL
-	if (tab.config.mode.mode === "media" && ui.mediaView.style.backgroundImage) {
-		const imageUrl = ui.mediaView.style.backgroundImage.replace(/url\("|"\)/g, '');
-		URL.revokeObjectURL(imageUrl);
-	}
+secondaryTabBar.close = (event) => {
+    closeTab(secondaryTabBar, event);
+};
 
-	// remove from workspace recent files
-	for (let i = 0; i < workspace.files.length; i++) {
-		if (workspace.files[i].handle == tab.config.handle) {
-			workspace.files.splice(i, 1)
-			i--
-		}
-	}
-	//if(workspace.files.indexOf(tab.config.handle)>-1) { workspace.files.splice(workspace.files.indexOf(tab.config.handle), 1) }
-
-	fileList.inactive = tab.config.handle
-
-	tabBar.remove(tab)
-	if (tabBar.tabs.length == 0) {
-		defaultTab()
-	}
-	tab.config.session.destroy()
-	//saveAppConfig()
-	saveWorkspace()
-}
-
-const defaultTab = () => {
+const defaultTab = (targetTabBar = tabBar) => {
 	const defaultSession = ace.createEditSession("", "")
-	const tab = tabBar.add({ name: "untitled", mode: { mode: "" }, session: defaultSession })
-	editor.setSession(defaultSession)
+	const tab = targetTabBar.add({ name: "untitled", mode: { mode: "" }, session: defaultSession })
+	
+	// Determine which editor and media view to use based on the targetTabBar
+	let editorToUse = editor;
+	let mediaViewToUse = ui.mediaView;
+	
+	if (targetTabBar === secondaryTabBar) {
+		editorToUse = secondaryEditor;
+		mediaViewToUse = ui.secondaryMediaView;
+	}
+
+	editorToUse.setSession(defaultSession)
 	execCommandEditorOptions()
 	tab.click()
 }
@@ -1357,6 +1408,10 @@ setTimeout(async () => {
 		}
 		ui.toggleFiles()
 		defaultTab()
+		ui.fileList.open = openFileHandle;
+		fileList.unsupported = openFileHandle;
+		tabBar.dropFileHandle = openFileHandle;
+		secondaryTabBar.dropFileHandle = openFileHandle;
 
 		if ("launchQueue" in window) {
 			launchQueue.setConsumer((params) => {
