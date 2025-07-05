@@ -625,9 +625,7 @@ const uiManager = {
 		document.body.appendChild(omni)
 
 		window.editor = editor = ace.edit(editorID)
-		secondaryEditorElement.innerHTML = ''; // Ensure the element is empty
-		console.log('secondaryEditorElement innerHTML before ace.edit:', secondaryEditorElement.innerHTML);
-		window.secondaryEditor = secondaryEditor = ace.edit("secondaryEditor")
+		window.secondaryEditor = secondaryEditor = ace.edit(secondaryEditorElement)
 		
 		window.omni = omni
 		ace.require("ace/keyboard/sublime")
