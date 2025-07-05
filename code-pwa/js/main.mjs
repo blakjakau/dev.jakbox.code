@@ -73,7 +73,7 @@ function safeString(string) {
 }
 
 const editorElementID = "editor"
-const thumbElementID = "thumbstrip"
+
 let permissionNotReloaded = true // should we re-request permission for folders added
 
 ui.create()
@@ -84,7 +84,7 @@ window.code = {
 
 const editor = ui.editor
 const secondaryEditor = ui.secondaryEditor
-const thumbs = ui.thumb
+
 const installer = ui.installer
 const fileActions = ui.fileActions
 const fileList = ui.fileList
@@ -707,9 +707,6 @@ const openFileHandle = async (handle, knownPath = null) => {
 
 	currentEditor.setSession(newSession)
 	execCommandEditorOptions()
-	thumbstrip.setValue(currentEditor.getValue())
-	thumbStrip.clearSelection()
-	thumbStrip.gotoLine(0)
 
 	let targetTabBar = tabBar;
 	if (secondaryTabBar.activeTab) {
@@ -826,9 +823,6 @@ const updateEditorUI = async (targetEditor, targetMediaView, tab) => {
         targetEditor.container.style.display = 'block';
         targetMediaView.style.display = 'none';
         targetEditor.setSession(tab.config.session);
-        thumbStrip.setValue(targetEditor.getValue());
-        thumbStrip.clearSelection();
-        thumbStrip.gotoLine(targetEditor.getCursorPosition().row + 1);
         targetEditor.focus();
     }
     fileList.active = tab.config.handle;
@@ -1342,7 +1336,6 @@ window.addEventListener("beforeinstallprompt", (e) => {
 
 setTimeout(async () => {
 	ui.editorElement.classList.remove("loading")
-	ui.thumbElement.classList.remove("loading")
 
 	window.filesReceiver.addEventListener("message", (e) => {
 		if (e.data?.open && window.activeFileReceiver) {

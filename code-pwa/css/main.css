@@ -145,23 +145,7 @@ ui-menu::-webkit-scrollbar-thumb,
 	opacity:0;
 }
 
-#ui_thumbstrip {
-	
-	opacity:1;
-	transition:opacity 333ms;
-    margin: 0;
-    position: absolute;
-    top: var(--editorTop);
-    bottom: 24;
-    width:128;
-    right: 0;
-    line-height:1.2em;
-    display:none;
-}
 
-#ui_thumbstrip.loading {
-	opacity:0;
-}
 
 
 header {

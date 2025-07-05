@@ -15,8 +15,8 @@ const defaultSettings = {
 	fontFamily: "roboto mono",
 }
 
-var editor, thumbstrip
-var editorElement, editorHolder, thumbElement
+var editor
+var editorElement, editorHolder
 var menu, tabBar, openDir
 var files, fileActions, fileList, drawer, mediaView
 var secondaryEditor, secondaryEditorElement, secondaryEditorHolder, secondaryMediaView, secondaryTabBar, toggleSplitViewBtn
@@ -253,9 +253,7 @@ const uiManager = {
 			editor.resize()
 		})
 
-		thumbElement = document.createElement("pre")
-		thumbElement.setAttribute("id", thumbID)
-		thumbElement.classList.add("loading")
+		
 
 		installer = new elements.Panel()
 		installer.setAttribute("type", "modal")
@@ -618,7 +616,7 @@ const uiManager = {
 		document.body.appendChild(menu)
 		document.body.appendChild(tabBar)
 		document.body.appendChild(statusbar)
-		document.body.appendChild(thumbElement)
+		
 		document.body.appendChild(editorHolder)
 		document.body.appendChild(secondaryEditorHolder)
 		document.body.appendChild(secondaryTabBar)
@@ -630,7 +628,7 @@ const uiManager = {
 		secondaryEditorElement.innerHTML = ''; // Ensure the element is empty
 		console.log('secondaryEditorElement innerHTML before ace.edit:', secondaryEditorElement.innerHTML);
 		window.secondaryEditor = secondaryEditor = ace.edit("secondaryEditor")
-		window.thumbStrip = thumbstrip = ace.edit(thumbID)
+		
 		window.omni = omni
 		ace.require("ace/keyboard/sublime")
 		ace.require("ace/etc/keybindings_menu")
@@ -647,18 +645,7 @@ const uiManager = {
 
 		editor.setOptions(defaultSettings)
 
-		window.thumbstrip = thumbstrip = ace.edit("ui_thumbstrip")
-		thumbstrip.setKeyboardHandler("ace/keyboard/sublime")
-		thumbstrip.setTheme("ace/theme/code")
-		thumbstrip.session.setMode("ace/mode/javascript")
-
-		let thumbOptions = JSON.parse(JSON.stringify(defaultSettings))
-		thumbOptions.fontSize = 2
-		thumbOptions.showGutter = false
-		thumbOptions.readOnly = true
-		thumbstrip.setOptions(thumbOptions)
-
-		// thumbStrip.setSession(editor.getSession())
+		
 
 		editor.execCommand("loadSettingsMenu", () => {
 			editor._signal("ready")
@@ -803,9 +790,7 @@ const uiManager = {
 		return openDir.click()
 	},
 
-	toggleThumb: () => {
-		return toggleBodyClass("showThumb")
-	},
+	
 
 	omnibox: (mode) => {
 		omni.classList.add("active")
@@ -862,18 +847,14 @@ const uiManager = {
 	get editor() {
 		return editor
 	},
-	get thumb() {
-		return thumbstrip
-	},
+	
 	get installer() {
 		return installer
 	},
 	get editorElement() {
 		return editorElement
 	},
-	get thumbElement() {
-		return thumbElement
-	},
+	
 	get fileActions() {
 		return fileActions
 	},
