@@ -904,7 +904,7 @@ class MediaView extends Panel {
     connectedCallback() {
         super.connectedCallback();
         this.style.overflow = "hidden";
-        this.style.display = "flex";
+        // this.style.display = "flex";
         this.style.justifyContent = "center";
         this.style.alignItems = "center";
         this.resizeObserver.observe(this);
