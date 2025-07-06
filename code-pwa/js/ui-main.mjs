@@ -19,7 +19,7 @@ var editor
 var editorElement, editorHolder
 var menu, tabBar, openDir
 var files, fileActions, fileList, drawer, mediaView
-var secondaryEditor, secondaryEditorElement, secondaryEditorHolder, secondaryMediaView, secondaryTabBar, toggleSplitViewBtn
+var extEditor, extEditorElement, extEditorHolder, extMediaView, extTabBar, toggleSplitViewBtn
 var statusbar
 var statusTheme, statusMode, statusWorkspace
 var themeMenu, modeMenu, workspaceMenu
@@ -81,18 +81,18 @@ const uiManager = {
 			if (toggleBodyClass("showFiles")) {
 				openDir.icon = "menu_open"
 				openDir.setAttribute("title", "hide file list")
-				tabBar.style.left = sidebarWidth+"px"
+				// tabBar.style.left = sidebarWidth+"px"
 				editorHolder.style.left = sidebarWidth + "px"
 				
 			} else {
 				openDir.icon = "menu"
 				openDir.setAttribute("title", "show file list")
-				tabBar.style.left = ""
+				// tabBar.style.left = ""
 				editorHolder.style.left = ""
-				secondaryEditorHolder.style.left = ""
+				extEditorHolder.style.left = ""
 			}
 				editor.resize()
-				secondaryEditor.resize()
+				extEditor.resize()
 		})
 
 		toggleSplitViewBtn = new elements.Button()
@@ -102,20 +102,20 @@ const uiManager = {
 			if (toggleBodyClass("showSplitView")) {
 				toggleSplitViewBtn.icon = "view_column"
 				toggleSplitViewBtn.setAttribute("title", "Hide split view")
-				secondaryEditorHolder.style.width = "50%"
+				extEditorHolder.style.width = "50%"
 				editorHolder.style.right = "50%"
-				secondaryTabBar.style.width = "50%"
-				tabBar.style.right = "50%"
+				// extTabBar.style.width = "50%"
+				// tabBar.style.right = "50%"
 			} else {
 				toggleSplitViewBtn.icon = "vertical_split"
 				toggleSplitViewBtn.setAttribute("title", "Show split view")
-				secondaryEditorHolder.style.width = "0px"
+				extEditorHolder.style.width = "0px"
 				editorHolder.style.right = "0px"
-				secondaryTabBar.style.width = "0px"
-				tabBar.style.right = "0px"
+				// extTabBar.style.width = "0px"
+				// tabBar.style.right = "0px"
 			}
 				editor.resize()
-				secondaryEditor.resize()
+				extEditor.resize()
 		})
 
 		tabBar = new elements.TabBar()
@@ -125,10 +125,10 @@ const uiManager = {
 		tabBar.append(openDir)
 		tabBar.append(toggleSplitViewBtn)
 
-		secondaryTabBar = new elements.TabBar()
-		secondaryTabBar.type = "tabs"
-		secondaryTabBar.setAttribute("id", "secondaryTabs")
-		secondaryTabBar.setAttribute("slim", "true")
+		extTabBar = new elements.TabBar()
+		extTabBar.type = "tabs"
+		extTabBar.setAttribute("id", "extTabs")
+		extTabBar.setAttribute("slim", "true")
 
 		statusbar = document.querySelector("#statusbar")
 		if (statusbar == null) {
@@ -175,65 +175,65 @@ const uiManager = {
 		editorElement.classList.add("loading")
 		editorElement.setAttribute("id", editorID)
 
-					editorHolder.appendChild(editorElement)
+		editorHolder.appendChild(editorElement)
 
 		mediaView = new elements.MediaView()
 		mediaView.setAttribute("id", "mediaView")
 		editorHolder.appendChild(mediaView)
 
-		secondaryEditorHolder = new elements.Panel()
-		secondaryEditorHolder.setAttribute("id", "secondaryEditorHolder")
-		secondaryEditorHolder.style.width = "0px"
-		secondaryEditorHolder.style.right = "0px"
-		secondaryEditorHolder.resizable = "left"
+		extEditorHolder = new elements.Panel()
+		extEditorHolder.setAttribute("id", "ui_ext_editor")
+		extEditorHolder.style.width = "0px"
+		extEditorHolder.style.right = "0px"
+		extEditorHolder.resizable = "left"
 
-		secondaryEditorElement = document.createElement("div")
-		secondaryEditorElement.classList.add("loading")
-		secondaryEditorElement.setAttribute("id", "secondaryEditor")
-		secondaryEditorHolder.appendChild(secondaryEditorElement)
+		extEditorElement = document.createElement("div")
+		extEditorElement.classList.add("loading")
+		extEditorElement.setAttribute("id", "extEditor")
+		extEditorHolder.appendChild(extEditorElement)
 
-		secondaryMediaView = new elements.MediaView()
-		secondaryMediaView.setAttribute("id", "secondaryMediaView")
-		secondaryEditorHolder.appendChild(secondaryMediaView)
+		extMediaView = new elements.MediaView()
+		extMediaView.setAttribute("id", "extMediaView")
+		extEditorHolder.appendChild(extMediaView)
 		
 		files.resizeListener((width)=>{
 			sidebarWidth = width
 			
-			tabBar.style.transition = "none"
+			// tabBar.style.transition = "none"
 			editorHolder.style.transition = "none"
-			secondaryEditorHolder.style.transition = "none"
-			secondaryTabBar.style.transition = "none"
+			extEditorHolder.style.transition = "none"
+			// extTabBar.style.transition = "none"
 			
-			tabBar.style.left = width+"px"
+			// tabBar.style.left = width+"px"
 			editorHolder.style.left = width + "px"
-			secondaryEditorHolder.style.left = width + "px"
-			secondaryTabBar.style.left = width + "px"
+			extEditorHolder.style.left = width + "px"
+			// extTabBar.style.left = width + "px"
 		})
 		files.resizeEndListener(()=>{
-			tabBar.style.transition = ""
+			// tabBar.style.transition = ""
 			editorHolder.style.transition = ""
-			secondaryEditorHolder.style.transition = ""
-			secondaryTabBar.style.transition = ""
+			extEditorHolder.style.transition = ""
+			// extTabBar.style.transition = ""
 			editor.resize()
-			secondaryEditor.resize()
+			extEditor.resize()
 		})
 
-		secondaryEditorHolder.resizeListener((width)=>{
+		extEditorHolder.resizeListener((width)=>{
 			editorHolder.style.transition = "none"
-			tabBar.style.transition = "none"
-			secondaryTabBar.style.transition = "none"
+			// tabBar.style.transition = "none"
+			// extTabBar.style.transition = "none"
 
 			editorHolder.style.right = width + "px"
-			tabBar.style.right = width + "px"
-			secondaryTabBar.style.width = width + "px"
+			// tabBar.style.right = width + "px"
+			// extTabBar.style.width = width + "px"
 		})
 
-		secondaryEditorHolder.resizeEndListener(()=>{
+		extEditorHolder.resizeEndListener(()=>{
 			editorHolder.style.transition = ""
-			tabBar.style.transition = ""
-			secondaryTabBar.style.transition = ""
+			// tabBar.style.transition = ""
+			// extTabBar.style.transition = ""
 			editor.resize()
-			secondaryEditor.resize()
+			extEditor.resize()
 		})
 
 		drawer = new elements.Panel()
@@ -613,19 +613,23 @@ const uiManager = {
 			})
 		}
 
+		editorHolder.appendChild(tabBar)
+		extEditorHolder.appendChild(extTabBar)
+
 		document.body.appendChild(menu)
-		document.body.appendChild(tabBar)
+		// document.body.appendChild(tabBar)
 		document.body.appendChild(statusbar)
 		
 		document.body.appendChild(editorHolder)
-		document.body.appendChild(secondaryEditorHolder)
-		document.body.appendChild(secondaryTabBar)
+		document.body.appendChild(extEditorHolder)
+		
+		// document.body.appendChild(extTabBar)
 		document.body.appendChild(files)
 		document.body.appendChild(drawer)
 		document.body.appendChild(omni)
 
 		window.editor = editor = ace.edit(editorID)
-		window.secondaryEditor = secondaryEditor = ace.edit(secondaryEditorElement)
+		window.extEditor = extEditor = ace.edit(extEditorElement)
 		
 		window.omni = omni
 		ace.require("ace/keyboard/sublime")
@@ -874,20 +878,20 @@ const uiManager = {
 	get mediaView() {
 		return mediaView
 	},
-	get secondaryEditor() {
-		return secondaryEditor
+	get extEditor() {
+		return extEditor
 	},
-	get secondaryEditorElement() {
-		return secondaryEditorElement
+	get extEditorElement() {
+		return extEditorElement
 	},
-	get secondaryEditorHolder() {
-		return secondaryEditorHolder
+	get extEditorHolder() {
+		return extEditorHolder
 	},
-	get secondaryMediaView() {
-		return secondaryMediaView
+	get extMediaView() {
+		return extMediaView
 	},
-	get secondaryTabBar() {
-		return secondaryTabBar
+	get extTabBar() {
+		return extTabBar
 	},
 }
 

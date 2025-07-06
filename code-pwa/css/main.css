@@ -11,7 +11,7 @@
 	--tabHeight: 37px;
 	--menuHeight: 34px;
 	--statusHeight: 34px;
-	--editorTop: calc(var(--tabHeight) + var(--menuHeight) + 2px);
+	--editorTop: calc(var(--tabHeight));
 	--ui-icon-color: var(--mid);
 }
 
@@ -94,7 +94,7 @@ ui-tab-item:hover::after {
     width:100%;
 }
 
-#secondaryEditorHolder {
+#ui_ext_editor {
     opacity: 1;
     transition: opacity 333ms;
     margin: 0;
@@ -108,13 +108,13 @@ ui-tab-item:hover::after {
     overflow: hidden;
 }
 
-#secondaryEditor {
+#extEditor {
     margin: 0;
     height: 100%;
     width: 100%;
 }
 
-#secondaryMediaView {
+#extMediaView {
     height: 100%;
     width: 100%;
 }
@@ -139,6 +139,10 @@ ui-menu::-webkit-scrollbar-thumb,
 #ace_settingsmenu::-webkit-scrollbar-thumb {
 	background-color: darkgrey;
 	border-radius:4px;
+}
+
+.ace_editor {
+	top: calc( var(--menuHeight) + 4px);
 }
 
 #ui_editor.loading {
@@ -196,12 +200,13 @@ ui-actionbar#menu ui-inline:first-of-type img {
 }
 
 ui-actionbar[slim]#tabs,
+ui-actionbar[slim]#extTabs,
 ui-actionbar[slim]#fileActions {
 	padding:5px 0 0 0;
 }
 
 ui-actionbar#menu ui-button {
-	color:#fff
+	color:#fff;
 	-webkit-app-region: no-drag;
 	app-region: no-drag;
 
@@ -298,9 +303,11 @@ ui-file-item[icon=image_not_supported] ui-icon:first-child { var(--light); opaci
 ui-file-item[active] ui-icon:first-child { color: var(--light); }
 
 
-#tabs {
+#tabs,
+#extTabs{
 	position:absolute;
-	top:var(--menuHeight) !important;
+	/*top:var(--menuHeight) !important;*/
+	top:0;
 	left:0;
 	right:0;
 	background: var(--light);
@@ -399,10 +406,6 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 }
 
 
-.showFiles #tabs,
-.showFiles #ui_editor {
-	left:256;
-}
 .showFiles #files {
 	opacity:1;
 	left: 0;
