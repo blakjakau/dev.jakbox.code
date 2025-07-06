@@ -352,8 +352,10 @@ class Input extends Element {
 
 class Button extends Element {
 	constructor(content) {
-		super(content)
+		super()
 		// like a regular button, but automatically maintains an internal icon/text sub-elements
+		
+		this._initialContent = content
 		this._icon = new Icon()
 		this._text = new Inline()
 
@@ -384,8 +386,8 @@ class Button extends Element {
 	connectedCallback() {
 		super.connectedCallback.apply(this)
 
-		if (this.innerHTML) {
-			this._text.innerHTML = this.innerHTML
+		if (this._initialContent) {
+			this._text.innerHTML = this._initialContent
 			this.innerHTML = ""
 		}
 

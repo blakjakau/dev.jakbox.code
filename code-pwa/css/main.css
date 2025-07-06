@@ -40,10 +40,6 @@ body {
 	margin:0; padding:0;
 }
 
-ui-action-bar #logo {
-	margin-left:8px;
-}
-
 ui-tab-item:not([active])::after { 
     display:inline-block;
     position:absolute;
@@ -88,11 +84,6 @@ ui-tab-item:hover::after {
     box-shadow: 0 0 10px rgba(0,0,0,0.5);
 }
 
-#editor {
-    margin:0;
-    height:100%;
-    width:100%;
-}
 
 #ui_ext_editor {
     opacity: 1;
@@ -105,19 +96,25 @@ ui-tab-item:hover::after {
     width: 0;
     line-height: 1.3em;
     box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    overflow: hidden;
+    /*overflow: hidden;*/
 }
 
+#editor,
 #extEditor {
     margin: 0;
-    height: 100%;
-    width: 100%;
+    height: calc((100% - (var(--menuHeight) + 0.66em)) );
+    width: calc(100% - 0.3em);
 }
 
+#mediaView,
 #extMediaView {
-    height: 100%;
-    width: 100%;
+	top: calc(var(--menuHeight) + 4px);
+    left:0px;
+    right:0px;
+    bottom:0px;
 }
+
+
 
 .ace_scrollbar::-webkit-scrollbar,
 ui-file-list .inner::-webkit-scrollbar,
@@ -130,6 +127,7 @@ ui-menu::-webkit-scrollbar,
 ui-file-list .inner::-webkit-scrollbar-track,
 ui-menu::-webkit-scrollbar-track,
 #ace_settingsmenu::-webkit-scrollbar-track {
+	width: .66em; height: .66em;
 	box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
 }
 
@@ -189,7 +187,7 @@ ui-actionbar#menu {
 	app-region: drag;
 }
 
-ui-actionbar#menu ui-inline:first-of-type {
+ui-actionbar#menu>ui-inline:first-of-type {
 	color:#000;
 	border-right: 1px solid rgba(0,0,0,0.5);
 	padding-right:8px;
@@ -306,7 +304,6 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 #tabs,
 #extTabs{
 	position:absolute;
-	/*top:var(--menuHeight) !important;*/
 	top:0;
 	left:0;
 	right:0;
@@ -316,17 +313,6 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
     box-sizing: border-box;
     border-bottom:2px solid var(--theme);
 }
-
-/*#tabs ui-tab-item {*/
-/*	display:inline-block;*/
-	/*min-width:128px;*/
-/*	height:calc(var(--tabHeight) -4);*/
-/*	background: var(--mid);*/
-/*	border-radius:var(--tabRadius);*/
-/*	margin:0px 1px;*/
-/*	padding:0 24px 0 5px;*/
-/*	line-height:var(--tabHeight);*/
-/*}*/
 
 #files {
 	z-index:5;
@@ -370,14 +356,24 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	color: inherit;
 }
 
+#toggleSplitView {
+	position:fixed;
+	z-index:5;
+	top: var(--menuHeight);
+	right:0px;
+	background: var(--light);
+}
+
 
 .darkmode,
 .darkmode ui-menu,
 .darkmode #tabs,
+.darkmode #extTabs,
 .darkmode #files,
 .darkmode #statusbar,
 .darkmode #ace_settingsmenu,
 .darkmode #kbshortcutmenu,
+.darkmode #toggleSplitView,
 .darkmode ui-panel,
 .darkmode ui-file-list,
 .darkmode ui-actionbar {
@@ -411,11 +407,6 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	left: 0;
 	pointer-events:auto;
 }
-
-.showThumb #ui_editor {
-	right:128;
-}
-	
 
 #omni {
 	position:fixed;

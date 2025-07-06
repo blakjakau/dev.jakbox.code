@@ -98,24 +98,22 @@ const uiManager = {
 		toggleSplitViewBtn = new elements.Button()
 		toggleSplitViewBtn.icon = "vertical_split"
 		toggleSplitViewBtn.setAttribute("title", "Toggle split view")
+		toggleSplitViewBtn.setAttribute("id", "toggleSplitView")
 		toggleSplitViewBtn.on("click", () => {
 			if (toggleBodyClass("showSplitView")) {
+				const targetWidth = (window.innerWidth - editorHolder.offsetLeft)/2
 				toggleSplitViewBtn.icon = "view_column"
 				toggleSplitViewBtn.setAttribute("title", "Hide split view")
-				extEditorHolder.style.width = "50%"
-				editorHolder.style.right = "50%"
-				// extTabBar.style.width = "50%"
-				// tabBar.style.right = "50%"
+				extEditorHolder.style.width = targetWidth+"px"
+				editorHolder.style.right = targetWidth+"px"
 			} else {
 				toggleSplitViewBtn.icon = "vertical_split"
 				toggleSplitViewBtn.setAttribute("title", "Show split view")
 				extEditorHolder.style.width = "0px"
 				editorHolder.style.right = "0px"
-				// extTabBar.style.width = "0px"
-				// tabBar.style.right = "0px"
 			}
-				editor.resize()
-				extEditor.resize()
+			editor.resize()
+			extEditor.resize()
 		})
 
 		tabBar = new elements.TabBar()
@@ -124,6 +122,7 @@ const uiManager = {
 		tabBar.setAttribute("slim", "true")
 		tabBar.append(openDir)
 		tabBar.append(toggleSplitViewBtn)
+		
 
 		extTabBar = new elements.TabBar()
 		extTabBar.type = "tabs"
@@ -138,36 +137,29 @@ const uiManager = {
 			statusbar.hook = "top"
 		}
 
+		toggleSplitViewBtn.setAttribute("hook", "right")
+		
 		statusTheme = document.querySelector("#theme_select")
 		statusMode = document.querySelector("#mode_select")
 
 		themeMenu = document.querySelector("#theme_menu")
 		modeMenu = document.querySelector("#mode_menu")
 
-		themeMenu.on(
-			"show",
-			(e) => {
-				e.stopPropagation()
-				setTimeout(() => {
-					const active = themeMenu.querySelector("[icon='done']")
-					themeMenu.scrollTop = active.offsetTop - themeMenu.offsetHeight / 2 + 12
-					// console.log(active.offsetTop, themeMenu.scrollTop)
-				})
-			},
-			true
-		)
-		modeMenu.on(
-			"show",
-			(e) => {
-				e.stopPropagation()
-				setTimeout(() => {
-					const active = modeMenu.querySelector("[icon='done']")
-					modeMenu.scrollTop = active.offsetTop - modeMenu.offsetHeight / 2 + 12
-					// console.log(active.offsetTop, modeMenu.scrollTop)
-				})
-			},
-			true
-		)
+		themeMenu.on( "show", (e) => {
+			e.stopPropagation()
+			setTimeout(() => {
+				const active = themeMenu.querySelector("[icon='done']")
+				themeMenu.scrollTop = active.offsetTop - themeMenu.offsetHeight / 2 + 12
+			})
+		}, true )
+		
+		modeMenu.on( "show", (e) => {
+			e.stopPropagation()
+			setTimeout(() => {
+				const active = modeMenu.querySelector("[icon='done']")
+				modeMenu.scrollTop = active.offsetTop - modeMenu.offsetHeight / 2 + 12
+			})
+		}, true )
 
 		editorHolder = new elements.Panel()
 		editorHolder.setAttribute("id", holderID)
@@ -196,44 +188,42 @@ const uiManager = {
 		extMediaView.setAttribute("id", "extMediaView")
 		extEditorHolder.appendChild(extMediaView)
 		
-		files.resizeListener((width)=>{
-			sidebarWidth = width
-			
-			// tabBar.style.transition = "none"
-			editorHolder.style.transition = "none"
-			extEditorHolder.style.transition = "none"
-			// extTabBar.style.transition = "none"
-			
-			// tabBar.style.left = width+"px"
-			editorHolder.style.left = width + "px"
-			extEditorHolder.style.left = width + "px"
-			// extTabBar.style.left = width + "px"
-		})
-		files.resizeEndListener(()=>{
-			// tabBar.style.transition = ""
-			editorHolder.style.transition = ""
-			extEditorHolder.style.transition = ""
-			// extTabBar.style.transition = ""
+		const constrainEditorHolders = ()=>{
+			const availableWidth = (window.innerWidth - editorHolder.offsetLeft)
+			if(extEditorHolder.offsetWidth < 200) {
+				extEditorHolder.style.width = (200) + "px"
+				editorHolder.style.right = (200) + "px"
+			}
+
+			if(editorHolder.offsetWidth < 200) {
+				editorHolder.style.right = (availableWidth - 200) + "px"
+				extEditorHolder.style.width = (availableWidth - 200) + "px"
+			}
 			editor.resize()
 			extEditor.resize()
+		}
+		
+		
+		files.resizeListener((width)=>{
+			sidebarWidth = width
+			editorHolder.style.transition = "none"
+			editorHolder.style.left = width + "px"
+		})
+		
+		files.resizeEndListener(()=>{
+			editorHolder.style.transition = ""
+			extEditorHolder.style.transition = ""
+			constrainEditorHolders()
 		})
 
 		extEditorHolder.resizeListener((width)=>{
 			editorHolder.style.transition = "none"
-			// tabBar.style.transition = "none"
-			// extTabBar.style.transition = "none"
-
 			editorHolder.style.right = width + "px"
-			// tabBar.style.right = width + "px"
-			// extTabBar.style.width = width + "px"
 		})
 
 		extEditorHolder.resizeEndListener(()=>{
 			editorHolder.style.transition = ""
-			// tabBar.style.transition = ""
-			// extTabBar.style.transition = ""
-			editor.resize()
-			extEditor.resize()
+			constrainEditorHolders()
 		})
 
 		drawer = new elements.Panel()
@@ -246,14 +236,15 @@ const uiManager = {
 		drawer.resizeListener((height)=>{
 			editorHolder.style.transition = "none"
 			editorHolder.style.bottom = height + "px"
+			extEditorHolder.style.transition = "none"
+			extEditorHolder.style.bottom = height + "px"
 		})
 
 		drawer.resizeEndListener(()=>{
 			editorHolder.style.transition = ""
+			extEditorHolder.style.transition = ""
 			editor.resize()
 		})
-
-		
 
 		installer = new elements.Panel()
 		installer.setAttribute("type", "modal")

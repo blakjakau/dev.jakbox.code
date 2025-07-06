@@ -403,6 +403,10 @@ ui-tabbar::-webkit-scrollbar {
 	margin-right: 8px;
 }
 
+ui-tabbar > [hook="right"] {
+	float: right;
+}
+
 ui-file-list {
 	position: relative;
 	display: block;
