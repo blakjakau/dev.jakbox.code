@@ -1,4 +1,4 @@
-// TODO: enhancements
+// TODO enhancements completed
 // --- drag+drop tabs on the tabbar
 // --- disable live autocomplete
 // --- set text baseValue at load and save, use it for change tracking
@@ -597,8 +597,7 @@ const execCommandNewFile = async () => {
 
 	const tab = targetTabBar.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder });
 
-	currentEditor.setSession(newSession);
-	execCommandEditorOptions();
+	
 	tab.click();
 }
 
@@ -1416,6 +1415,8 @@ setTimeout(async () => {
 		fileList.unsupported = openFileHandle;
 		tabBar.dropFileHandle = openFileHandle;
 		extTabBar.dropFileHandle = openFileHandle;
+		tabBar.defaultTab = defaultTab; // Assign defaultTab to tabBar
+		extTabBar.defaultTab = defaultTab; // Assign defaultTab to extTabBar
 
 		if ("launchQueue" in window) {
 			launchQueue.setConsumer((params) => {

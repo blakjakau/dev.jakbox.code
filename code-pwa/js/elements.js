@@ -589,7 +589,7 @@ class TabItem extends Button {
 		this.ondragstart = (e) => {
 			this.ondrop = this.parentElement.tabDrop
 			e.dataTransfer.effectAllowed = "move"
-			e.dataTransfer.setData("text/plain", this.id)
+			e.dataTransfer.setData("text/plain", this.getAttribute("id"))
 
 			this.parentElement.animating = true
 			this.parentElement.setAttribute("dragging", "true")
@@ -1195,6 +1195,7 @@ class TabBar extends Block {
 	constructor(content) {
 		super()
 		this._tabs = []
+		this.tabCounter = 0
 		this.addEventListener("mousewheel", (e) => {
 			if (!e.shiftKey) {
 				e.preventDefault()
@@ -1207,6 +1208,11 @@ class TabBar extends Block {
 		this.ondragover = (e) => {
 			e.preventDefault()
 			e.dataTransfer.dropEffect = "all"
+
+			if (this._tabs.length === 0) {
+				// If there are no tabs, any drop will be the first tab, so no positioning needed.
+				return;
+			}
 
 			let last = this._tabs[this._tabs.length - 1]
 			if (last == this.movingItem) {
@@ -1229,6 +1235,24 @@ class TabBar extends Block {
 		this.on("contextmenu", (e) => {
 			e.preventDefault() && e.stopPropagation()
 		})
+		// Add a reference to the defaultTab function from main.mjs
+		this.defaultTab = null;
+	}
+
+	// Method to be called when the tab bar becomes empty
+	defaultTab() {
+		if (typeof this._defaultTab === 'function') {
+			this._defaultTab(this);
+		}
+	}
+
+	set _defaultTab(v) {
+		if (!isFunction(v)) throw new Error("defaultTab must be a function")
+		this.__defaultTab = v
+	}
+
+	get _defaultTab() {
+		return this.__defaultTab
 	}
 
 	async tabDrop(e) {
@@ -1248,7 +1272,9 @@ class TabBar extends Block {
 			})
 		} else {
 			let movingTabId = e.dataTransfer.getData("text/plain")
+			console.debug("Retrieved movingTabId:", movingTabId);
 			let movingTab = document.getElementById(movingTabId)
+			console.debug("Retrieved movingTab element:", movingTab);
 			
 			if (movingTab && movingTab.parentElement !== this) {
 				// Remove from old TabBar's _tabs array
@@ -1350,6 +1376,8 @@ class TabBar extends Block {
 		const tab = new TabItem(config.name)
 		if (config.handle) tab.setAttribute("title", buildPath(config.handle))
 		tab.config = config
+		tab.id = `tab-${this.tabCounter++}`;
+		tab.setAttribute("id", `tab-${this.tabCounter++}`);
 		this._tabs.push(tab)
 		this.append(tab)
 
@@ -1412,6 +1440,9 @@ class TabBar extends Block {
 						this._tabs[i + 1].click()
 					} else if (this._tabs[i - 1]) {
 						this._tabs[i - 1].click()
+					} else {
+						// If no other tabs, add a default tab
+						this.defaultTab();
 					}
 				}
 				i--
