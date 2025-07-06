@@ -1272,17 +1272,14 @@ class TabBar extends Block {
 			})
 		} else {
 			let movingTabId = e.dataTransfer.getData("text/plain")
-			console.debug("Retrieved movingTabId:", movingTabId);
 			let movingTab = document.getElementById(movingTabId)
-			console.debug("Retrieved movingTab element:", movingTab);
 			
 			if (movingTab && movingTab.parentElement !== this) {
 				// Remove from old TabBar's _tabs array
 				let oldTabBar = movingTab.parentElement
-				oldTabBar._tabs = oldTabBar._tabs.filter(tab => tab !== movingTab)
-				
-				// Add to new TabBar's _tabs array
-				this._tabs.push(movingTab)
+				if(oldTabBar) {
+					oldTabBar._tabs = oldTabBar._tabs.filter(tab => tab !== movingTab)
+				}
 				
 				if (this?.dropPosition == "before") {
 					this.insertBefore(movingTab, this.dropTarget)
@@ -1382,13 +1379,16 @@ class TabBar extends Block {
 		this.append(tab)
 
 		tab.onclick = (event) => {
-			this._tabs.forEach((t) => {
+			const tabBar = tab.parentElement;
+			if (!tabBar || !(tabBar instanceof TabBar)) return;
+			
+			tabBar.tabs.forEach((t) => {
 				t.removeAttribute("active")
 			})
 			tab.setAttribute("active", "active")
-			if ("function" == typeof this._click) {
+			if ("function" == typeof tabBar._click) {
 				event.tab = tab
-				this._click(event)
+				tabBar._click(event)
 			}
 		}
 
