@@ -716,8 +716,10 @@ class Panel extends Block {
 		this.resizeListeners = []
 		this.resizeEndListeners= []
 		this.resize = false
-		this.activeBorder = "4px solid var(--theme)";
-		this.inactiveBorder = "4px solid var(--dark)";
+		this.borderHandleSize = 8
+		this.borderHandleVisual = 4
+		this.activeBorder = `${this.borderHandleVisual}px solid var(--theme)`;
+		this.inactiveBorder = `${this.borderHandleVisual}px solid var(--dark)`;
 		this.active;
 		
 		this.on("pointerleave", (e)=>{
@@ -734,21 +736,24 @@ class Panel extends Block {
 		})
 		
 		this.on("pointermove", (e)=>{
-			if(!this.resize) { return }
+			if(!this.resize) { 
+				document.body.style.cursor = ""
+				return 
+			}
 			
 			if(this.hotSpot(e)) {
 				if(this.resize=="left") {
 					this.style.borderLeft = this.activeBorder
-					this.style.cursor = "ew-resize"
+					document.body.style.cursor = "ew-resize"
 				} else if (this.resize=="right") {
 					this.style.borderRight = this.activeBorder
-					this.style.cursor = "ew-resize"
+					document.body.style.cursor = "ew-resize"
 				} else if (this.resize=="top") {
 					this.style.borderTop = this.activeBorder
-					this.style.cursor = "ns-resize"
+					document.body.style.cursor = "ns-resize"
 				} else if (this.resize=="bottom") {
 					this.style.borderBottom = this.activeBorder
-					this.style.cursor = "ns-resize"
+					document.body.style.cursor = "ns-resize"
 				}
 			} else {
 				if(this.active) return
@@ -761,12 +766,15 @@ class Panel extends Block {
 				} else if (this.resize=="bottom") {
 					this.style.borderBottom = this.inactiveBorder
 				}
-				this.style.cursor = ""
+				document.body.style.cursor = ""
 			}
 		})
 		
 		this.on("pointerdown", (e)=>{
-			if(!this.hotSpot(e) || !this.resize) return
+			if(!this.hotSpot(e) || !this.resize) {
+				document.body.style.cursor = ""
+				return
+			}
 			this.active = true
 			
 			const move = (e)=>{
@@ -774,9 +782,9 @@ class Panel extends Block {
 					let nw;
 					// assumes 4px border
 					if (this.resize === "left") {
-						nw = (this.offsetWidth - e.movementX - 4)
+						nw = (this.offsetWidth - e.movementX - this.borderHandleVisual)
 					} else {
-						nw = (this.offsetWidth + e.movementX - 4)
+						nw = (this.offsetWidth + e.movementX - this.borderHandleVisual)
 					}
 					this.style.width = Math.max(200, nw)+"px"
 					this.resizeListeners.forEach(f=>{
@@ -786,9 +794,9 @@ class Panel extends Block {
 					let nh;
 					// assumes 4px border
 					if (this.resize === "top") {
-						nh = (this.offsetHeight - e.movementY - 4)
+						nh = (this.offsetHeight - e.movementY - this.borderHandleVisual)
 					} else {
-						nh = (this.offsetHeight + e.movementY - 4)
+						nh = (this.offsetHeight + e.movementY - this.borderHandleVisual)
 					}
 					this.style.height = Math.max(32, nh)+"px"
 					this.resizeListeners.forEach(f=>{
@@ -832,10 +840,12 @@ class Panel extends Block {
 	}
 	
 	hotSpot(e) {
-		if(this.resize == "left" && e?.layerX < 5) { return true }
-		if(this.resize == "right" && e?.layerX > this.offsetWidth - 5) { return true }
-		if(this.resize == "top" && e?.layerY < 5) { return true }
-		if(this.resize == "bottom" && e?.layerY > this.offsetHeight - 5) { return true }
+		if(e.target !== this) return false
+		if(this.resize == "left" && e?.layerX < this.borderHandleSize) { return true }
+		if(this.resize == "right" && e?.layerX > this.offsetWidth - this.borderHandleSize) { return true }
+		if(this.resize == "top" && e?.layerY < this.borderHandleSize) { return true }
+		if(this.resize == "bottom" && e?.layerY > this.offsetHeight - this.borderHandleSize) { return true }
+		return false
 	}
 	
 	set resizable(state) {

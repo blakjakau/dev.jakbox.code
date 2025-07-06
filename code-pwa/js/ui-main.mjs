@@ -50,6 +50,30 @@ const uiManager = {
 			keyboard: "ace/keyboard/sublime",
 		}
 
+
+		const constrainEditorHolders = ()=>{
+			const availableWidth = (window.innerWidth - editorHolder.offsetLeft)
+			if(extEditorHolder.offsetWidth < 10) {
+				document.body.classList.remove("showSplitView")
+				return
+			} else {
+				document.body.classList.add("showSplitView")
+				toggleSplitViewBtn.icon = "view_column"
+			}
+			
+			if(extEditorHolder.offsetWidth < 200) {
+				extEditorHolder.style.width = (200) + "px"
+				editorHolder.style.right = (200) + "px"
+			}
+
+			if(editorHolder.offsetWidth < 200) {
+				editorHolder.style.right = (availableWidth - 200) + "px"
+				extEditorHolder.style.width = (availableWidth - 200) + "px"
+			}
+			editor.resize()
+			extEditor.resize()
+		}
+
 		options = { ...defaults, ...options }
 
 		fileActions = new elements.ActionBar()
@@ -91,8 +115,10 @@ const uiManager = {
 				editorHolder.style.left = ""
 				extEditorHolder.style.left = ""
 			}
-				editor.resize()
-				extEditor.resize()
+			setTimeout(()=>{
+				console.warn("checking resize constraints")
+				constrainEditorHolders()
+			},400)
 		})
 
 		toggleSplitViewBtn = new elements.Button()
@@ -188,20 +214,6 @@ const uiManager = {
 		extMediaView.setAttribute("id", "extMediaView")
 		extEditorHolder.appendChild(extMediaView)
 		
-		const constrainEditorHolders = ()=>{
-			const availableWidth = (window.innerWidth - editorHolder.offsetLeft)
-			if(extEditorHolder.offsetWidth < 200) {
-				extEditorHolder.style.width = (200) + "px"
-				editorHolder.style.right = (200) + "px"
-			}
-
-			if(editorHolder.offsetWidth < 200) {
-				editorHolder.style.right = (availableWidth - 200) + "px"
-				extEditorHolder.style.width = (availableWidth - 200) + "px"
-			}
-			editor.resize()
-			extEditor.resize()
-		}
 		
 		
 		files.resizeListener((width)=>{
@@ -782,8 +794,10 @@ const uiManager = {
 	toggleFiles: () => {
 		return openDir.click()
 	},
-
 	
+	toggleSplitView: ()=>{
+		return toggleSplitViewBtn.click()
+	},
 
 	omnibox: (mode) => {
 		omni.classList.add("active")

@@ -348,6 +348,7 @@ ui-tabbar[slim] > ui-tab-item {
 	color: var(--ui-highlight-fg);
 	margin-top: 6px;
 	padding-right: 0px;
+	padding-left: 8px;
 	white-space: nowrap;
 }
 

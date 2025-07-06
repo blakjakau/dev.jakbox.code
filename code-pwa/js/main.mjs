@@ -513,6 +513,10 @@ const execCommandToggleFolders = () => {
 	ui.toggleFiles()
 }
 
+const execCommandSplitView = () => {
+	ui.toggleSplitView()
+}
+
 const execCommandRemoveAllFolders = () => {
 	setTimeout(async () => {
 		const l = workspace.folders.length
@@ -1128,7 +1132,14 @@ const keyBinds = [
 	{
 		target: "app",
 		name: "toggleFolders",
+		bindKey: { win: "Alt+F", mac: "Option+F" },
 		exec: execCommandToggleFolders,
+	},
+	{
+		target: "app",
+		name: "toggleSplitView",
+		bindKey: { win: "Alt+S", mac: "Option+S" },
+		exec: execCommandSplitView,
 	},
 	{
 		target: "app",

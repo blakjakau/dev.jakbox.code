@@ -82,6 +82,9 @@ ui-tab-item:hover::after {
     right: 0;
     line-height:1.3em;
     box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    
+    user-select:none;
+    -webkit-user-select:none;
 }
 
 
@@ -96,7 +99,9 @@ ui-tab-item:hover::after {
     width: 0;
     line-height: 1.3em;
     box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    /*overflow: hidden;*/
+
+    user-select:none;
+    -webkit-user-select:none;
 }
 
 #editor,
@@ -106,9 +111,13 @@ ui-tab-item:hover::after {
     width: calc(100% - 0.3em);
 }
 
+#extEditor {
+	left: 0px;
+}
+
 #mediaView,
 #extMediaView {
-	top: calc(var(--menuHeight) + 4px);
+	top: calc(var(--menuHeight) + 6px);
     left:0px;
     right:0px;
     bottom:0px;
@@ -140,7 +149,7 @@ ui-menu::-webkit-scrollbar-thumb,
 }
 
 .ace_editor {
-	top: calc( var(--menuHeight) + 4px);
+	top: calc( var(--menuHeight) + 6px);
 }
 
 #ui_editor.loading {
@@ -364,6 +373,10 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	background: var(--light);
 }
 
+#drawer {
+    user-select:none;
+    -webkit-user-select:none;
+}
 
 .darkmode,
 .darkmode ui-menu,
