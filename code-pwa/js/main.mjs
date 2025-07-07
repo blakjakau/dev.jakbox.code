@@ -240,7 +240,7 @@ window.ui.commands = {
 window.ui.commands.bindToDocument()
 
 const saveFile = async (text, handle) => {
-	const tab = leftTabs.activeTab
+	const tab = currentTabs.activeTab
 	const file = fileList.activeItem
 
 	const writable = await handle.createWritable()
@@ -565,9 +565,9 @@ const execCommandCloseActiveTab = async () => {
 	tab.close.click()
 }
 const execCommandSave = async () => {
-	const config = leftTabs.activeTab.config
+	const config = currentTabs.activeTab.config
 	if (config.handle) {
-		const text = leftEdit.getValue()
+		const text = currentEditor.getValue()
 		await saveFile(text, config.handle)
 		config.session.baseValue = text
 	} else {
@@ -578,15 +578,15 @@ const execCommandSave = async () => {
 		}
 		config.handle = newHandle
 		config.name = newHandle.name
-		leftTabs.activeTab.text = config.name
-		const text = leftEdit.getValue()
+		currentTabs.activeTab.text = config.name
+		const text = currentEditor.getValue()
 		await saveFile(text, config.handle)
 		config.session.baseValue = text
 	}
 }
 
 const execCommandSaveAs = async () => {
-	const config = leftTabs.activeTab.config
+	const config = currentTabs.activeTab.config
 	const newHandle = await window.showSaveFilePicker().catch(console.warn)
 	if (!newHandle) {
 		alert("File NOT saved")
@@ -594,8 +594,8 @@ const execCommandSaveAs = async () => {
 	}
 	config.handle = newHandle
 	config.name = newHandle.name
-	leftTabs.activeTab.text = config.name
-	saveFile(leftEdit.getValue(), config.handle)
+	currentTabs.activeTab.text = config.name
+	saveFile(currentEditor.getValue(), config.handle)
 }
 
 const execCommandOpen = async () => {
@@ -1210,7 +1210,9 @@ const keyBinds = [
 		target: "app",
 		name: "setTheme",
 		exec: (theme) => {
-			currentEditor.setOption("theme", theme)
+			window.editors.forEach(editor=>{
+				editor.setOption("theme", theme)
+			})
 			updateThemeAndMode(true)
 		},
 	},
