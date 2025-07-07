@@ -1,5 +1,5 @@
 // TODO enhancements completed
-// --- drag+drop tabs on the tabbar
+// --- drag+drop tabs on the leftTabs
 // --- disable live autocomplete
 // --- set text baseValue at load and save, use it for change tracking
 // --- Add "notSupported" page for firefox/brave other browsers that don't support the FileAPI
@@ -19,7 +19,7 @@
 // --- add licence information (including prettier/ace credits to about)
 // --- restore workspace open files during app load
 // --- implement file-type icons in file view
-//
+
 // implement multiple workspaces (restore last open?)
 // move ace settings panel into a tabbed modal with other application settings
 // implement @lookup in omnibox
@@ -72,8 +72,6 @@ function safeString(string) {
 	return string.replace(/\ /g, "-").replace(/[^A-Za-z0-9\-]/g, "")
 }
 
-const editorElementID = "editor"
-
 let permissionNotReloaded = true // should we re-request permission for folders added
 
 ui.create()
@@ -82,14 +80,16 @@ window.code = {
 	version: "0.3.2",
 }
 
-const editor = ui.editor
-const extEditor = ui.extEditor
+const leftEdit = ui.leftEdit
+const rightEdit = ui.rightEdit
+const leftMedia = ui.leftMedia
+const rightMedia = ui.rightMedia
 
 const installer = ui.installer
 const fileActions = ui.fileActions
 const fileList = ui.fileList
-const tabBar = ui.tabBar
-const extTabBar = ui.extTabBar
+const leftTabs = ui.leftTabs
+const rightTabs = ui.rightTabs
 const prettify = document.querySelector("#prettier")
 
 const app = {
@@ -126,7 +126,7 @@ window.ui.commands = {
 			switch (command.target) {
 				case "editor":
 					//register with ACE editor
-					editor.commands.addCommand({
+					leftEdit.commands.addCommand({
 						name: command.name,
 						bindKey: command.bindKey,
 						exec: command.exec,
@@ -240,7 +240,7 @@ window.ui.commands = {
 window.ui.commands.bindToDocument()
 
 const saveFile = async (text, handle) => {
-	const tab = tabBar.activeTab
+	const tab = leftTabs.activeTab
 	const file = fileList.activeItem
 
 	const writable = await handle.createWritable()
@@ -253,9 +253,9 @@ const saveFile = async (text, handle) => {
 }
 
 const saveAppConfig = async () => {
-	app.sessionOptions = ui.editor.session.getOptions()
-	app.rendererOptions = ui.editor.renderer.getOptions()
-	app.enableLiveAutocompletion = ui.editor.$enableLiveAutocompletion
+	app.sessionOptions = ui.leftEdit.session.getOptions()
+	app.rendererOptions = ui.leftEdit.renderer.getOptions()
+	app.enableLiveAutocompletion = ui.leftEdit.$enableLiveAutocompletion
 	delete app.sessionOptions.mode // don't persist the mode, that's dumb
 	delete app.folders //app.folders = workspace.folders
 
@@ -336,11 +336,11 @@ const openWorkspace = (() => {
 
 		if ("undefined" != typeof load) {
 			workspaceUnloading = true
-			// clear the tabBar
-			while (tabBar.tabs.length > 1) {
-				tabBar.tabs[0].close.click()
+			// clear the leftTabs
+			while (leftTabs.tabs.length > 1) {
+				leftTabs.tabs[0].close.click()
 			}
-			if (tabBar.tabs[0]) tabBar.tabs[0].close.click()
+			if (leftTabs.tabs[0]) leftTabs.tabs[0].close.click()
 
 			workspaceUnloading = false
 
@@ -437,7 +437,7 @@ prefersDarkMode.addEventListener('change', () => {
 const updateThemeAndMode = (doSave = false) => {
 	ui.updateThemeAndMode()
 
-	if (editor.getOption("mode") in canPrettify) {
+	if (leftEdit.getOption("mode") in canPrettify) {
 		prettify.removeAttribute("disabled")
 	} else {
 		prettify.setAttribute("disabled", "disabled")
@@ -446,25 +446,25 @@ const updateThemeAndMode = (doSave = false) => {
 }
 
 const execCommandPrettify = () => {
-	let text = editor.getValue()
-	const mode = editor.getOption("mode")
+	let text = leftEdit.getValue()
+	const mode = leftEdit.getOption("mode")
 	if (!(mode in canPrettify)) return
 
 	const parser = canPrettify[mode]
-	const activeRow = editor.getCursorPosition().row + 1
+	const activeRow = leftEdit.getCursorPosition().row + 1
 
 	try {
 		text = prettier.format(text, {
 			parser: parser.name,
 			plugins: parser.plugins,
-			printWidth: editor.getOption("printMargin") || 120,
-			tabWidth: editor.getOption("tabSize") || 4,
-			useTabs: !editor.getOption("useSoftTabs") || false,
+			printWidth: leftEdit.getOption("printMargin") || 120,
+			tabWidth: leftEdit.getOption("tabSize") || 4,
+			useTabs: !leftEdit.getOption("useSoftTabs") || false,
 			semi: false,
 		})
-		editor.setValue(text)
-		editor.clearSelection()
-		editor.gotoLine(activeRow)
+		leftEdit.setValue(text)
+		leftEdit.clearSelection()
+		leftEdit.gotoLine(activeRow)
 	} catch (e) {
 		console.warn("Unable to prettify", e)
 		const m = e.message
@@ -472,7 +472,7 @@ const execCommandPrettify = () => {
 			let match = m.match(/\>\s(\d*) \|/g)
 			if (match.length > 0) {
 				let l = parseInt(match[0].replace(/[\>\|\s]/g, "")) - 1
-				editor.getSession().setAnnotations([
+				leftEdit.getSession().setAnnotations([
 					{
 						row: l,
 						column: 0,
@@ -480,7 +480,7 @@ const execCommandPrettify = () => {
 						type: "error", // also "warning" and "information"
 					},
 				])
-				editor.execCommand("goToNextError")
+				leftEdit.execCommand("goToNextError")
 			}
 		} catch (er) {
 			console.error("Unable to prettify", e, er)
@@ -490,24 +490,24 @@ const execCommandPrettify = () => {
 
 const execCommandEditorOptions = () => {
 	if (app.sessionOptions) {
-		editor.session.setOptions(app.sessionOptions);
-		extEditor.session.setOptions(app.sessionOptions);
+		leftEdit.session.setOptions(app.sessionOptions);
+		rightEdit.session.setOptions(app.sessionOptions);
 	}
 	if (app.rendererOptions) {
-		editor.renderer.setOptions(app.rendererOptions);
-		extEditor.renderer.setOptions(app.rendererOptions);
+		leftEdit.renderer.setOptions(app.rendererOptions);
+		rightEdit.renderer.setOptions(app.rendererOptions);
 	}
 	if (app.enableLiveAutocompletion) {
-		editor.$enableLiveAutocompletion = app.enableLiveAutocompletion;
-		extEditor.$enableLiveAutocompletion = app.enableLiveAutocompletion;
+		leftEdit.$enableLiveAutocompletion = app.enableLiveAutocompletion;
+		rightEdit.$enableLiveAutocompletion = app.enableLiveAutocompletion;
 	}
 
-	if (editor.getOption("mode") === "ace/mode/javascript") {
-		editor.setOption("useWorker", false);
-		extEditor.setOption("useWorker", false);
+	if (leftEdit.getOption("mode") === "ace/mode/javascript") {
+		leftEdit.setOption("useWorker", false);
+		rightEdit.setOption("useWorker", false);
 	} else {
-		editor.setOption("useWorker", true);
-		extEditor.setOption("useWorker", true);
+		leftEdit.setOption("useWorker", true);
+		rightEdit.setOption("useWorker", true);
 	}
 }
 
@@ -561,13 +561,13 @@ const execCommandRestoreFolders = () => {
 }
 
 const execCommandCloseActiveTab = async () => {
-	const tab = tabBar.activeTab
+	const tab = leftTabs.activeTab
 	tab.close.click()
 }
 const execCommandSave = async () => {
-	const config = tabBar.activeTab.config
+	const config = leftTabs.activeTab.config
 	if (config.handle) {
-		const text = editor.getValue()
+		const text = leftEdit.getValue()
 		await saveFile(text, config.handle)
 		config.session.baseValue = text
 	} else {
@@ -578,15 +578,15 @@ const execCommandSave = async () => {
 		}
 		config.handle = newHandle
 		config.name = newHandle.name
-		tabBar.activeTab.text = config.name
-		const text = editor.getValue()
+		leftTabs.activeTab.text = config.name
+		const text = leftEdit.getValue()
 		await saveFile(text, config.handle)
 		config.session.baseValue = text
 	}
 }
 
 const execCommandSaveAs = async () => {
-	const config = tabBar.activeTab.config
+	const config = leftTabs.activeTab.config
 	const newHandle = await window.showSaveFilePicker().catch(console.warn)
 	if (!newHandle) {
 		alert("File NOT saved")
@@ -594,8 +594,8 @@ const execCommandSaveAs = async () => {
 	}
 	config.handle = newHandle
 	config.name = newHandle.name
-	tabBar.activeTab.text = config.name
-	saveFile(editor.getValue(), config.handle)
+	leftTabs.activeTab.text = config.name
+	saveFile(leftEdit.getValue(), config.handle)
 }
 
 const execCommandOpen = async () => {
@@ -607,18 +607,18 @@ const execCommandOpen = async () => {
 }
 
 const execCommandNewFile = async () => {
-	const srcTab = tabBar.activeTab || extTabBar.activeTab;
+	const srcTab = leftTabs.activeTab || rightTabs.activeTab;
 	const mode = srcTab?.config?.mode?.mode || "";
 	const folder = srcTab?.config?.folder || undefined;
 	const newSession = ace.createEditSession("", mode);
 	newSession.baseValue = "";
 
-	let targetTabBar = tabBar;
-	if (extTabBar.activeTab) {
-		targetTabBar = extTabBar;
+	let targetTabs = leftTabs;
+	if (rightTabs.activeTab) {
+		targetTabs = rightTabs;
 	}
 
-	const tab = targetTabBar.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder });
+	const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder });
 
 	
 	tab.click();
@@ -637,19 +637,36 @@ const buildPath = (f) => {
 	return n
 }
 
-let currentEditor = editor;
-let currentMediaView = ui.mediaView;
+let currentEditor = leftEdit;
+let currentTabs = leftEdit;
+let currentMediaView = ui.leftMedia;
+
+const setCurrentEditor = (editor)=>{
+	ui.currentEditor = currentEditor = editor
+	ui.currentTabs = currentTabs = (editor === leftEdit ? ui.leftTabs : ui.rightTabs)
+	ui.currentMediaView = currentMediaView = (editor === leftEdit ? ui.leftMedia : ui.rightMedia)
+	
+	const tab = editor?.tabs?.activeTab
+	if(tab) {
+		fileList.active = tab.config.handle;
+    	tab.scrollIntoViewIfNeeded();
+    	tab.parentElement.scrollTop = 0;
+    	if (tab.changed && fileList.activeItem) {
+	        fileList.activeItem.changed = true;
+	    }
+	}
+}
 
 const openFileHandle = async (handle, knownPath = null, targetEditor = currentEditor) => {
-    // This function will be assigned to tabBar.dropFileHandle and extTabBar.dropFileHandle later
+    // This function will be assigned to leftTabs.dropFileHandle and rightTabs.dropFileHandle later
     // So, we don't need to assign it here.
 
 	// don't add a new tab if the file is already open in a tab
 	const path = knownPath != null ? knownPath : buildPath(handle)
 	{
-		let tab = tabBar.byTitle(path)
+		let tab = leftTabs.byTitle(path)
 		if (tab) return tab.click()
-		tab = extTabBar.byTitle(path)
+		tab = rightTabs.byTitle(path)
 		if (tab) return tab.click()
 	}
 
@@ -726,8 +743,8 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 		})
 	}
 
-	if (tabBar.tabs.length == 1 && editor.getValue() == "") {
-		tabBar.remove(tabBar.tabs[0])
+	if (leftTabs.tabs.length == 1 && leftEdit.getValue() == "") {
+		leftTabs.remove(leftTabs.tabs[0])
 	}
 
 	const newSession = ace.createEditSession(text, fileMode.mode)
@@ -736,9 +753,9 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 	targetEditor.setSession(newSession)
 	execCommandEditorOptions()
 
-	let targetTabBar = (targetEditor === editor) ? tabBar : extTabBar;
+	let targetTabs = (targetEditor === leftEdit) ? leftTabs : rightTabs;
 
-	const tab = targetTabBar.add({
+	const tab = targetTabs.add({
 		name: file.name,
 		mode: fileMode,
 		session: newSession,
@@ -825,13 +842,13 @@ fileList.context = (e) => {
 fileList.unlock = verifyPermission
 
 fileList.expand = (item) => {
-	for (const tab of tabBar.tabs) {
+	for (const tab of leftTabs.tabs) {
 		fileList.active = tab.config.handle
 		if (tab._changed) {
 			fileList.activeItem.changed = true
 		}
 	}
-	fileList.active = tabBar.activeTab.config.handle
+	fileList.active = leftTabs.activeTab.config.handle
 }
 
 const updateEditorUI = async (targetEditor, targetMediaView, tab) => {
@@ -848,7 +865,7 @@ const updateEditorUI = async (targetEditor, targetMediaView, tab) => {
         targetEditor.setSession(tab.config.session);
         targetEditor.focus();
     }
-    currentEditor = targetEditor;
+    setCurrentEditor(targetEditor);
     fileList.active = tab.config.handle;
     tab.scrollIntoViewIfNeeded();
     tab.parentElement.scrollTop = 0;
@@ -858,19 +875,19 @@ const updateEditorUI = async (targetEditor, targetMediaView, tab) => {
     }
 }
 
-tabBar.click = async (event) => {
+leftTabs.click = async (event) => {
     const tab = event.tab;
-    currentEditor = editor;
-    updateEditorUI(editor, ui.mediaView, tab);
+    setCurrentEditor(leftEdit);
+    updateEditorUI(leftEdit, ui.leftMedia, tab);
 };
 
-extTabBar.click = async (event) => {
+rightTabs.click = async (event) => {
     const tab = event.tab;
-    currentEditor = extEditor;
-    updateEditorUI(extEditor, ui.extMediaView, tab);
+    setCurrentEditor(rightEdit);
+    updateEditorUI(rightEdit, ui.rightMedia, tab);
 };
 
-const closeTab = (targetTabBar, event) => {
+const closeTab = (targetTabs, event) => {
     const tab = event.tab;
     if (tab.changed) {
         if (!confirm("This file has unsaved changes, are you sure?")) {
@@ -880,11 +897,11 @@ const closeTab = (targetTabBar, event) => {
 
     // If the tab is a media file, revoke the object URL
     if (tab.config.mode.mode === "media") {
-        if (targetTabBar === tabBar && ui.mediaView.style.backgroundImage) {
-            const imageUrl = ui.mediaView.style.backgroundImage.replace(/url\("|"\)/g, '');
+        if (targetTabs === leftTabs && ui.leftMedia.style.backgroundImage) {
+            const imageUrl = ui.leftMedia.style.backgroundImage.replace(/url\("|"\)/g, '');
             URL.revokeObjectURL(imageUrl);
-        } else if (targetTabBar === extTabBar && ui.extMediaView.style.backgroundImage) {
-            const imageUrl = ui.extMediaView.style.backgroundImage.replace(/url\("|"\)/g, '');
+        } else if (targetTabs === rightTabs && ui.rightMedia.style.backgroundImage) {
+            const imageUrl = ui.rightMedia.style.backgroundImage.replace(/url\("|"\)/g, '');
             URL.revokeObjectURL(imageUrl);
         }
     }
@@ -899,33 +916,33 @@ const closeTab = (targetTabBar, event) => {
 
     fileList.inactive = tab.config.handle;
 
-    targetTabBar.remove(tab);
-    if (targetTabBar.tabs.length == 0) {
-        defaultTab(targetTabBar);
+    targetTabs.remove(tab);
+    if (targetTabs.tabs.length == 0) {
+        defaultTab(targetTabs);
     }
     tab.config.session.destroy();
     saveWorkspace();
 };
 
-tabBar.close = (event) => {
-    closeTab(tabBar, event);
+leftTabs.close = (event) => {
+    closeTab(leftTabs, event);
 };
 
-extTabBar.close = (event) => {
-    closeTab(extTabBar, event);
+rightTabs.close = (event) => {
+    closeTab(rightTabs, event);
 };
 
-const defaultTab = (targetTabBar = tabBar) => {
+const defaultTab = (targetTabs = leftTabs) => {
 	const defaultSession = ace.createEditSession("", "")
-	const tab = targetTabBar.add({ name: "untitled", mode: { mode: "" }, session: defaultSession })
+	const tab = targetTabs.add({ name: "untitled", mode: { mode: "" }, session: defaultSession })
 	
-	// Determine which editor and media view to use based on the targetTabBar
-	let editorToUse = editor;
-	let mediaViewToUse = ui.mediaView;
+	// Determine which editor and media view to use based on the targetTabs
+	let editorToUse = leftEdit;
+	let mediaViewToUse = leftMedia;
 	
-	if (targetTabBar === extTabBar) {
-		editorToUse = extEditor;
-		mediaViewToUse = ui.extMediaView;
+	if (targetTabs === rightTabs) {
+		editorToUse = rightEdit;
+		mediaViewToUse = rightMedia;
 	}
 
 	editorToUse.setSession(defaultSession)
@@ -1013,8 +1030,8 @@ const keyBinds = [
 		bindKey: { win: "ctrl-alt-k", mac: "Command-Alt-k" },
 		exec: function () {
 			ace.config.loadModule("ace/ext/keybinding_menu", function (module) {
-				module.init(editor)
-				editor.showKeyboardShortcuts()
+				module.init(leftEdit)
+				currentEditor.showKeyboardShortcuts()
 			})
 		},
 	},
@@ -1031,7 +1048,7 @@ const keyBinds = [
 		name: "find-next",
 		bindKey: { win: "F3", mac: "F3" },
 		exec: () => {
-			editor.execCommand("findnext")
+			currentEditor.execCommand("findnext")
 		},
 	},
 	{
@@ -1039,7 +1056,7 @@ const keyBinds = [
 		name: "collapselines",
 		bindKey: { win: "Ctrl-Shift-J", mac: "Command-Shift-J" },
 		exec: () => {
-			editor.execCommand("joinlines")
+			currentEditor.execCommand("joinlines")
 		},
 	},
 	{
@@ -1079,7 +1096,7 @@ const keyBinds = [
 		name: "showAllCommands",
 		bindKey: { win: "Ctrl+Shift+P", mac: "Command+Shift+P" },
 		exec: () => {
-			editor.execCommand("openCommandPallete")
+			currentEditor.execCommand("openCommandPallete")
 		},
 	},
 	{
@@ -1095,7 +1112,7 @@ const keyBinds = [
 		name: "next-buffer",
 		bindKey: { win: "Ctrl+Tab", mac: "Command+Tab" },
 		exec: () => {
-			tabBar.next()
+			leftTabs.next()
 		},
 	},
 	{
@@ -1103,7 +1120,7 @@ const keyBinds = [
 		name: "prev-buffer",
 		bindKey: { win: "Ctrl+Shift+Tab", mac: "Command+Shift+Tab" },
 		exec: () => {
-			tabBar.prev()
+			leftTabs.prev()
 		},
 	},
 	{
@@ -1140,7 +1157,7 @@ const keyBinds = [
 		target: "app",
 		name: "showEditorSettings",
 		exec: () => {
-			editor.execCommand("showSettingsMenu", () => {
+			currentEditor.execCommand("showSettingsMenu", () => {
 				updateThemeAndMode(true)
 			})
 		},
@@ -1193,7 +1210,7 @@ const keyBinds = [
 		target: "app",
 		name: "setTheme",
 		exec: (theme) => {
-			editor.setOption("theme", theme)
+			currentEditor.setOption("theme", theme)
 			updateThemeAndMode(true)
 		},
 	},
@@ -1201,7 +1218,7 @@ const keyBinds = [
 		target: "app",
 		name: "setMode",
 		exec: (mode) => {
-			editor.setOption("mode", mode)
+			currentEditor.setOption("mode", mode)
 			updateThemeAndMode(false)
 		},
 	},
@@ -1261,7 +1278,7 @@ const keyBinds = [
 			await sleep(400)
 			// ensure there are no unsaved edits
 			let unsaved = false
-			for (const tab of tabBar.tabs) {
+			for (const tab of leftTabs.tabs) {
 				if (tab._changed) unsaved = true
 			}
 			if (unsaved) {
@@ -1285,11 +1302,11 @@ const keyBinds = [
 				workspace.folders = []
 				workspace.files = []
 
-				// clear the tabBar
-				while (tabBar.tabs.length > 1) {
-					tabBar.tabs[0].close.click()
+				// clear the leftTabs
+				while (leftTabs.tabs.length > 1) {
+					leftTabs.tabs[0].close.click()
 				}
-				tabBar.tabs[0].close.click()
+				leftTabs.tabs[0].close.click()
 
 				//console.log("new workspace", name)
 				// refresh the folder list
@@ -1329,13 +1346,13 @@ window.ui.execCommand = (c, args) => {
 		}
 	}
 	if (target == "editor") {
-		editor.focus()
-		editor.execCommand(command, ext)
+		currentEditor.focus()
+		currentEditor.execCommand(command, ext)
 	} else if (target == "editor-ex") {
-		editor.execCommand(command, ext)
+		currentEditor.execCommand(command, ext)
 	} else {
 		window.ui.commands.exec(command, ext)
-		// editor.execCommand(command, ext)
+		// leftEdit.execCommand(command, ext)
 	}
 }
 
@@ -1374,7 +1391,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 })
 
 setTimeout(async () => {
-	ui.editorElement.classList.remove("loading")
+	ui.leftElement.classList.remove("loading")
 
 	window.filesReceiver.addEventListener("message", (e) => {
 		if (e.data?.open && window.activeFileReceiver) {
@@ -1383,10 +1400,10 @@ setTimeout(async () => {
 		}
 	})
 
-    editor.on("focus", () => currentEditor = editor);
-    extEditor.on("focus", () => currentEditor = extEditor);
+    leftEdit.on("focus", () => setCurrentEditor(leftEdit));
+    rightEdit.on("focus", () => setCurrentEditor(rightEdit));
 
-	editor.on("ready", async () => {
+	leftEdit.on("ready", async () => {
 		// preload stored file and folder handles
 		let stored = await get("appConfig")
 
@@ -1437,10 +1454,10 @@ setTimeout(async () => {
 		defaultTab()
 		ui.fileList.open = openFileHandle;
 		fileList.unsupported = openFileHandle;
-		tabBar.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, editor);
-		extTabBar.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, extEditor);
-		tabBar.defaultTab = defaultTab; // Assign defaultTab to tabBar
-		extTabBar.defaultTab = defaultTab; // Assign defaultTab to extTabBar
+		leftTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, leftEdit);
+		rightTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, rightEdit);
+		leftTabs.defaultTab = defaultTab; // Assign defaultTab to leftTabs
+		rightTabs.defaultTab = defaultTab; // Assign defaultTab to rightTabs
 
 		if ("launchQueue" in window) {
 			launchQueue.setConsumer((params) => {

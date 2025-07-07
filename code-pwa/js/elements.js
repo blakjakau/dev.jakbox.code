@@ -583,14 +583,15 @@ class TabItem extends Button {
 				this.originalParent.resetMargins();
 				// Re-enable transitions after a short delay
 				setTimeout(() => {
-					for (const tab of this.originalParent.children) {
+					if(!this?.originalParent?.children) return
+					for (const tab of this.originalParent?.children) {
 						if (tab instanceof TabItem) {
 							tab.style.transition = ""; // Revert to CSS defined transition
 						}
 					}
 				}, 0);
 				// Remove drop highlight from all tabs in the original parent
-				for (const tab of this.originalParent.children) {
+				for (const tab of this.originalParent?.children) {
 					if (tab instanceof TabItem) {
 						tab.classList.remove("drop-highlight");
 					}

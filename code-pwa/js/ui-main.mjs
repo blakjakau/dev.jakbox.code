@@ -6,7 +6,7 @@ const defaultSettings = {
 	printMargin: false,
 	displayIndentGuides: true,
 	showInvisibles: false, //show whitespace characters (spaces, tabs, returns)
-	scrollPastEnd: 0, //allow the editor to scroll past the end of the document
+	scrollPastEnd: 0, //allow the leftEditto scroll past the end of the document
 	useSoftTabs: false,
 	tabSize: 4,
 	newLineMode: "auto",
@@ -15,18 +15,19 @@ const defaultSettings = {
 	fontFamily: "roboto mono",
 }
 
-var editor
-var editorElement, editorHolder
-var menu, tabBar, openDir
-var files, fileActions, fileList, drawer, mediaView
-var extEditor, extEditorElement, extEditorHolder, extMediaView, extTabBar, toggleSplitViewBtn
-var statusbar
-var statusTheme, statusMode, statusWorkspace
+// these become the actual editor elements
+var leftEdit, leftElement, leftHolder, leftMedia, leftTabs
+var rightEdit, rightElement, rightHolder, rightMedia, rightTabs
+
+var menu
+var omni, modal, installer
+var files, fileActions, fileList
+var drawer, statusbar, statusTheme, statusMode, statusWorkspace
 var themeMenu, modeMenu, workspaceMenu
-var omni
-var modal
-var installer
-var themeModeToggle
+var darkmodeMenu, darkmodeSelect
+var openDir, themeModeToggle, toggleSplitViewBtn
+
+var currentEditor, currentTabs, currentMediaView
 
 const toggleBodyClass = (className) => {
 	if (document.body.classList.contains(className)) {
@@ -40,10 +41,6 @@ const toggleBodyClass = (className) => {
 
 const uiManager = {
 	create: (options = {}) => {
-		const editorID = "editor"
-		const holderID = "ui_editor"
-		const thumbID = "ui_thumbstrip"
-
 		const defaults = {
 			theme: "ace/theme/code",
 			mode: "ace/mode/javascript",
@@ -51,9 +48,9 @@ const uiManager = {
 		}
 
 
-		const constrainEditorHolders = ()=>{
-			const availableWidth = (window.innerWidth - editorHolder.offsetLeft)
-			if(extEditorHolder.offsetWidth < 10) {
+		const constrainleftHolders = ()=>{
+			const availableWidth = (window.innerWidth - leftHolder.offsetLeft)
+			if(rightHolder.offsetWidth < 10) {
 				document.body.classList.remove("showSplitView")
 				return
 			} else {
@@ -61,17 +58,17 @@ const uiManager = {
 				toggleSplitViewBtn.icon = "view_column"
 			}
 			
-			if(extEditorHolder.offsetWidth < 200) {
-				extEditorHolder.style.width = (200) + "px"
-				editorHolder.style.right = (200) + "px"
+			if(rightHolder.offsetWidth < 200) {
+				rightHolder.style.width = (200) + "px"
+				leftHolder.style.right = (200) + "px"
 			}
 
-			if(editorHolder.offsetWidth < 200) {
-				editorHolder.style.right = (availableWidth - 200) + "px"
-				extEditorHolder.style.width = (availableWidth - 200) + "px"
+			if(leftHolder.offsetWidth < 200) {
+				leftHolder.style.right = (availableWidth - 200) + "px"
+				rightHolder.style.width = (availableWidth - 200) + "px"
 			}
-			editor.resize()
-			extEditor.resize()
+			leftEdit.resize()
+			rightEdit.resize()
 		}
 
 		options = { ...defaults, ...options }
@@ -105,19 +102,19 @@ const uiManager = {
 			if (toggleBodyClass("showFiles")) {
 				openDir.icon = "menu_open"
 				openDir.setAttribute("title", "hide file list")
-				// tabBar.style.left = sidebarWidth+"px"
-				editorHolder.style.left = sidebarWidth + "px"
+				// leftTabs.style.left = sidebarWidth+"px"
+				leftHolder.style.left = sidebarWidth + "px"
 				
 			} else {
 				openDir.icon = "menu"
 				openDir.setAttribute("title", "show file list")
-				// tabBar.style.left = ""
-				editorHolder.style.left = ""
-				extEditorHolder.style.left = ""
+				// leftTabs.style.left = ""
+				leftHolder.style.left = ""
+				rightHolder.style.left = ""
 			}
 			setTimeout(()=>{
 				console.warn("checking resize constraints")
-				constrainEditorHolders()
+				constrainleftHolders()
 			},400)
 		})
 
@@ -127,33 +124,33 @@ const uiManager = {
 		toggleSplitViewBtn.setAttribute("id", "toggleSplitView")
 		toggleSplitViewBtn.on("click", () => {
 			if (toggleBodyClass("showSplitView")) {
-				const targetWidth = (window.innerWidth - editorHolder.offsetLeft)/2
+				const targetWidth = (window.innerWidth - leftHolder.offsetLeft)/2
 				toggleSplitViewBtn.icon = "view_column"
 				toggleSplitViewBtn.setAttribute("title", "Hide split view")
-				extEditorHolder.style.width = targetWidth+"px"
-				editorHolder.style.right = targetWidth+"px"
+				rightHolder.style.width = targetWidth+"px"
+				leftHolder.style.right = targetWidth+"px"
 			} else {
 				toggleSplitViewBtn.icon = "vertical_split"
 				toggleSplitViewBtn.setAttribute("title", "Show split view")
-				extEditorHolder.style.width = "0px"
-				editorHolder.style.right = "0px"
+				rightHolder.style.width = "0px"
+				leftHolder.style.right = "0px"
 			}
-			editor.resize()
-			extEditor.resize()
+			leftEdit.resize()
+			rightEdit.resize()
 		})
 
-		tabBar = new elements.TabBar()
-		tabBar.type = "tabs"
-		tabBar.setAttribute("id", "tabs")
-		tabBar.setAttribute("slim", "true")
-		tabBar.append(openDir)
-		tabBar.append(toggleSplitViewBtn)
+		leftTabs = new elements.TabBar()
+		leftTabs.type = "tabs"
+		leftTabs.setAttribute("id", "leftTabs")
+		leftTabs.setAttribute("slim", "true")
 		
-
-		extTabBar = new elements.TabBar()
-		extTabBar.type = "tabs"
-		extTabBar.setAttribute("id", "extTabs")
-		extTabBar.setAttribute("slim", "true")
+		leftTabs.append(openDir)
+		leftTabs.append(toggleSplitViewBtn)
+		
+		rightTabs = new elements.TabBar()
+		rightTabs.type = "tabs"
+		rightTabs.setAttribute("id", "rightTabs")
+		rightTabs.setAttribute("slim", "true")
 
 		statusbar = document.querySelector("#statusbar")
 		if (statusbar == null) {
@@ -187,55 +184,60 @@ const uiManager = {
 			})
 		}, true )
 
-		editorHolder = new elements.Panel()
-		editorHolder.setAttribute("id", holderID)
-		editorElement = document.createElement("div")
-		editorElement.classList.add("loading")
-		editorElement.setAttribute("id", editorID)
+		// Query darkmode elements directly within the function
+		darkmodeSelect = document.querySelector("#darkmode_select");
+		darkmodeMenu = document.querySelector("#darkmode_menu");
 
-		editorHolder.appendChild(editorElement)
+		leftHolder = new elements.Panel()
+		leftHolder.setAttribute("id", "leftHolder")
+		
+		leftElement = document.createElement("div")
+		leftElement.classList.add("loading")
+		leftElement.setAttribute("id", "leftEdit")
 
-		mediaView = new elements.MediaView()
-		mediaView.setAttribute("id", "mediaView")
-		editorHolder.appendChild(mediaView)
+		leftHolder.appendChild(leftElement)
+		leftMedia = new elements.MediaView()
+		leftMedia.setAttribute("id", "leftMedia")
+		leftHolder.appendChild(leftMedia)
 
-		extEditorHolder = new elements.Panel()
-		extEditorHolder.setAttribute("id", "ui_ext_editor")
-		extEditorHolder.style.width = "0px"
-		extEditorHolder.style.right = "0px"
-		extEditorHolder.resizable = "left"
+		rightHolder = new elements.Panel()
+		rightHolder.setAttribute("id", "rightHolder")
+		rightHolder.style.width = "0px"
+		rightHolder.style.right = "0px"
+		rightHolder.resizable = "left"
 
-		extEditorElement = document.createElement("div")
-		extEditorElement.classList.add("loading")
-		extEditorElement.setAttribute("id", "extEditor")
-		extEditorHolder.appendChild(extEditorElement)
+		rightElement = document.createElement("div")
+		
+		rightElement.classList.add("loading")
+		rightElement.setAttribute("id", "rightEdit")
+		rightHolder.appendChild(rightElement)
 
-		extMediaView = new elements.MediaView()
-		extMediaView.setAttribute("id", "extMediaView")
-		extEditorHolder.appendChild(extMediaView)
+		rightMedia = new elements.MediaView()
+		rightMedia.setAttribute("id", "rightMedia")
+		rightHolder.appendChild(rightMedia)
 		
 		
 		
 		files.resizeListener((width)=>{
 			sidebarWidth = width
-			editorHolder.style.transition = "none"
-			editorHolder.style.left = width + "px"
+			leftHolder.style.transition = "none"
+			leftHolder.style.left = width + "px"
 		})
 		
 		files.resizeEndListener(()=>{
-			editorHolder.style.transition = ""
-			extEditorHolder.style.transition = ""
-			constrainEditorHolders()
+			leftHolder.style.transition = ""
+			rightHolder.style.transition = ""
+			constrainleftHolders()
 		})
 
-		extEditorHolder.resizeListener((width)=>{
-			editorHolder.style.transition = "none"
-			editorHolder.style.right = width + "px"
+		rightHolder.resizeListener((width)=>{
+			leftHolder.style.transition = "none"
+			leftHolder.style.right = width + "px"
 		})
 
-		extEditorHolder.resizeEndListener(()=>{
-			editorHolder.style.transition = ""
-			constrainEditorHolders()
+		rightHolder.resizeEndListener(()=>{
+			leftHolder.style.transition = ""
+			constrainleftHolders()
 		})
 
 		drawer = new elements.Panel()
@@ -243,19 +245,19 @@ const uiManager = {
 		drawer.resizable = "top"
 		let drawerHeight = 32
 		drawer.style.height = drawerHeight + "px"
-		editorHolder.style.bottom = drawerHeight + "px"
+		leftHolder.style.bottom = drawerHeight + "px"
 
 		drawer.resizeListener((height)=>{
-			editorHolder.style.transition = "none"
-			editorHolder.style.bottom = height + "px"
-			extEditorHolder.style.transition = "none"
-			extEditorHolder.style.bottom = height + "px"
+			leftHolder.style.transition = "none"
+			leftHolder.style.bottom = height + "px"
+			rightHolder.style.transition = "none"
+			rightHolder.style.bottom = height + "px"
 		})
 
 		drawer.resizeEndListener(()=>{
-			editorHolder.style.transition = ""
-			extEditorHolder.style.transition = ""
-			editor.resize()
+			leftHolder.style.transition = ""
+			rightHolder.style.transition = ""
+			leftEdit.resize()
 		})
 
 		installer = new elements.Panel()
@@ -384,7 +386,7 @@ const uiManager = {
 				case "regex":
 					let reg
 					if (val.length < 3) {
-						return editor.find("")
+						return currentEditor.find("")
 					}
 					try {
 						reg = new RegExp(val, "gsim")
@@ -394,14 +396,14 @@ const uiManager = {
 
 					if (reg instanceof RegExp) {
 						if (mode == "regex") {
-							editor.find(reg)
+							currentEditor.find(reg)
 						} else {
-							const match = reg.exec(editor.getValue())
+							const match = reg.exec(currentEditor.getValue())
 							// console.log(match);
 							if (match && match.length > 0) {
-								editor.selection.setRange({
-									start: editor.session.doc.indexToPosition(match.index),
-									end: editor.session.doc.indexToPosition(match.index + match[0].length),
+								currentEditor.selection.setRange({
+									start: currentEditor.session.doc.indexToPosition(match.index),
+									end: currentEditor.session.doc.indexToPosition(match.index + match[0].length),
 								})
 							}
 						}
@@ -454,14 +456,14 @@ const uiManager = {
 					} else {
 						omni.resultItem = null
 						omni.results.hide()
-						editor.gotoLine(val)
+						currentEditor.gotoLine(val)
 					}
 					break
 				case "find":
-					// 	if(prev) { return editor.findPrevious({needle: val}); }
-					// 	if(next) { return editor.findNext({needle: val}); }
-					editor.find("")
-					editor.find(val)
+					// 	if(prev) { return currentEditor.findPrevious({needle: val}); }
+					// 	if(next) { return currentEditor.findNext({needle: val}); }
+					currentEditor.find("")
+					currentEditor.find(val)
 					break
 			}
 		}
@@ -555,7 +557,7 @@ const uiManager = {
 
 			if (e.code == "Escape") {
 				uiManager.hideOmnibox()
-				editor.focus()
+				currentEditor.focus()
 				return
 			}
 
@@ -566,19 +568,19 @@ const uiManager = {
 						omni.results.hide()
 					}
 					uiManager.hideOmnibox()
-					editor.focus()
+					currentEditor.focus()
 					return
 				}
 				if (e.ctrlKey) {
 					uiManager.hideOmnibox()
-					editor.focus()
+					currentEditor.focus()
 				} else if (e.shiftKey) {
-					if (omni.last == "regex") editor.gotoLine(editor.getCursorPosition().row)
-					editor.execCommand("findprevious")
+					if (omni.last == "regex") currentEditor.gotoLine(currentEditor.getCursorPosition().row)
+					currentEditor.execCommand("findprevious")
 					// omni.perform(e, false, true)
 				} else {
-					if (omni.last == "regex") editor.gotoLine(editor.getCursorPosition().row + 2)
-					editor.execCommand("findnext")
+					if (omni.last == "regex") currentEditor.gotoLine(currentEditor.getCursorPosition().row + 2)
+					currentEditor.execCommand("findnext")
 					// 	omni.perform(e, true)
 				}
 				return
@@ -616,82 +618,78 @@ const uiManager = {
 			})
 		}
 
-		editorHolder.appendChild(tabBar)
-		extEditorHolder.appendChild(extTabBar)
+		leftHolder.appendChild(leftTabs)
+		rightHolder.appendChild(rightTabs)
 
 		document.body.appendChild(menu)
-		// document.body.appendChild(tabBar)
 		document.body.appendChild(statusbar)
 		
-		document.body.appendChild(editorHolder)
-		document.body.appendChild(extEditorHolder)
+		document.body.appendChild(leftHolder)
+		document.body.appendChild(rightHolder)
 		
-		// document.body.appendChild(extTabBar)
 		document.body.appendChild(files)
 		document.body.appendChild(drawer)
 		document.body.appendChild(omni)
-
-		window.editor = editor = ace.edit(editorID)
-		window.extEditor = extEditor = ace.edit(extEditorElement)
-		
-		window.omni = omni
-		ace.require("ace/keyboard/sublime")
-		ace.require("ace/etc/keybindings_menu")
-		// ace.require("ace/ext/")
-		// ace.require("ace/ext/searchbox")
-
-		editor.setKeyboardHandler(options.keyboard)
-		editor.setTheme(options.theme)
-
-		// editor.session.setMode(options.mode)
-		editor.commands.removeCommand("find")
-		editor.commands.removeCommand("removetolineendhard")
-		editor.commands.removeCommand("removetolinestarthard")
-
-		editor.setOptions(defaultSettings)
-
-		
-
-		editor.execCommand("loadSettingsMenu", () => {
-			editor._signal("ready")
-		})
 
 		let cursorpos = new elements.Inline()
 		cursorpos.setAttribute("id", "cursor_pos")
 		statusbar.append(cursorpos)
 
-		editor.on("changeSelection", () => {
-			// const pos = editor.getCursorPosition
-			// cursorpos.innerHTML = `${pos.col}:${pos.row}`;
-			// // thumbStrip.gotoLine(editor.getCursorPosition().row+1)
-			const selection = editor.getSelection()
-			var cursor = selection.getCursor()
-			const displayText = cursor.row + 1 + ":" + (cursor.column + 1)
-			cursorpos.innerHTML = displayText
-		})
+		window.leftEdit = leftEdit = ace.edit(leftElement)
+		window.rightEdit = rightEdit = ace.edit(rightElement)
+		
+		window.editors = [leftEdit, rightEdit]
+		leftEdit.tabs = leftTabs
+		rightEdit.tabs = rightTabs
+		
+		window.omni = omni
+		ace.require("ace/keyboard/sublime")
+		ace.require("ace/etc/keybindings_menu")
 
-		// // copy text to the thumbnail strip
-		editor.on("change", () => {
-			const pos = editor.getCursorPosition
-			cursorpos.innerHTML = `${pos.col}:${pos.row}`
-			if (!editor.session.getUndoManager().isClean()) {
-				if (editor.getValue() !== editor.session.baseValue) {
-					if (tabBar.activeTab) tabBar.activeTab.changed = true
-					if (fileList.activeItem) fileList.activeItem.changed = true
+		for(const editor of editors) {
+			const thisTabs = editor.tabs
+			editor.setKeyboardHandler(options.keyboard)
+			editor.setTheme(options.theme)
+	
+			editor.commands.removeCommand("find")
+			editor.commands.removeCommand("removetolineendhard")
+			editor.commands.removeCommand("removetolinestarthard")
+	
+			editor.setOptions(defaultSettings)
+	
+			editor.execCommand("loadSettingsMenu", () => {
+				editor._signal("ready")
+			})
+	
+	
+			editor.on("changeSelection", () => {
+				const selection = editor.getSelection()
+				var cursor = selection.getCursor()
+				const displayText = cursor.row + 1 + ":" + (cursor.column + 1)
+				cursorpos.innerHTML = displayText
+			})
+	
+			// // copy text to the thumbnail strip
+			editor.on("change", () => {
+				const pos = editor.getCursorPosition
+				cursorpos.innerHTML = `${pos.col}:${pos.row}`
+				if (!editor.session.getUndoManager().isClean()) {
+					if (editor.getValue() !== editor.session.baseValue) {
+						if (thisTabs.activeTab) thisTabs.activeTab.changed = true
+						if (fileList.activeItem) fileList.activeItem.changed = true
+					} else {
+						if (thisTabs.activeTab) thisTabs.activeTab.changed = false
+						if (fileList.activeItem) fileList.activeItem.changed = false
+						editor.session.getUndoManager().markClean()
+					}
 				} else {
-					if (tabBar.activeTab) tabBar.activeTab.changed = false
+					if (thisTabs.activeTab) thisTabs.activeTab.changed = false
 					if (fileList.activeItem) fileList.activeItem.changed = false
-					editor.session.getUndoManager().markClean()
 				}
-			} else {
-				if (tabBar.activeTab) tabBar.activeTab.changed = false
-				if (fileList.activeItem) fileList.activeItem.changed = false
-			}
-			// check if the buffer has edits
-			// 			tabBar.activeTab.changed = !!(editor.getSession().$undoManager.$undoStack.length>0)
-			// tabBar.activeTab.changed = editor.getValue() != tabBar.activeTab?.config?.session?.baseValue
-			// fileList.activeItem.changed = tabBar.activeTab.changed
-		})
+			})
+			
+		}
+
 
 		return
 	},
@@ -702,14 +700,12 @@ const uiManager = {
 	},
 
 	updateThemeAndMode: () => {
-		const c_mode = editor.getOption("mode")
-		const c_theme = editor.getOption("theme")
+		const c_mode = leftEdit.getOption("mode")
+		const c_theme = leftEdit.getOption("theme")
 		window.themeMenu = themeMenu
 		window.modeMenu = modeMenu
 
 		// Query darkmode elements directly within the function
-		const darkmodeSelect = document.querySelector("#darkmode_select");
-		const darkmodeMenu = document.querySelector("#darkmode_menu");
 
 		if (window.ace_themes) {
 			// themeMenu.empty();
@@ -851,57 +847,33 @@ const uiManager = {
 		settingsPanel.show()
 	},
 
-	get editor() {
-		return editor
-	},
 	
-	get installer() {
-		return installer
-	},
-	get editorElement() {
-		return editorElement
-	},
+	get installer() { return installer },
 	
-	get fileActions() {
-		return fileActions
-	},
-	get files() {
-		return files
-	},
-	get fileList() {
-		return fileList
-	},
-	get tabBar() {
-		return tabBar
-	},
-	get darkmodeSelect() {
-		return darkmodeSelect
-	},
-	get darkmodeMenu() {
-		return darkmodeMenu
-	},
-	get mediaView() {
-		return mediaView
-	},
-	get extEditor() {
-		return extEditor
-	},
-	get extEditorElement() {
-		return extEditorElement
-	},
-	get extEditorHolder() {
-		return extEditorHolder
-	},
-	get extMediaView() {
-		return extMediaView
-	},
-	get extTabBar() {
-		return extTabBar
-	},
+	get fileActions() { return fileActions },
+	get files() { return files },
+	get fileList() { return fileList },
+	get leftTabs() { return leftTabs },
+	get darkmodeSelect() { return darkmodeSelect },
+	get darkmodeMenu() { return darkmodeMenu },
+
+	get leftEdit() { return leftEdit },
+	get leftElement() { return leftElement },
+	get leftMedia() { return leftMedia },
+
+	get rightEdit() { return rightEdit },
+	get rightElement() { return rightElement },
+	get rightHolder() { return rightHolder },
+	get rightMedia() { return rightMedia },
+	get rightTabs() { return rightTabs },
+	
+	set currentEditor(v) { currentEditor = v },
+	set currentTabs(v) { currentTabs = v },
+	set currentMediaView(v) { currentMediaView = v },
 }
 
 setTimeout(() => {
-	editor.on("ready", () => {
+	leftEdit.on("ready", () => {
 		uiManager.updateThemeAndMode()
 	})
 })
