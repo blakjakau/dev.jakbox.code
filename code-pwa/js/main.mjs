@@ -114,6 +114,7 @@ window.workspace = workspace
 
 const fileOpen = new elements.Button("Add Folder to Workspace")
 const fileAccess = new elements.Button("Restore")
+const menuRestoreFolders = document.querySelector("#menu_restore_folders")
 
 
 
@@ -348,10 +349,26 @@ const openWorkspace = (() => {
 			workspace.files = load.files || []
 			workspace.id = load.id || safeString(workspace.name)
 
+			fileActions.append(fileAccess)
+			fileOpen.text = "Add Folder"
+
 			if (workspace.folders.length > 0) {
-				fileActions.append(fileAccess)
-				fileOpen.text = "Add Folder"
-				if (triggered) await fileAccess.click()
+				fileAccess.style.display = "";
+				menuRestoreFolders.style.display = "";
+
+				let hasLockedFolders = false;
+				for (const folder of workspace.folders) {
+					if (folder.locked) {
+						hasLockedFolders = true;
+						break;
+					}
+				}
+				if (hasLockedFolders && triggered) {
+					await fileAccess.click();
+				}
+			} else {
+				fileAccess.style.display = "none";
+				menuRestoreFolders.style.display = "none";
 			}
 
 			app.workspace = workspace.id
@@ -536,6 +553,12 @@ const execCommandRemoveAllFolders = () => {
 }
 
 const execCommandRefreshFolders = () => {}
+
+const execCommandRestoreFolders = () => {
+	fileAccess.click();
+	fileAccess.style.display = "none";
+	menuRestoreFolders.style.display = "none";
+}
 
 const execCommandCloseActiveTab = async () => {
 	const tab = tabBar.activeTab
@@ -959,8 +982,8 @@ fileOpen.icon = "create_new_folder"
 fileOpen.title = "Add Folder to Workspace"
 fileActions.append(fileOpen)
 
+fileActions.append(fileAccess)
 if (workspace.folders.length > 0) {
-	fileActions.append(fileAccess)
 	fileOpen.text = "Add Folder"
 }
 
@@ -1154,6 +1177,12 @@ const keyBinds = [
 		target: "app",
 		name: "removeAllFolders",
 		exec: execCommandRemoveAllFolders,
+	},
+	{
+		target: "app",
+		name: "restoreFolders",
+		bindKey: { win: "Alt+R", mac: "Option+R" },
+		exec: execCommandRestoreFolders,
 	},
 	{
 		target: "app",
@@ -1396,14 +1425,6 @@ setTimeout(async () => {
 
 		Promise.all(all).then(() => {
 			ui.showFolders()
-
-			let allGood = true
-			workspace.folders.forEach((handle) => {
-				if (handle.locked) allGood = false
-			})
-			if (allGood) {
-				fileAccess.click()
-			}
 		})
 
 		if (workspace.folders.length > 0) {
