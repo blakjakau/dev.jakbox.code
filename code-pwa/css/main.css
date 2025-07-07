@@ -59,7 +59,7 @@ ui-tab-item:not([active])::after {
 ui-tabbar[slim]>ui-tab-item { 
 	border-radius: 4px 4px 0 0; background:none; 
 	color: inherit;
-	border: 0px; transition: background 200ms ease-in-out; }
+	border: 0px; transition: background 150ms ease-in-out, margin 100ms ease-in-out; }
 ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme);  border:0px; color: var(--light)}
 /*ui-tabbar[slim]>ui-tab-item:hover+ui-tab-item { background: var(--dark);  }*/
 ui-tabbar[slim]>ui-tab-item:not([active]):hover {
@@ -71,6 +71,12 @@ ui-tabbar[slim]>ui-tab-item[active]:hover {
 ui-tab-item:hover::after {
 	opacity:0;
 }
+
+ui-tab-item.drop-highlight {
+    /* Removed box-shadow to eliminate outline border */
+}
+
+
 #ui_editor {
 	opacity:1;
 	transition:opacity 333ms;

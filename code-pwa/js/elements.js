@@ -507,56 +507,7 @@ class FileItem extends Button {
 	}
 }
 
-// scoping for tab function handlers
 
-const dragenter = function (e) {
-	e.stopPropagation()
-	e.preventDefault()
-}
-const dragover = function (e) {
-	e.stopPropagation();
-	e.preventDefault();
-
-	const parent = this.parentElement;
-	if (!parent || parent.animating === true) return;
-
-	const moving = parent.movingItem;
-	if (moving === this) return;
-
-	e.dataTransfer.dropEffect = "move";
-
-	// Clear existing margins on all tabs to prevent multiple gaps
-	for (const sib of parent.children) {
-		if (sib instanceof TabItem) {
-			sib.style.marginLeft = "";
-			sib.style.marginRight = "";
-		}
-	}
-
-	const parentRect = parent.getBoundingClientRect();
-	const cursorXInParent = e.clientX - parentRect.left;
-	const midpoint = this.offsetLeft + (this.offsetWidth / 2);
-	const width = parent.movingWidth;
-
-	parent.dropTarget = this;
-
-	if (cursorXInParent < midpoint) {
-		parent.dropPosition = "before";
-		this.style.marginLeft = `${width}px`;
-	} else {
-		parent.dropPosition = "after";
-		this.style.marginRight = `${width}px`;
-	}
-};
-const dragleave = function (e) {
-	let target = e.target
-	let moving = this.parentElement.movingItem
-	if (moving == this) {
-		return
-	}
-}
-
-// const drop = function(e) {  this.parentElement.tabDrop(e) }
 
 class TabItem extends Button {
 	constructor(content) {
@@ -599,20 +550,95 @@ class TabItem extends Button {
 			if(newParent) {
 				newParent.removeAttribute("dragging")
 				newParent.movingItem = undefined
+				// Disable transitions for instant reset
+				for (const tab of newParent.children) {
+					if (tab instanceof TabItem) {
+						tab.style.transition = "none";
+					}
+				}
 				if(newParent.resetMargins) newParent.resetMargins();
+				// Re-enable transitions after a short delay
+				setTimeout(() => {
+					for (const tab of newParent.children) {
+						if (tab instanceof TabItem) {
+							tab.style.transition = ""; // Revert to CSS defined transition
+						}
+					}
+				}, 0);
+				// Remove drop highlight from all tabs in the new parent
+				for (const tab of newParent.children) {
+					if (tab instanceof TabItem) {
+						tab.classList.remove("drop-highlight");
+					}
+				}
 			}
 			
 			if(this.originalParent && this.originalParent !== newParent && this.originalParent.resetMargins) {
+				// Disable transitions for instant reset
+				for (const tab of this.originalParent.children) {
+					if (tab instanceof TabItem) {
+						tab.style.transition = "none";
+					}
+				}
 				this.originalParent.resetMargins();
+				// Re-enable transitions after a short delay
+				setTimeout(() => {
+					for (const tab of this.originalParent.children) {
+						if (tab instanceof TabItem) {
+							tab.style.transition = ""; // Revert to CSS defined transition
+						}
+					}
+				}, 0);
+				// Remove drop highlight from all tabs in the original parent
+				for (const tab of this.originalParent.children) {
+					if (tab instanceof TabItem) {
+						tab.classList.remove("drop-highlight");
+					}
+				}
 			}
 			
 			this.style.display = ""
 			this.originalParent = null;
 		}
 
-		this.ondragover = dragover
-		this.ondragleave = dragleave
-		this.ondragenter = dragover
+		this.ondragover = (e) => {
+			e.stopPropagation();
+			e.preventDefault();
+
+			const parent = this.parentElement;
+			if (!parent) return;
+
+			const moving = parent.movingItem;
+			if (moving === this) return;
+
+			e.dataTransfer.dropEffect = "move";
+
+			const parentRect = parent.getBoundingClientRect();
+			const cursorXInParent = e.clientX - parentRect.left;
+			const midpoint = this.offsetLeft + (this.offsetWidth / 2);
+
+			parent.dropTarget = this;
+
+			// Remove drop highlight from all siblings and reset margins
+			for (const tab of parent.children) {
+				if (tab instanceof TabItem) {
+					tab.classList.remove("drop-highlight");
+					tab.style.marginLeft = "";
+					tab.style.marginRight = "";
+				}
+			}
+
+			this.classList.add("drop-highlight");
+
+			if (cursorXInParent < midpoint) {
+				parent.dropPosition = "before";
+				this.style.marginLeft = parent.movingWidth + "px";
+			} else {
+				parent.dropPosition = "after";
+				this.style.marginRight = parent.movingWidth + "px";
+			}
+		}
+		this.ondragenter = this.ondragover
 		this.ondrop = (e) => {
 			e.preventDefault();
 			e.stopPropagation();
@@ -1224,7 +1250,32 @@ class TabBar extends Block {
 			}
 		
 			if (targetTab) {
-				dragover.call(targetTab, e);
+				const parent = targetTab.parentElement;
+				if (!parent) return;
+
+				const moving = parent.movingItem;
+				if (moving === targetTab) return;
+
+				const parentRect = parent.getBoundingClientRect();
+				const cursorXInParent = e.clientX - parentRect.left;
+				const midpoint = targetTab.offsetLeft + (targetTab.offsetWidth / 2);
+
+				parent.dropTarget = targetTab;
+
+				// Remove drop indicator from all siblings
+				for (const tab of parent.children) {
+					if (tab instanceof TabItem) {
+						tab.classList.remove("drop-indicator-before", "drop-indicator-after");
+					}
+				}
+
+				if (cursorXInParent < midpoint) {
+					parent.dropPosition = "before";
+					targetTab.classList.add("drop-indicator-before");
+				} else {
+					parent.dropPosition = "after";
+					targetTab.classList.add("drop-indicator-after");
+				}
 			} else if (this._tabs.length > 0) {
 				let last = this._tabs[this._tabs.length - 1];
 				if (last === this.movingItem) {
@@ -1268,6 +1319,13 @@ class TabBar extends Block {
 	async tabDrop(e) {
 		e.stopPropagation()
 		e.preventDefault()
+
+		// Remove drop highlight from all tabs in this TabBar
+		for (const tab of this.children) {
+			if (tab instanceof TabItem) {
+				tab.classList.remove("drop-highlight");
+			}
+		}
 
 		console.log("tabDrop event triggered", e);
 		console.log("dropTarget:", this.dropTarget);
@@ -1321,7 +1379,7 @@ class TabBar extends Block {
 				
 				// Rebuild _tabs array for the new TabBar
 				this._tabs = Array.from(this.children).filter(child => child instanceof TabItem)
-				
+				this.resetMargins();
 				movingTab.click()
 			} else if (this.movingItem instanceof HTMLElement) {
 				let dropTarget = this.dropTarget;
@@ -1351,6 +1409,7 @@ class TabBar extends Block {
 					if (!(tabs[i] instanceof TabItem)) continue
 					this._tabs.push(tabs[i])
 				}
+				this.resetMargins();
 				this.movingItem.click()
 			}
 		}
