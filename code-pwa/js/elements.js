@@ -587,6 +587,7 @@ class TabItem extends Button {
 		this.setAttribute("draggable", true)
 
 		this.ondragstart = (e) => {
+			this.originalParent = this.parentElement;
 			this.ondrop = this.parentElement.tabDrop
 			e.dataTransfer.effectAllowed = "move"
 			e.dataTransfer.setData("text/plain", this.getAttribute("id"))
@@ -612,16 +613,19 @@ class TabItem extends Button {
 			})
 		}
 		this.ondragend = (e) => {
-			//  this.parentElement.tabDrop(e);
-
-			this.parentElement.removeAttribute("dragging")
-			this.parentElement.movingItem = undefined
-			this.style.display = ""
-			let sibs = this.parentElement.children
-			for (let i = 0, l = sibs.length; i < l; i++) {
-				sibs[i].style.marginLeft = ""
-				sibs[i].style.marginRight = ""
+			const newParent = this.parentElement;
+			if(newParent) {
+				newParent.removeAttribute("dragging")
+				newParent.movingItem = undefined
+				if(newParent.resetMargins) newParent.resetMargins();
 			}
+			
+			if(this.originalParent && this.originalParent !== newParent && this.originalParent.resetMargins) {
+				this.originalParent.resetMargins();
+			}
+			
+			this.style.display = ""
+			this.originalParent = null;
 		}
 
 		this.ondragover = dragover
@@ -1277,8 +1281,14 @@ class TabBar extends Block {
 			if (movingTab && movingTab.parentElement !== this) {
 				// Remove from old TabBar's _tabs array
 				let oldTabBar = movingTab.parentElement
-				if(oldTabBar) {
+				if(oldTabBar && oldTabBar instanceof TabBar) {
+					const wasActive = movingTab.hasAttribute("active");
 					oldTabBar._tabs = oldTabBar._tabs.filter(tab => tab !== movingTab)
+					if(wasActive && oldTabBar._tabs.length > 0) {
+						oldTabBar._tabs[0].click();
+					} else if (oldTabBar._tabs.length === 0) {
+						oldTabBar.defaultTab();
+					}
 				}
 				
 				if (this?.dropPosition == "before") {
@@ -1434,21 +1444,30 @@ class TabBar extends Block {
 			if (this._tabs[i] == tab) {
 				this._tabs.splice(i, 1)
 				if (tab.getAttribute("active") != null) {
-					if (this._tabs[i]) {
-						this._tabs[i].click()
-					} else if (this._tabs[i + 1]) {
-						this._tabs[i + 1].click()
-					} else if (this._tabs[i - 1]) {
-						this._tabs[i - 1].click()
+					const nextActiveTab = this._tabs[i] || this._tabs[i - 1]
+					if (nextActiveTab) {
+						nextActiveTab.click()
 					} else {
-						// If no other tabs, add a default tab
-						this.defaultTab();
+						this.defaultTab()
 					}
 				}
 				i--
 			}
 		}
 		tab.remove()
+		this.resetMargins()
+	}
+
+	resetMargins() {
+		// Reset margins on all tabs to prevent visual gaps from interrupted drag operations.
+		const sibs = this.children
+		for (let i = 0, l = sibs.length; i < l; i++) {
+			const sib = sibs[i]
+			if (sib instanceof TabItem) {
+				sib.style.marginLeft = ""
+				sib.style.marginRight = ""
+			}
+		}
 	}
 }
 
