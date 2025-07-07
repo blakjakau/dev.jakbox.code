@@ -518,7 +518,7 @@ const dragover = function (e) {
 	e.preventDefault()
 	if (this.parentElement.animating === true) return
 
-	let target = e.target
+	let target = this
 	let moving = this.parentElement.movingItem
 	let width = this.parentElement.movingWidth
 	if (moving == this) {
@@ -562,7 +562,7 @@ const dragover = function (e) {
 	}
 	this.parentElement.animating = true
 	setTimeout(() => {
-		this.parentElement.animating = false
+		if(this.parentElement) this.parentElement.animating = false
 	}, 150)
 }
 const dragleave = function (e) {
@@ -588,7 +588,6 @@ class TabItem extends Button {
 
 		this.ondragstart = (e) => {
 			this.originalParent = this.parentElement;
-			this.ondrop = this.parentElement.tabDrop
 			e.dataTransfer.effectAllowed = "move"
 			e.dataTransfer.setData("text/plain", this.getAttribute("id"))
 
@@ -608,7 +607,7 @@ class TabItem extends Button {
 					}, 150)
 				}
 				setTimeout(() => {
-					this.parentElement.animating = false
+					if(this.parentElement) this.parentElement.animating = false
 				}, 150)
 			})
 		}
@@ -631,6 +630,13 @@ class TabItem extends Button {
 		this.ondragover = dragover
 		this.ondragleave = dragleave
 		this.ondragenter = dragover
+		this.ondrop = (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			if (this.parentElement && typeof this.parentElement.tabDrop === 'function') {
+				this.parentElement.tabDrop(e);
+			}
+		}
 
 		return this
 	}
@@ -1210,30 +1216,47 @@ class TabBar extends Block {
 		//     this.dropTarget = undefined
 		// }
 		this.ondragover = (e) => {
-			e.preventDefault()
-			e.dataTransfer.dropEffect = "all"
-
-			if (this._tabs.length === 0) {
-				// If there are no tabs, any drop will be the first tab, so no positioning needed.
-				return;
-			}
-
-			let last = this._tabs[this._tabs.length - 1]
-			if (last == this.movingItem) {
-				if (this.length < 2) {
-					return
+			e.preventDefault();
+			e.dataTransfer.dropEffect = "move";
+		
+			let targetTab = null;
+			if (e.target instanceof TabItem) {
+				targetTab = e.target;
+			} else if (e.target.parentElement instanceof TabItem) {
+				targetTab = e.target.parentElement;
+			} else {
+				let closestTab = null;
+				let minDistance = Infinity;
+				for (const tab of this._tabs) {
+					if (tab === this.movingItem) continue;
+					const rect = tab.getBoundingClientRect();
+					const mid = rect.left + rect.width / 2;
+					const distance = Math.abs(e.clientX - mid);
+					if (distance < minDistance) {
+						minDistance = distance;
+						closestTab = tab;
+					}
 				}
-				last = this._tabs[this._tabs.length - 2]
+				targetTab = closestTab;
 			}
-
-			if (e.layerX > last.offsetLeft + last.offsetWidth) {
-				this._tabs.forEach((tab) => {
-					tab.style.marginLeft = ""
-				})
-				this.dropTarget = last
-				this.dropPostition = "after"
+		
+			if (targetTab) {
+				dragover.call(targetTab, e);
+			} else if (this._tabs.length > 0) {
+				let last = this._tabs[this._tabs.length - 1];
+				if (last === this.movingItem) {
+					if (this._tabs.length > 1) {
+						last = this._tabs[this._tabs.length - 2];
+					} else {
+						return;
+					}
+				}
+				this.dropTarget = last;
+				this.dropPosition = "after";
+			} else {
+				this.dropTarget = null;
+				this.dropPosition = "before";
 			}
-			//  console.log(e)
 		}
 		this.ondrop = this.tabDrop
 		this.on("contextmenu", (e) => {
@@ -1262,6 +1285,11 @@ class TabBar extends Block {
 	async tabDrop(e) {
 		e.stopPropagation()
 		e.preventDefault()
+
+		console.log("tabDrop event triggered", e);
+		console.log("dropTarget:", this.dropTarget);
+		console.log("dropPosition:", this.dropPosition);
+
 		const items = e.dataTransfer.items
 		const delayed = []
 		for (let i = 0, l = items.length; i < l; i++) {
@@ -1291,10 +1319,19 @@ class TabBar extends Block {
 					}
 				}
 				
-				if (this?.dropPosition == "before") {
-					this.insertBefore(movingTab, this.dropTarget)
-				} else if (this?.dropTarget?.nextElementSibling) {
-					this.insertBefore(movingTab, this.dropTarget.nextElementSibling)
+				let dropTarget = this.dropTarget;
+				if (dropTarget && !(dropTarget instanceof TabItem)) {
+					if(dropTarget.parentElement instanceof TabItem) {
+						dropTarget = dropTarget.parentElement;
+					} else {
+						dropTarget = null;
+					}
+				}
+
+				if (this?.dropPosition == "before" && dropTarget) {
+					this.insertBefore(movingTab, dropTarget)
+				} else if (dropTarget?.nextElementSibling) {
+					this.insertBefore(movingTab, dropTarget.nextElementSibling)
 				} else {
 					this.appendChild(movingTab)
 				}
@@ -1304,11 +1341,19 @@ class TabBar extends Block {
 				
 				movingTab.click()
 			} else if (this.movingItem instanceof HTMLElement) {
-				if (this?.dropPosition == "before") {
-					this.insertBefore(this.movingItem, this.dropTarget)
+				let dropTarget = this.dropTarget;
+				if (dropTarget && !(dropTarget instanceof TabItem)) {
+					if(dropTarget.parentElement instanceof TabItem) {
+						dropTarget = dropTarget.parentElement;
+					} else {
+						dropTarget = null;
+					}
+				}
+				if (this?.dropPosition == "before" && dropTarget) {
+					this.insertBefore(this.movingItem, dropTarget)
 				} else {
-					if (this?.dropTarget?.nextElementSibling) {
-						this.insertBefore(this.movingItem, this.dropTarget.nextElementSibling)
+					if (dropTarget?.nextElementSibling) {
+						this.insertBefore(this.movingItem, dropTarget.nextElementSibling)
 					} else {
 						this.appendChild(this.movingItem)
 					}
