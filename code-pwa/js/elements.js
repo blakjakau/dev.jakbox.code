@@ -514,57 +514,40 @@ const dragenter = function (e) {
 	e.preventDefault()
 }
 const dragover = function (e) {
-	e.stopPropagation()
-	e.preventDefault()
-	if (this.parentElement.animating === true) return
+	e.stopPropagation();
+	e.preventDefault();
 
-	let target = this
-	let moving = this.parentElement.movingItem
-	let width = this.parentElement.movingWidth
-	if (moving == this) {
-		return
-	}
+	const parent = this.parentElement;
+	if (!parent || parent.animating === true) return;
 
-	e.dataTransfer.dropEffect = "move"
+	const moving = parent.movingItem;
+	if (moving === this) return;
 
-	let sibs = target.parentElement.children
-	for (let i = 0, l = sibs.length; i < l; i++) {
-		if (sibs[i] === this) continue
-		sibs[i].style.marginLeft = ""
-		sibs[i].style.marginRight = ""
-	}
+	e.dataTransfer.dropEffect = "move";
 
-	let pre =
-		target.previousElementSibling && target.previousElementSibling instanceof TabItem
-			? target.previousElementSibling
-			: null
-	let next =
-		target.nextElementSibling && target.nextElementSibling instanceof TabItem ? target.nextElementSibling : null
-
-	if (next && next == moving) {
-		if (next.nextElementSibling && next.nextElementSibling instanceof TabItem) {
-			next = next.nextElementSibling
+	// Clear existing margins on all tabs to prevent multiple gaps
+	for (const sib of parent.children) {
+		if (sib instanceof TabItem) {
+			sib.style.marginLeft = "";
+			sib.style.marginRight = "";
 		}
 	}
-	this.parentElement.dropTarget = this
-	if (target.style.marginLeft == `${width}px`) {
-		this.parentElement.dropPosition = "after"
-		target.style.marginLeft = ""
-		if (next) {
-			next.style.marginLeft = `${width}px`
-		}
+
+	const parentRect = parent.getBoundingClientRect();
+	const cursorXInParent = e.clientX - parentRect.left;
+	const midpoint = this.offsetLeft + (this.offsetWidth / 2);
+	const width = parent.movingWidth;
+
+	parent.dropTarget = this;
+
+	if (cursorXInParent < midpoint) {
+		parent.dropPosition = "before";
+		this.style.marginLeft = `${width}px`;
 	} else {
-		this.parentElement.dropPosition = "before"
-		target.style.marginLeft = `${width}px`
-		if (next) {
-			next.style.marginLeft = ""
-		}
+		parent.dropPosition = "after";
+		this.style.marginRight = `${width}px`;
 	}
-	this.parentElement.animating = true
-	setTimeout(() => {
-		if(this.parentElement) this.parentElement.animating = false
-	}, 150)
-}
+};
 const dragleave = function (e) {
 	let target = e.target
 	let moving = this.parentElement.movingItem
