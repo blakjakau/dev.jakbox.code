@@ -640,7 +640,7 @@ const buildPath = (f) => {
 let currentEditor = editor;
 let currentMediaView = ui.mediaView;
 
-const openFileHandle = async (handle, knownPath = null) => {
+const openFileHandle = async (handle, knownPath = null, targetEditor = currentEditor) => {
     // This function will be assigned to tabBar.dropFileHandle and extTabBar.dropFileHandle later
     // So, we don't need to assign it here.
 
@@ -648,6 +648,8 @@ const openFileHandle = async (handle, knownPath = null) => {
 	const path = knownPath != null ? knownPath : buildPath(handle)
 	{
 		let tab = tabBar.byTitle(path)
+		if (tab) return tab.click()
+		tab = extTabBar.byTitle(path)
 		if (tab) return tab.click()
 	}
 
@@ -731,15 +733,10 @@ const openFileHandle = async (handle, knownPath = null) => {
 	const newSession = ace.createEditSession(text, fileMode.mode)
 	newSession.baseValue = text
 
-	currentEditor.setSession(newSession)
+	targetEditor.setSession(newSession)
 	execCommandEditorOptions()
 
-	let targetTabBar = tabBar;
-	if (extTabBar.activeTab) {
-		targetTabBar = extTabBar;
-	} else if (tabBar.activeTab) {
-		targetTabBar = tabBar;
-	}
+	let targetTabBar = (targetEditor === editor) ? tabBar : extTabBar;
 
 	const tab = targetTabBar.add({
 		name: file.name,
@@ -851,6 +848,7 @@ const updateEditorUI = async (targetEditor, targetMediaView, tab) => {
         targetEditor.setSession(tab.config.session);
         targetEditor.focus();
     }
+    currentEditor = targetEditor;
     fileList.active = tab.config.handle;
     tab.scrollIntoViewIfNeeded();
     tab.parentElement.scrollTop = 0;
@@ -862,11 +860,13 @@ const updateEditorUI = async (targetEditor, targetMediaView, tab) => {
 
 tabBar.click = async (event) => {
     const tab = event.tab;
+    currentEditor = editor;
     updateEditorUI(editor, ui.mediaView, tab);
 };
 
 extTabBar.click = async (event) => {
     const tab = event.tab;
+    currentEditor = extEditor;
     updateEditorUI(extEditor, ui.extMediaView, tab);
 };
 
@@ -1383,6 +1383,9 @@ setTimeout(async () => {
 		}
 	})
 
+    editor.on("focus", () => currentEditor = editor);
+    extEditor.on("focus", () => currentEditor = extEditor);
+
 	editor.on("ready", async () => {
 		// preload stored file and folder handles
 		let stored = await get("appConfig")
@@ -1434,8 +1437,8 @@ setTimeout(async () => {
 		defaultTab()
 		ui.fileList.open = openFileHandle;
 		fileList.unsupported = openFileHandle;
-		tabBar.dropFileHandle = openFileHandle;
-		extTabBar.dropFileHandle = openFileHandle;
+		tabBar.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, editor);
+		extTabBar.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, extEditor);
 		tabBar.defaultTab = defaultTab; // Assign defaultTab to tabBar
 		extTabBar.defaultTab = defaultTab; // Assign defaultTab to extTabBar
 
