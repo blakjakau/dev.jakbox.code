@@ -870,7 +870,7 @@ fileList.expand = (item) => {
 			fileList.activeItem.changed = true
 		}
 	}
-	fileList.active = leftTabs.activeTab.config.handle
+	fileList.active = currentTabs?.activeTab?.config?.handle
 }
 
 const updateEditorUI = async (targetEditor, targetMediaView, tab) => {
@@ -938,10 +938,8 @@ const closeTab = (targetTabs, event) => {
 
     fileList.inactive = tab.config.handle;
 
-    targetTabs.remove(tab);
-    if (targetTabs.tabs.length == 0) {
-        defaultTab(targetTabs);
-    }
+	tab.tabBar.remove(tab)
+    // targetTabs.remove(tab);
     tab.config.session.destroy();
     saveWorkspace();
 };
@@ -1501,6 +1499,18 @@ setTimeout(async () => {
 		rightTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, rightEdit);
 		leftTabs.defaultTab = () => defaultTab(leftTabs);
 		rightTabs.defaultTab = () => defaultTab(rightTabs);
+
+		leftTabs.onEmpty = () => {
+			leftEdit.setSession(ace.createEditSession(""));
+			leftEdit.container.style.display = 'none';
+			leftMedia.style.display = 'none';
+		};
+
+		rightTabs.onEmpty = () => {
+			rightEdit.setSession(ace.createEditSession(""));
+			rightEdit.container.style.display = 'none';
+			rightMedia.style.display = 'none';
+		};
 
 		if ("launchQueue" in window) {
 			launchQueue.setConsumer((params) => {

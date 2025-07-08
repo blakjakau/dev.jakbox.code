@@ -92,41 +92,35 @@ ui-tab-item.drop-highlight {
     -webkit-user-select:none;
 }
 
-#leftHolder {
+
+
+#leftHolder,
+#rightHolder {
 	opacity:1;
 	transition:opacity 333ms;
     margin: 0;
     position: absolute;
-    top: 0pc;
+    top: 0px;
     bottom: 0px;
-    left: 0;
-    right: 0;
     line-height:1.3em;
     box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    background:rgba(0,0,0,0.25);
     
     user-select:none;
     -webkit-user-select:none;
 }
-
+#leftHolder {
+    left: 0;
+    right: 0;
+}
 
 #rightHolder {
-    opacity: 1;
-    transition: opacity 333ms;
-    margin: 0;
-    position: absolute;
-    top: 0pc;
-    bottom: 0px;
-    right: 0;
     width: 0;
-    line-height: 1.3em;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
-
-    user-select:none;
-    -webkit-user-select:none;
 }
 
 #leftEdit,
 #rightEdit {
+	z-index:1;
     margin: 0;
     width: calc(100% - 0.3em);
     height: calc((100% - (var(--menuHeight) + 0.66em)) );
@@ -550,4 +544,28 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 
 @media (max-width:799px) {
 	.showFiles #mainContent { left: 0; }
+}
+
+.background-element {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.background-element img {
+	opacity:0.25;
+    filter: grayscale(100%);
+}
+
+.background-element .caption {
+    margin-top: 1em;
+    white-space: pre-wrap;
 }
