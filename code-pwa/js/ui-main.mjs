@@ -133,11 +133,13 @@ const uiManager = {
 				toggleSplitViewBtn.setAttribute("title", "Hide split view")
 				leftHolder.style.width = "50%"
 				rightHolder.style.width = "50%"
+				rightTabs.reclaimTabs(leftTabs, "rightTabs");
 			} else {
 				toggleSplitViewBtn.icon = "vertical_split"
 				toggleSplitViewBtn.setAttribute("title", "Show split view")
 				leftHolder.style.width = "100%"
 				rightHolder.style.width = "0%"
+				rightTabs.moveAllTabsTo(leftTabs, "rightTabs");
 			}
 
 			setTimeout(()=>{

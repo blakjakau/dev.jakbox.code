@@ -1571,6 +1571,84 @@ class TabBar extends Block {
 			}
 		}
 	}
+
+	moveAllTabsTo(otherTabBar, mark) {
+		if (!(otherTabBar instanceof TabBar)) {
+			console.error("Target is not a TabBar");
+			return;
+		}
+
+		const tabsToMove = [...this.tabs];
+		if (tabsToMove.length === 0) return;
+
+		const activeTabInSource = this.activeTab;
+
+		tabsToMove.forEach(tab => {
+            if (mark) {
+                tab.setAttribute("data-original-parent", mark);
+            }
+			otherTabBar.append(tab);
+		});
+
+		this._tabs = [];
+		otherTabBar._tabs = Array.from(otherTabBar.children).filter(child => child instanceof TabItem);
+
+		if (activeTabInSource) {
+			activeTabInSource.click();
+		} else if (otherTabBar.tabs.length > 0 && !otherTabBar.activeTab) {
+            otherTabBar.tabs[0].click();
+        }
+
+        if (this.tabs.length === 0) {
+            this.defaultTab();
+        }
+	}
+
+    reclaimTabs(sourceTabBar, mark) {
+        if (!(sourceTabBar instanceof TabBar)) {
+            console.error("Source is not a TabBar");
+            return;
+        }
+
+        const tabsToMove = [];
+        sourceTabBar.tabs.forEach(tab => {
+            if (tab.getAttribute("data-original-parent") === mark) {
+                tabsToMove.push(tab);
+            }
+        });
+
+        if (tabsToMove.length === 0) return;
+
+        const sourceActiveTab = sourceTabBar.activeTab;
+        let activeTabIsMoving = tabsToMove.includes(sourceActiveTab);
+
+        tabsToMove.forEach(tab => {
+            this.append(tab);
+            tab.removeAttribute("data-original-parent");
+        });
+
+        // Update tab arrays for both tab bars
+        this._tabs = Array.from(this.children).filter(child => child instanceof TabItem);
+        sourceTabBar._tabs = Array.from(sourceTabBar.children).filter(child => child instanceof TabItem);
+
+        // Handle active tab
+        if (activeTabIsMoving) {
+            sourceActiveTab.click(); // click it in its new home
+        } else {
+            // if source has no active tab, but still has tabs, activate one
+            if (sourceTabBar.tabs.length > 0 && !sourceTabBar.activeTab) {
+                sourceTabBar.tabs[0].click();
+            }
+            // if this tab bar has no active tab, but now has tabs, activate one
+            if (this.tabs.length > 0 && !this.activeTab) {
+                this.tabs[0].click();
+            }
+        }
+        
+        if (sourceTabBar.tabs.length === 0) {
+            sourceTabBar.defaultTab();
+        }
+    }
 }
 
 // file selection list, takes an array of file/folder handles and produces a directory tree
