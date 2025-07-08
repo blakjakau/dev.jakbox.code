@@ -240,6 +240,7 @@ window.ui.commands = {
 window.ui.commands.bindToDocument()
 
 const saveFile = async (text, handle) => {
+    console.log(`saveFile: Saving file ${handle.name}.`);
 	const tab = currentTabs.activeTab
 	const file = fileList.activeItem
 
@@ -274,9 +275,8 @@ const saveAppConfig = async () => {
 let workspaceUnloading = false
 const saveWorkspace = async () => {
 	if (workspaceUnloading) return
-	let name = workspace.name
-	set(`workspace_${workspace.id}`, workspace)
-	console.debug("saved", workspace)
+	console.log("saveWorkspace: Saving workspace.", workspace);
+	set(`workspace_${workspace.id}`, workspace);
 }
 
 const updateWorkspaceSelectors = (() => {
@@ -326,7 +326,9 @@ const openWorkspace = (() => {
 	rename.remove()
 
 	return async (name, triggered = false) => {
+		console.log(`openWorkspace: Opening workspace ${name}.`);
 		let load = await get(`workspace_${name}`)
+
 
 		const hideActions = () => {
 			close.remove()
@@ -607,6 +609,7 @@ const execCommandOpen = async () => {
 }
 
 const execCommandNewFile = async () => {
+    console.log("execCommandNewFile: Creating new file.");
 	const srcTab = leftTabs.activeTab || rightTabs.activeTab;
 	const mode = srcTab?.config?.mode?.mode || "";
 	const folder = srcTab?.config?.folder || undefined;
@@ -618,7 +621,7 @@ const execCommandNewFile = async () => {
 		targetTabs = rightTabs;
 	}
 
-	const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder });
+	const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder, side: (targetTabs === leftTabs) ? "left" : "right" });
 
 	
 	tab.click();
@@ -654,6 +657,13 @@ const setCurrentEditor = (editor)=>{
     	if (tab.changed && fileList.activeItem) {
 	        fileList.activeItem.changed = true;
 	    }
+
+		// Update the side property in workspace.files when the active editor changes
+		const fileInWorkspace = workspace.files.find(file => file.handle === tab.config.handle);
+		if (fileInWorkspace) {
+			fileInWorkspace.side = (editor === leftEdit) ? "left" : "right";
+			saveWorkspace();
+		}
 	}
 }
 
@@ -753,12 +763,13 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 	targetEditor.setSession(newSession)
 	execCommandEditorOptions()
 
-	let targetTabs = (targetEditor === leftEdit) ? leftTabs : rightTabs;
+	let targetTabs = targetEditor.tabs
 
 	const tab = targetTabs.add({
 		name: file.name,
 		mode: fileMode,
 		session: newSession,
+		side: (targetEditor === leftEdit) ? "left" : "right",
 		handle: handle,
 		folder: handle.container,
 	})
@@ -768,6 +779,7 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 	for (let i = 0; i < workspace.files.length; i++) {
 		if (workspace.files[i].handle == tab.config.handle) {
 			matched = true
+			workspace.files[i].side = (targetEditor === leftEdit) ? "left" : "right";
 		}
 	}
 
@@ -778,6 +790,7 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 			name: file.name,
 			path: path,
 			handle: handle,
+			side: (targetEditor === leftEdit) ? "left" : "right",
 			containers: (() => {
 				const containers = []
 				const recurse = (container) => {
@@ -985,7 +998,7 @@ fileAccess.on("click", async () => {
 				}
 				file.containers = newContainers
 				file.handle.container = fileContainers.container
-				openFileHandle(file.handle, file.path)
+				openFileHandle(file.handle, file.path, (file.side === "right" ? rightEdit : leftEdit))
 				fileList.active = file.handle
 			}
 		}
