@@ -76,14 +76,29 @@ ui-tab-item.drop-highlight {
     /* Removed box-shadow to eliminate outline border */
 }
 
+#mainContent {
+    position: fixed;
+	opacity:1;
+	transition:opacity 333ms;
+    margin: 0;
+    top: var(--editorTop);
+    bottom: calc( var(--statusHeight)  +  2px );
+    left: 0;
+    right: 0;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    user-select:none;
+    -webkit-user-select:none;
+    background: var(--dark);
+    /*z-index:1;*/
+}
 
 #leftHolder {
 	opacity:1;
 	transition:opacity 333ms;
     margin: 0;
     position: absolute;
-    top: var(--editorTop);
-    bottom: var(--statusHeight);
+    top: 0pc;
+    bottom: 0px;
     left: 0;
     right: 0;
     line-height:1.3em;
@@ -99,8 +114,8 @@ ui-tab-item.drop-highlight {
     transition: opacity 333ms;
     margin: 0;
     position: absolute;
-    top: var(--editorTop);
-    bottom: var(--statusHeight);
+    top: 0pc;
+    bottom: 0px;
     right: 0;
     width: 0;
     line-height: 1.3em;
@@ -113,8 +128,9 @@ ui-tab-item.drop-highlight {
 #leftEdit,
 #rightEdit {
     margin: 0;
-    height: calc((100% - (var(--menuHeight) + 0.66em)) );
     width: calc(100% - 0.3em);
+    height: calc((100% - (var(--menuHeight) + 0.66em)) );
+    /*height: calc(100% - 0.66em);*/
 }
 
 #rightEdit {
@@ -338,12 +354,16 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	left:-256;
 	top:var(--menuHeight) !important;
 	bottom: var(--statusHeight);
-	overflow:auto;
+	overflow:hidden;
 	pointer-events:none;
 }
 
-#leftTabs, #files, #leftHolder, #statusbar, ui-actionbar, ui-file-list {
+#mainContent, #files, #statusbar, ui-actionbar, ui-file-list {
 	transition:left var(--animRate), right var(--animRate), opacity var(--animRate), background var(--animRate), color var(--animRate);
+}
+
+#leftHolder, #rightHolder {
+	transition:width var(--animRate)
 }
 
 #statusbar {
@@ -352,7 +372,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	right:0;
 	bottom:0 !important;
 	top:auto !important;
-	z-index:6;
+	z-index:10;
 }
 #statusbar #cursor_pos {
 	margin-left: 8px;
@@ -380,6 +400,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 }
 
 #drawer {
+	z-index:9;
     user-select:none;
     -webkit-user-select:none;
 }
@@ -524,5 +545,5 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 }
 
 @media (max-width:799px) {
-	.showFiles #leftHolder { left: 0; }
+	.showFiles #mainContent { left: 0; }
 }

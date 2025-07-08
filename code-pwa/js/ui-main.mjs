@@ -16,6 +16,7 @@ const defaultSettings = {
 }
 
 // these become the actual editor elements
+var mainContent
 var leftEdit, leftElement, leftHolder, leftMedia, leftTabs
 var rightEdit, rightElement, rightHolder, rightMedia, rightTabs
 
@@ -41,37 +42,40 @@ const toggleBodyClass = (className) => {
 
 const uiManager = {
 	create: (options = {}) => {
+
 		const defaults = {
 			theme: "ace/theme/code",
 			mode: "ace/mode/javascript",
 			keyboard: "ace/keyboard/sublime",
 		}
 
-
-		const constrainleftHolders = ()=>{
-			const availableWidth = (window.innerWidth - leftHolder.offsetLeft)
-			if(rightHolder.offsetWidth < 10) {
-				document.body.classList.remove("showSplitView")
+		const constrainHolders = ()=>{
+			if(!document.body.classList.contains("showSplitView")) {
+				leftEdit.resize()
+				rightEdit.resize()
 				return
-			} else {
-				document.body.classList.add("showSplitView")
-				toggleSplitViewBtn.icon = "view_column"
 			}
+			const w = mainContent.offsetWidth
+			let l = leftHolder.offsetWidth/w
+			let r = rightHolder.offsetWidth/w
 			
-			if(rightHolder.offsetWidth < 200) {
-				rightHolder.style.width = (200) + "px"
-				leftHolder.style.right = (200) + "px"
-			}
-
-			if(leftHolder.offsetWidth < 200) {
-				leftHolder.style.right = (availableWidth - 200) + "px"
-				rightHolder.style.width = (availableWidth - 200) + "px"
-			}
-			leftEdit.resize()
-			rightEdit.resize()
+			console.log(w, l, r)
+			l = Math.max(0.25, Math.min(0.75, l))
+			r = 1 - l
+			// r = Math.max(0.25, Math.min(0.75, r))
+			
+			leftHolder.style.width = ((l)*100)+"%"
+			rightHolder.style.width = ((r)*100)+"%"
+			
+			setTimeout(()=>{
+				leftEdit.resize()
+				rightEdit.resize()
+			}, 300)
 		}
 
 		options = { ...defaults, ...options }
+
+		mainContent = document.querySelector("#mainContent")
 
 		fileActions = new elements.ActionBar()
 		fileActions.setAttribute("id", "fileActions")
@@ -84,6 +88,7 @@ const uiManager = {
 		files.append(fileActions)
 		files.append(fileList)
 		files.resizable = "right"
+		files.minSize = 200
 		let sidebarWidth = 258
 
 		menu = document.querySelector("#menu")
@@ -102,19 +107,16 @@ const uiManager = {
 			if (toggleBodyClass("showFiles")) {
 				openDir.icon = "menu_open"
 				openDir.setAttribute("title", "hide file list")
-				// leftTabs.style.left = sidebarWidth+"px"
-				leftHolder.style.left = sidebarWidth + "px"
+				mainContent.style.left = sidebarWidth + "px"
 				
 			} else {
 				openDir.icon = "menu"
 				openDir.setAttribute("title", "show file list")
-				// leftTabs.style.left = ""
-				leftHolder.style.left = ""
-				rightHolder.style.left = ""
+				mainContent.style.left = ""
 			}
 			setTimeout(()=>{
 				console.warn("checking resize constraints")
-				constrainleftHolders()
+				constrainHolders()
 			},400)
 		})
 
@@ -123,18 +125,19 @@ const uiManager = {
 		toggleSplitViewBtn.setAttribute("title", "Toggle split view")
 		toggleSplitViewBtn.setAttribute("id", "toggleSplitView")
 		toggleSplitViewBtn.on("click", () => {
+			const targetWidth = (window.innerWidth - leftHolder.offsetLeft)/2
 			if (toggleBodyClass("showSplitView")) {
-				const targetWidth = (window.innerWidth - leftHolder.offsetLeft)/2
 				toggleSplitViewBtn.icon = "view_column"
 				toggleSplitViewBtn.setAttribute("title", "Hide split view")
-				rightHolder.style.width = targetWidth+"px"
-				leftHolder.style.right = targetWidth+"px"
+				leftHolder.style.width = "50%"
+				rightHolder.style.width = "50%"
 			} else {
 				toggleSplitViewBtn.icon = "vertical_split"
 				toggleSplitViewBtn.setAttribute("title", "Show split view")
-				rightHolder.style.width = "0px"
-				leftHolder.style.right = "0px"
+				leftHolder.style.width = "100%"
+				rightHolder.style.width = "0%"
 			}
+			
 			leftEdit.resize()
 			rightEdit.resize()
 		})
@@ -205,6 +208,8 @@ const uiManager = {
 		rightHolder.style.width = "0px"
 		rightHolder.style.right = "0px"
 		rightHolder.resizable = "left"
+		rightHolder.minSize = 0
+		rightHolder.maxSize = 2440
 
 		rightElement = document.createElement("div")
 		
@@ -216,62 +221,54 @@ const uiManager = {
 		rightMedia.setAttribute("id", "rightMedia")
 		rightHolder.appendChild(rightMedia)
 		
-		
-		
 		files.resizeListener((width)=>{
 			sidebarWidth = width
-			leftHolder.style.transition = "none"
-			leftHolder.style.left = width + "px"
+			mainContent.style.transition = "none"
+			mainContent.style.left = width + "px"
 		})
 		
 		files.resizeEndListener(()=>{
-			leftHolder.style.transition = ""
-			rightHolder.style.transition = ""
-			constrainleftHolders()
+			mainContent.style.transition = ""
+			constrainHolders()
 		})
 
 		rightHolder.resizeListener((width)=>{
-			leftHolder.style.transition = "none"
-			leftHolder.style.right = width + "px"
+			const w = mainContent.offsetWidth
+			const l = w-width
+			const r = width
+			leftHolder.style.transition = "none";
+			leftHolder.style.width = l+"px"
 		})
-
 		rightHolder.resizeEndListener(()=>{
 			leftHolder.style.transition = ""
-			constrainleftHolders()
+			constrainHolders()
 		})
 
 		drawer = new elements.Panel()
 		drawer.setAttribute("id", "drawer")
 		drawer.resizable = "top"
-		let drawerHeight = 32
+		let drawerHeight = 34
+		drawer.minSize = drawerHeight
 		drawer.style.height = drawerHeight + "px"
-		leftHolder.style.bottom = drawerHeight + "px"
+		mainContent.style.bottom = drawerHeight + "px"
 
 		drawer.resizeListener((height)=>{
-			leftHolder.style.transition = "none"
-			leftHolder.style.bottom = height + "px"
-			rightHolder.style.transition = "none"
-			rightHolder.style.bottom = height + "px"
+			mainContent.style.transition = "none"
+			mainContent.style.bottom = height + "px"
+			// drawer.style.left = files.offsetWidth
 		})
 
 		drawer.resizeEndListener(()=>{
-			leftHolder.style.transition = ""
-			rightHolder.style.transition = ""
-			leftEdit.resize()
+			mainContent.style.transition = ""
+			constrainHolders()
 		})
 
 		installer = new elements.Panel()
 		installer.setAttribute("type", "modal")
 		document.body.append(installer)
 		installer.classList.add("slideUp")
-		installer.style.cssText = `
-            left:auto; top:auto; right:32px; bottom:64px; width:auto;
-            height:105px; text-align:center;
-        `
-		// installer.style.width="300px";
-		installer.innerHTML = `
-            <p><img src="images/code-192.png" height='32px' style="vertical-align:middle; margin-top:-4px;">&nbsp;&nbsp;<b>Add 'Code' as an app?</b></p>
-        `
+		installer.style.cssText = `left:auto; top:auto; right:32px; bottom:64px; width:auto; height:105px; text-align:center;`
+		installer.innerHTML = `<p><img src="images/code-192.png" height='32px' style="vertical-align:middle; margin-top:-4px;">&nbsp;&nbsp;<b>Add 'Code' as an app?</b></p>`
 
 		installer.confirm = new elements.Button("Yes please!")
 		installer.confirm.classList.add("themed")
@@ -624,8 +621,10 @@ const uiManager = {
 		document.body.appendChild(menu)
 		document.body.appendChild(statusbar)
 		
-		document.body.appendChild(leftHolder)
-		document.body.appendChild(rightHolder)
+		
+		
+		mainContent.appendChild(leftHolder)
+		mainContent.appendChild(rightHolder)
 		
 		document.body.appendChild(files)
 		document.body.appendChild(drawer)
@@ -791,8 +790,8 @@ const uiManager = {
 		return openDir.click()
 	},
 	
-	toggleSplitView: ()=>{
-		return toggleSplitViewBtn.click()
+	toggleSplitView: (forceOpen=false)=>{
+		return toggleSplitViewBtn.click(forceOpen)
 	},
 
 	omnibox: (mode) => {

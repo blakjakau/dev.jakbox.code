@@ -729,9 +729,12 @@ class Blank extends Block {
 }
 
 class Panel extends Block {
+	#minSize = 50
+	#maxSize = 500
 	constructor(content) {
 		super()
 		if (isset(content)) this.innerHTML = content
+		
 		this.blanker = new Blank()
 		this.resizeListeners = []
 		this.resizeEndListeners= []
@@ -795,30 +798,29 @@ class Panel extends Block {
 				document.body.style.cursor = ""
 				return
 			}
+			this.style.transition = "none"
 			this.active = true
 			
 			const move = (e)=>{
 				if(this.resize == "left" || this.resize == "right") { // horizontal
 					let nw;
-					// assumes 4px border
 					if (this.resize === "left") {
 						nw = (this.offsetWidth - e.movementX - this.borderHandleVisual)
 					} else {
 						nw = (this.offsetWidth + e.movementX - this.borderHandleVisual)
 					}
-					this.style.width = Math.max(200, nw)+"px"
+					this.style.width = Math.max(this.#minSize, Math.min(this.#maxSize, nw))+"px"
 					this.resizeListeners.forEach(f=>{
 						f(this.offsetWidth)
 					})
 				} else { // vertical
 					let nh;
-					// assumes 4px border
 					if (this.resize === "top") {
 						nh = (this.offsetHeight - e.movementY - this.borderHandleVisual)
 					} else {
 						nh = (this.offsetHeight + e.movementY - this.borderHandleVisual)
 					}
-					this.style.height = Math.max(32, nh)+"px"
+					this.style.height = Math.max(this.#minSize, Math.min(this.#maxSize, nh))+"px"
 					this.resizeListeners.forEach(f=>{
 						f(this.offsetHeight)
 					})
@@ -828,6 +830,7 @@ class Panel extends Block {
 				document.removeEventListener("pointermove", move)
 				document.removeEventListener("pointerup", release)
 				document.body.style.cursor = ""
+				this.style.transition = ""
 				this.active = false
 				if(this.resize == "left" || this.resize == "right") {
 					this.resizeEndListeners.forEach(f=>{ f(this.offsetWidth) })
@@ -868,6 +871,16 @@ class Panel extends Block {
 		return false
 	}
 	
+	set maxSize(v) {
+		if(isNaN(v)) return
+		if(v > this.#minSize) this.#maxSize = v
+	}
+	
+	set minSize(v) {
+		if(isNaN(v) || v<0) return
+		if(v < this.#maxSize) this.#minSize = v
+	}
+	
 	set resizable(state) {
 		switch(state) {
 			case 0: case false: case "none": this.resize = false; break;
@@ -881,6 +894,7 @@ class Panel extends Block {
 	get resizable() {
 		return this.resize
 	}
+	
 	connectedCallback() {
 		super.connectedCallback.apply(this)
 		if (this.hasAttribute("blank")) {
