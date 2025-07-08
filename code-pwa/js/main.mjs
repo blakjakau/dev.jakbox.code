@@ -753,9 +753,18 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 		})
 	}
 
-	if (leftTabs.tabs.length == 1 && leftEdit.getValue() == "") {
-		leftTabs.remove(leftTabs.tabs[0])
-	}
+	// Check for and remove empty "untitled" tabs before opening a new file.
+	const removeEmptyUntitledTab = (tabGroup) => {
+		if (tabGroup.tabs.length === 1) {
+			const tab = tabGroup.tabs[0];
+			            if (tab.config.name === "untitled" && tab.config.session.getValue() === "") {
+				tabGroup.remove(tab, true); // Pass true to suppress defaultTab creation
+			}
+		}
+	};
+
+	removeEmptyUntitledTab(leftTabs);
+	removeEmptyUntitledTab(rightTabs);
 
 	const newSession = ace.createEditSession(text, fileMode.mode)
 	newSession.baseValue = text

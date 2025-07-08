@@ -1527,7 +1527,7 @@ class TabBar extends Block {
 		return tab
 	}
 
-	remove(tab) {
+	remove(tab, suppressDefaultTabCreation = false) {
 		for (let i = 0, l = this._tabs.length; i < l; i++) {
 			if (this._tabs[i] == tab) {
 				this._tabs.splice(i, 1)
@@ -1535,7 +1535,7 @@ class TabBar extends Block {
 					const nextActiveTab = this._tabs[i] || this._tabs[i - 1]
 					if (nextActiveTab) {
 						nextActiveTab.click()
-					} else {
+					} else if (!suppressDefaultTabCreation) {
 						this.defaultTab()
 					}
 				}
