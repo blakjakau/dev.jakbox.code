@@ -26,6 +26,9 @@
 	<meta http-equiv="origin-trial" content="AkNn1K/DF98W+frWzgFUC78nqgqsJTyseK/EqQKSXuC2r1KRseeGXrlJbf2eBakk/mvHZMsu49EobPbRCNU7qg4AAABkeyJvcmlnaW4iOiJodHRwczovL2NvZGUuamFrYm94Lm5ldDo0NDMiLCJmZWF0dXJlIjoiV2ViQXBwV2luZG93Q29udHJvbHNPdmVybGF5IiwiZXhwaXJ5IjoxNjM4OTIxNTk5fQ==">
 	
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=right_panel_open" />
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto:wght@300;400&display=swap" rel="stylesheet">
@@ -78,6 +81,8 @@
 	</script>
 </head>
 <body>
+	
+	
 	<ui-actionbar id="menu" hook="top" slim style="top: 0px; bottom: auto;">
 	    <ui-inline id="logo"><img src="images/code-192-simple.svg" style="color: #fff" height="32px"> Code </ui-inline>
 
@@ -86,6 +91,10 @@
 	    <ui-button id="menu_project">Workspace</ui-button>
 	    <ui-button id="menu_settings">Settings</ui-button>
 	</ui-actionbar>
+
+	
+	<ui-block id="mainContent"></ui-block>
+
 
 	<ui-actionbar id="statusbar" slim hook="bottom">
 		<ui-button id="settings" icon="settings_application" hook=right onclick="window.ui.execCommand('app:showEditorSettings')"></ui-button>
@@ -143,8 +152,10 @@
     </ui-menu>
 
 	<ui-menu attachTo="#menu_project" onclick="(e)=>{ window.ui.execCommand(e) }">
-	    <ui-menu-item command="app:toggleFolders" icon="menu_open">Toggle File List</ui-menu-item>
+	    <ui-menu-item command="app:toggleFolders" icon="menu_open" keyTag="Alt+F">Toggle File List</ui-menu-item>
+	    <ui-menu-item command="app:toggleSplitView" icon="vertical_split" keyTag="Alt+S">Toggle Split View</ui-menu-item>
 	    <ui-menu-split></ui-menu-split>
+	    <ui-menu-item id="menu_restore_folders" command="app:restoreFolders" icon="settings_backup_restore" keyTag="Alt+R">Restore</ui-menu-item>
 	    <ui-menu-item command="app:addFolder" icon="create_new_folder">Add Folder</ui-menu-item>
 	    <ui-menu-item command="app:refreshFolders" icon="refresh">Refresh Folders</ui-menu-item>
 	    <ui-menu-item command="app:removeAllFolders" icon="remove">Remove All Folders</ui-menu-item>
@@ -185,7 +196,8 @@
 		<ui-menu-item command="delete" icon="delete">Delete File</ui-menu-item>
 	</ui-menu>
 
-	<img src="images/code-192.png" style="position:absolute; left:50%; top:33vh; width:30vh; margin-left:-15vh; opacity:0.25; filter: grayscale(100%);">
+	
+
 
     <ui-panel id="about" type=modal blank  class="slideDown" style="left:50%; width:480px; top:16px; height:300px; margin-left:-240px;">
 		<ui-inner>

@@ -6,7 +6,7 @@ const defaultSettings = {
 	printMargin: false,
 	displayIndentGuides: true,
 	showInvisibles: false, //show whitespace characters (spaces, tabs, returns)
-	scrollPastEnd: 0, //allow the editor to scroll past the end of the document
+	scrollPastEnd: 0, //allow the leftEditto scroll past the end of the document
 	useSoftTabs: false,
 	tabSize: 4,
 	newLineMode: "auto",
@@ -15,17 +15,20 @@ const defaultSettings = {
 	fontFamily: "roboto mono",
 }
 
-var editor, thumbstrip
-var editorElement, editorHolder, thumbElement
-var menu, tabBar, openDir
-var files, fileActions, fileList, drawer, mediaView
-var statusbar
-var statusTheme, statusMode, statusWorkspace
+// these become the actual editor elements
+var mainContent
+var leftEdit, leftElement, leftHolder, leftMedia, leftTabs
+var rightEdit, rightElement, rightHolder, rightMedia, rightTabs
+
+var menu
+var omni, modal, installer
+var files, fileActions, fileList
+var drawer, statusbar, statusTheme, statusMode, statusWorkspace
 var themeMenu, modeMenu, workspaceMenu
-var omni
-var modal
-var installer
-var themeModeToggle
+var darkmodeMenu, darkmodeSelect
+var openDir, themeModeToggle, toggleSplitViewBtn
+
+var currentEditor, currentTabs, currentMediaView
 
 const toggleBodyClass = (className) => {
 	if (document.body.classList.contains(className)) {
@@ -39,17 +42,43 @@ const toggleBodyClass = (className) => {
 
 const uiManager = {
 	create: (options = {}) => {
-		const editorID = "editor"
-		const holderID = "ui_editor"
-		const thumbID = "ui_thumbstrip"
 
+		const animRate = 250
+		document.documentElement.style.setProperty('--animRate', `${animRate}ms`);
+		
 		const defaults = {
 			theme: "ace/theme/code",
 			mode: "ace/mode/javascript",
 			keyboard: "ace/keyboard/sublime",
 		}
 
+		const constrainHolders = ()=>{
+			if(!document.body.classList.contains("showSplitView")) {
+				leftEdit.resize()
+				rightEdit.resize()
+				return
+			}
+			const w = mainContent.offsetWidth
+			let l = leftHolder.offsetWidth/w
+			let r = rightHolder.offsetWidth/w
+			
+			console.log(w, l, r)
+			l = Math.max(0.25, Math.min(0.75, l))
+			r = 1 - l
+			// r = Math.max(0.25, Math.min(0.75, r))
+			
+			leftHolder.style.width = ((l)*100)+"%"
+			rightHolder.style.width = ((r)*100)+"%"
+			
+			setTimeout(()=>{
+				leftEdit.resize()
+				rightEdit.resize()
+			}, animRate)
+		}
+
 		options = { ...defaults, ...options }
+
+		mainContent = document.querySelector("#mainContent")
 
 		fileActions = new elements.ActionBar()
 		fileActions.setAttribute("id", "fileActions")
@@ -62,6 +91,7 @@ const uiManager = {
 		files.append(fileActions)
 		files.append(fileList)
 		files.resizable = "right"
+		files.minSize = 200
 		let sidebarWidth = 258
 
 		menu = document.querySelector("#menu")
@@ -80,24 +110,55 @@ const uiManager = {
 			if (toggleBodyClass("showFiles")) {
 				openDir.icon = "menu_open"
 				openDir.setAttribute("title", "hide file list")
-				tabBar.style.left = sidebarWidth+"px"
-				editorHolder.style.left = sidebarWidth + "px"
+				mainContent.style.left = sidebarWidth + "px"
 			} else {
 				openDir.icon = "menu"
 				openDir.setAttribute("title", "show file list")
-				tabBar.style.left = ""
-				editorHolder.style.left = ""
+				mainContent.style.left = ""
 			}
-			setTimeout(() => {
-				editor.resize()
-			}, 500)
+			setTimeout(()=>{
+				drawer.style.left = (files.offsetLeft+sidebarWidth)+"px"
+				constrainHolders()
+			},animRate)
 		})
 
-		tabBar = new elements.TabBar()
-		tabBar.type = "tabs"
-		tabBar.setAttribute("id", "tabs")
-		tabBar.setAttribute("slim", "true")
-		tabBar.append(openDir)
+		toggleSplitViewBtn = new elements.Button()
+		toggleSplitViewBtn.icon = "vertical_split"
+		toggleSplitViewBtn.setAttribute("title", "Toggle split view")
+		toggleSplitViewBtn.setAttribute("id", "toggleSplitView")
+		toggleSplitViewBtn.on("click", () => {
+			const targetWidth = (window.innerWidth - leftHolder.offsetLeft)/2
+			if (toggleBodyClass("showSplitView")) {
+				toggleSplitViewBtn.icon = "view_column"
+				toggleSplitViewBtn.setAttribute("title", "Hide split view")
+				leftHolder.style.width = "50%"
+				rightHolder.style.width = "50%"
+				rightTabs.reclaimTabs(leftTabs, "rightTabs");
+			} else {
+				toggleSplitViewBtn.icon = "vertical_split"
+				toggleSplitViewBtn.setAttribute("title", "Show split view")
+				leftHolder.style.width = "100%"
+				rightHolder.style.width = "0%"
+				rightTabs.moveAllTabsTo(leftTabs, "rightTabs", true);
+			}
+
+			setTimeout(()=>{
+				constrainHolders()
+			},animRate)
+		})
+
+		leftTabs = new elements.TabBar()
+		leftTabs.type = "tabs"
+		leftTabs.setAttribute("id", "leftTabs")
+		leftTabs.setAttribute("slim", "true")
+		
+		leftTabs.append(openDir)
+		leftTabs.append(toggleSplitViewBtn)
+		
+		rightTabs = new elements.TabBar()
+		rightTabs.type = "tabs"
+		rightTabs.setAttribute("id", "rightTabs")
+		rightTabs.setAttribute("slim", "true")
 
 		statusbar = document.querySelector("#statusbar")
 		if (statusbar == null) {
@@ -107,96 +168,113 @@ const uiManager = {
 			statusbar.hook = "top"
 		}
 
+		toggleSplitViewBtn.setAttribute("hook", "right")
+		
 		statusTheme = document.querySelector("#theme_select")
 		statusMode = document.querySelector("#mode_select")
 
 		themeMenu = document.querySelector("#theme_menu")
 		modeMenu = document.querySelector("#mode_menu")
 
-		themeMenu.on(
-			"show",
-			(e) => {
-				e.stopPropagation()
-				setTimeout(() => {
-					const active = themeMenu.querySelector("[icon='done']")
-					themeMenu.scrollTop = active.offsetTop - themeMenu.offsetHeight / 2 + 12
-					// console.log(active.offsetTop, themeMenu.scrollTop)
-				})
-			},
-			true
-		)
-		modeMenu.on(
-			"show",
-			(e) => {
-				e.stopPropagation()
-				setTimeout(() => {
-					const active = modeMenu.querySelector("[icon='done']")
-					modeMenu.scrollTop = active.offsetTop - modeMenu.offsetHeight / 2 + 12
-					// console.log(active.offsetTop, modeMenu.scrollTop)
-				})
-			},
-			true
-		)
+		themeMenu.on( "show", (e) => {
+			e.stopPropagation()
+			setTimeout(() => {
+				const active = themeMenu.querySelector("[icon='done']")
+				themeMenu.scrollTop = active.offsetTop - themeMenu.offsetHeight / 2 + 12
+			})
+		}, true )
+		
+		modeMenu.on( "show", (e) => {
+			e.stopPropagation()
+			setTimeout(() => {
+				const active = modeMenu.querySelector("[icon='done']")
+				modeMenu.scrollTop = active.offsetTop - modeMenu.offsetHeight / 2 + 12
+			})
+		}, true )
 
-		editorHolder = document.createElement("div")
-		editorHolder.setAttribute("id", holderID)
-		editorElement = document.createElement("div")
-		editorElement.classList.add("loading")
-		editorElement.setAttribute("id", editorID)
+		// Query darkmode elements directly within the function
+		darkmodeSelect = document.querySelector("#darkmode_select");
+		darkmodeMenu = document.querySelector("#darkmode_menu");
 
-		editorHolder.appendChild(editorElement)
+		leftHolder = new elements.Panel()
+		leftHolder.setAttribute("id", "leftHolder")
+		
+		leftElement = document.createElement("div")
+		leftElement.classList.add("loading")
+		leftElement.setAttribute("id", "leftEdit")
 
-mediaView = new elements.MediaView()
-mediaView.setAttribute("id", "mediaView")
-editorHolder.appendChild(mediaView)
+		leftHolder.appendChild(leftElement)
+		leftMedia = new elements.MediaView()
+		leftMedia.setAttribute("id", "leftMedia")
+		leftHolder.appendChild(leftMedia)
+
+		rightHolder = new elements.Panel()
+		rightHolder.setAttribute("id", "rightHolder")
+		rightHolder.style.width = "0px"
+		rightHolder.style.right = "0px"
+		rightHolder.resizable = "left"
+		rightHolder.minSize = 0
+		rightHolder.maxSize = 2440
+
+		rightElement = document.createElement("div")
+		
+		rightElement.classList.add("loading")
+		rightElement.setAttribute("id", "rightEdit")
+		rightHolder.appendChild(rightElement)
+
+		rightMedia = new elements.MediaView()
+		rightMedia.setAttribute("id", "rightMedia")
+		rightHolder.appendChild(rightMedia)
 		
 		files.resizeListener((width)=>{
 			sidebarWidth = width
-			
-			tabBar.style.transition = "none"
-			editorHolder.style.transition = "none"
-			
-			tabBar.style.left = width+"px"
-			editorHolder.style.left = width + "px"
+			mainContent.style.transition = "none"
+			mainContent.style.left = width + "px"
+			drawer.style.left = (files.offsetLeft+sidebarWidth)+"px"
 		})
+		
 		files.resizeEndListener(()=>{
-			tabBar.style.transition = ""
-			editorHolder.style.transition = ""
+			mainContent.style.transition = ""
+			constrainHolders()
+		})
+
+		rightHolder.resizeListener((width)=>{
+			const w = mainContent.offsetWidth
+			const l = w-width
+			const r = width
+			leftHolder.style.transition = "none";
+			leftHolder.style.width = l+"px"
+		})
+		rightHolder.resizeEndListener(()=>{
+			leftHolder.style.transition = ""
+			constrainHolders()
 		})
 
 		drawer = new elements.Panel()
 		drawer.setAttribute("id", "drawer")
 		drawer.resizable = "top"
-		let drawerHeight = 32
+		let drawerHeight = 34
+		drawer.minSize = drawerHeight
 		drawer.style.height = drawerHeight + "px"
-		editorHolder.style.bottom = drawerHeight + "px"
+		mainContent.style.bottom = drawerHeight + "px"
 
 		drawer.resizeListener((height)=>{
-			editorHolder.style.transition = "none"
-			editorHolder.style.bottom = height + "px"
+			mainContent.style.transition = "none"
+			mainContent.style.bottom = height + "px"
+			// drawer.style.left = files.offsetWidth
 		})
 
 		drawer.resizeEndListener(()=>{
-			editorHolder.style.transition = ""
-			editor.resize()
+			mainContent.style.transition = ""
+			constrainHolders()
 		})
-
-		thumbElement = document.createElement("pre")
-		thumbElement.setAttribute("id", thumbID)
-		thumbElement.classList.add("loading")
 
 		installer = new elements.Panel()
 		installer.setAttribute("type", "modal")
 		document.body.append(installer)
 		installer.classList.add("slideUp")
-		installer.style.cssText = `
-            left:auto; top:auto; right:32px; bottom:64px; width:auto;
-            height:105px; text-align:center;
-        `
-		// installer.style.width="300px";
-		installer.innerHTML = `
-            <p><img src="images/code-192.png" height='32px' style="vertical-align:middle; margin-top:-4px;">&nbsp;&nbsp;<b>Add 'Code' as an app?</b></p>
-        `
+		installer.style.cssText = `left:auto; top:auto; right:32px; bottom:64px; width:auto; height:105px; text-align:center;`
+		installer.innerHTML = `<p><img src="images/code-192.png" height='32px' style="vertical-align:middle; margin-top:-4px;">&nbsp;&nbsp;<b>Add 'Code' as an app?</b></p>`
 
 		installer.confirm = new elements.Button("Yes please!")
 		installer.confirm.classList.add("themed")
@@ -311,7 +389,7 @@ editorHolder.appendChild(mediaView)
 				case "regex":
 					let reg
 					if (val.length < 3) {
-						return editor.find("")
+						return currentEditor.find("")
 					}
 					try {
 						reg = new RegExp(val, "gsim")
@@ -321,14 +399,14 @@ editorHolder.appendChild(mediaView)
 
 					if (reg instanceof RegExp) {
 						if (mode == "regex") {
-							editor.find(reg)
+							currentEditor.find(reg)
 						} else {
-							const match = reg.exec(editor.getValue())
+							const match = reg.exec(currentEditor.getValue())
 							// console.log(match);
 							if (match && match.length > 0) {
-								editor.selection.setRange({
-									start: editor.session.doc.indexToPosition(match.index),
-									end: editor.session.doc.indexToPosition(match.index + match[0].length),
+								currentEditor.selection.setRange({
+									start: currentEditor.session.doc.indexToPosition(match.index),
+									end: currentEditor.session.doc.indexToPosition(match.index + match[0].length),
 								})
 							}
 						}
@@ -381,14 +459,14 @@ editorHolder.appendChild(mediaView)
 					} else {
 						omni.resultItem = null
 						omni.results.hide()
-						editor.gotoLine(val)
+						currentEditor.gotoLine(val)
 					}
 					break
 				case "find":
-					// 	if(prev) { return editor.findPrevious({needle: val}); }
-					// 	if(next) { return editor.findNext({needle: val}); }
-					editor.find("")
-					editor.find(val)
+					// 	if(prev) { return currentEditor.findPrevious({needle: val}); }
+					// 	if(next) { return currentEditor.findNext({needle: val}); }
+					currentEditor.find("")
+					currentEditor.find(val)
 					break
 			}
 		}
@@ -482,7 +560,7 @@ editorHolder.appendChild(mediaView)
 
 			if (e.code == "Escape") {
 				uiManager.hideOmnibox()
-				editor.focus()
+				currentEditor.focus()
 				return
 			}
 
@@ -493,19 +571,19 @@ editorHolder.appendChild(mediaView)
 						omni.results.hide()
 					}
 					uiManager.hideOmnibox()
-					editor.focus()
+					currentEditor.focus()
 					return
 				}
 				if (e.ctrlKey) {
 					uiManager.hideOmnibox()
-					editor.focus()
+					currentEditor.focus()
 				} else if (e.shiftKey) {
-					if (omni.last == "regex") editor.gotoLine(editor.getCursorPosition().row)
-					editor.execCommand("findprevious")
+					if (omni.last == "regex") currentEditor.gotoLine(currentEditor.getCursorPosition().row)
+					currentEditor.execCommand("findprevious")
 					// omni.perform(e, false, true)
 				} else {
-					if (omni.last == "regex") editor.gotoLine(editor.getCursorPosition().row + 2)
-					editor.execCommand("findnext")
+					if (omni.last == "regex") currentEditor.gotoLine(currentEditor.getCursorPosition().row + 2)
+					currentEditor.execCommand("findnext")
 					// 	omni.perform(e, true)
 				}
 				return
@@ -543,86 +621,80 @@ editorHolder.appendChild(mediaView)
 			})
 		}
 
+		leftHolder.appendChild(leftTabs)
+		rightHolder.appendChild(rightTabs)
+
 		document.body.appendChild(menu)
-		document.body.appendChild(tabBar)
 		document.body.appendChild(statusbar)
-		document.body.appendChild(thumbElement)
-		document.body.appendChild(editorHolder)
+		
+		
+		
+		mainContent.appendChild(leftHolder)
+		mainContent.appendChild(rightHolder)
+		
 		document.body.appendChild(files)
 		document.body.appendChild(drawer)
 		document.body.appendChild(omni)
-
-		window.editor = editor = ace.edit(editorID)
-		window.thumbStrip = thumbstrip = ace.edit(thumbID)
-		window.omni = omni
-		ace.require("ace/keyboard/sublime")
-		ace.require("ace/etc/keybindings_menu")
-		// ace.require("ace/ext/")
-		// ace.require("ace/ext/searchbox")
-
-		editor.setKeyboardHandler(options.keyboard)
-		editor.setTheme(options.theme)
-
-		// editor.session.setMode(options.mode)
-		editor.commands.removeCommand("find")
-		editor.commands.removeCommand("removetolineendhard")
-		editor.commands.removeCommand("removetolinestarthard")
-
-		editor.setOptions(defaultSettings)
-
-		window.thumbstrip = thumbstrip = ace.edit("ui_thumbstrip")
-		thumbstrip.setKeyboardHandler("ace/keyboard/sublime")
-		thumbstrip.setTheme("ace/theme/code")
-		thumbstrip.session.setMode("ace/mode/javascript")
-
-		let thumbOptions = JSON.parse(JSON.stringify(defaultSettings))
-		thumbOptions.fontSize = 2
-		thumbOptions.showGutter = false
-		thumbOptions.readOnly = true
-		thumbstrip.setOptions(thumbOptions)
-
-		// thumbStrip.setSession(editor.getSession())
-
-		editor.execCommand("loadSettingsMenu", () => {
-			editor._signal("ready")
-		})
 
 		let cursorpos = new elements.Inline()
 		cursorpos.setAttribute("id", "cursor_pos")
 		statusbar.append(cursorpos)
 
-		editor.on("changeSelection", () => {
-			// const pos = editor.getCursorPosition
-			// cursorpos.innerHTML = `${pos.col}:${pos.row}`;
-			// // thumbStrip.gotoLine(editor.getCursorPosition().row+1)
-			const selection = editor.getSelection()
-			var cursor = selection.getCursor()
-			const displayText = cursor.row + 1 + ":" + (cursor.column + 1)
-			cursorpos.innerHTML = displayText
-		})
+		window.leftEdit = leftEdit = ace.edit(leftElement)
+		window.rightEdit = rightEdit = ace.edit(rightElement)
+		
+		window.editors = [leftEdit, rightEdit]
+		leftEdit.tabs = leftTabs
+		rightEdit.tabs = rightTabs
+		
+		window.omni = omni
+		ace.require("ace/keyboard/sublime")
+		ace.require("ace/etc/keybindings_menu")
 
-		// // copy text to the thumbnail strip
-		editor.on("change", () => {
-			const pos = editor.getCursorPosition
-			cursorpos.innerHTML = `${pos.col}:${pos.row}`
-			if (!editor.session.getUndoManager().isClean()) {
-				if (editor.getValue() !== editor.session.baseValue) {
-					if (tabBar.activeTab) tabBar.activeTab.changed = true
-					if (fileList.activeItem) fileList.activeItem.changed = true
+		for(const editor of editors) {
+			const thisTabs = editor.tabs
+			editor.setKeyboardHandler(options.keyboard)
+			editor.setTheme(options.theme)
+	
+			editor.commands.removeCommand("find")
+			editor.commands.removeCommand("removetolineendhard")
+			editor.commands.removeCommand("removetolinestarthard")
+	
+			editor.setOptions(defaultSettings)
+	
+			editor.execCommand("loadSettingsMenu", () => {
+				editor._signal("ready")
+			})
+	
+	
+			editor.on("changeSelection", () => {
+				const selection = editor.getSelection()
+				var cursor = selection.getCursor()
+				const displayText = cursor.row + 1 + ":" + (cursor.column + 1)
+				cursorpos.innerHTML = displayText
+			})
+	
+			// // copy text to the thumbnail strip
+			editor.on("change", () => {
+				const pos = editor.getCursorPosition
+				cursorpos.innerHTML = `${pos.col}:${pos.row}`
+				if (!editor.session.getUndoManager().isClean()) {
+					if (editor.getValue() !== editor.session.baseValue) {
+						if (thisTabs.activeTab) thisTabs.activeTab.changed = true
+						if (fileList.activeItem) fileList.activeItem.changed = true
+					} else {
+						if (thisTabs.activeTab) thisTabs.activeTab.changed = false
+						if (fileList.activeItem) fileList.activeItem.changed = false
+						editor.session.getUndoManager().markClean()
+					}
 				} else {
-					if (tabBar.activeTab) tabBar.activeTab.changed = false
+					if (thisTabs.activeTab) thisTabs.activeTab.changed = false
 					if (fileList.activeItem) fileList.activeItem.changed = false
-					editor.session.getUndoManager().markClean()
 				}
-			} else {
-				if (tabBar.activeTab) tabBar.activeTab.changed = false
-				if (fileList.activeItem) fileList.activeItem.changed = false
-			}
-			// check if the buffer has edits
-			// 			tabBar.activeTab.changed = !!(editor.getSession().$undoManager.$undoStack.length>0)
-			// tabBar.activeTab.changed = editor.getValue() != tabBar.activeTab?.config?.session?.baseValue
-			// fileList.activeItem.changed = tabBar.activeTab.changed
-		})
+			})
+			
+		}
+
 
 		return
 	},
@@ -633,14 +705,12 @@ editorHolder.appendChild(mediaView)
 	},
 
 	updateThemeAndMode: () => {
-		const c_mode = editor.getOption("mode")
-		const c_theme = editor.getOption("theme")
+		const c_mode = leftEdit.getOption("mode")
+		const c_theme = leftEdit.getOption("theme")
 		window.themeMenu = themeMenu
 		window.modeMenu = modeMenu
 
 		// Query darkmode elements directly within the function
-		const darkmodeSelect = document.querySelector("#darkmode_select");
-		const darkmodeMenu = document.querySelector("#darkmode_menu");
 
 		if (window.ace_themes) {
 			// themeMenu.empty();
@@ -708,8 +778,8 @@ editorHolder.appendChild(mediaView)
 			}
 
 			// Set the 'done' icon for the currently selected mode in the menu
-			console.log('app.darkmode:', app.darkmode);
-			console.log('Querying for:', `[args='${app.darkmode}']`);
+			//console.log('app.darkmode:', app.darkmode);
+			//console.log('Querying for:', `[args='${app.darkmode}']`);
 			const selectedMenuItem = darkmodeMenu.querySelector(`[args='${app.darkmode}']`);
 			if (selectedMenuItem) {
 				selectedMenuItem.icon = "done";
@@ -725,9 +795,9 @@ editorHolder.appendChild(mediaView)
 	toggleFiles: () => {
 		return openDir.click()
 	},
-
-	toggleThumb: () => {
-		return toggleBodyClass("showThumb")
+	
+	toggleSplitView: (forceOpen=false)=>{
+		return toggleSplitViewBtn.click(forceOpen)
 	},
 
 	omnibox: (mode) => {
@@ -782,46 +852,33 @@ editorHolder.appendChild(mediaView)
 		settingsPanel.show()
 	},
 
-	get editor() {
-		return editor
-	},
-	get thumb() {
-		return thumbstrip
-	},
-	get installer() {
-		return installer
-	},
-	get editorElement() {
-		return editorElement
-	},
-	get thumbElement() {
-		return thumbElement
-	},
-	get fileActions() {
-		return fileActions
-	},
-	get files() {
-		return files
-	},
-	get fileList() {
-		return fileList
-	},
-	get tabBar() {
-		return tabBar
-	},
-	get darkmodeSelect() {
-		return darkmodeSelect
-	},
-	get darkmodeMenu() {
-		return darkmodeMenu
-	},
-	get mediaView() {
-		return mediaView
-	},
+	
+	get installer() { return installer },
+	
+	get fileActions() { return fileActions },
+	get files() { return files },
+	get fileList() { return fileList },
+	get leftTabs() { return leftTabs },
+	get darkmodeSelect() { return darkmodeSelect },
+	get darkmodeMenu() { return darkmodeMenu },
+
+	get leftEdit() { return leftEdit },
+	get leftElement() { return leftElement },
+	get leftMedia() { return leftMedia },
+
+	get rightEdit() { return rightEdit },
+	get rightElement() { return rightElement },
+	get rightHolder() { return rightHolder },
+	get rightMedia() { return rightMedia },
+	get rightTabs() { return rightTabs },
+	
+	set currentEditor(v) { currentEditor = v },
+	set currentTabs(v) { currentTabs = v },
+	set currentMediaView(v) { currentMediaView = v },
 }
 
 setTimeout(() => {
-	editor.on("ready", () => {
+	leftEdit.on("ready", () => {
 		uiManager.updateThemeAndMode()
 	})
 })

@@ -6,12 +6,12 @@
 	/*--dark: #272822;*/
 	--low: #455155;
 	--dark: #384144;
-	--animRate:250ms;
+	--animRate:10ms;
 	--tabRadius: 4px 4px 0 0;
 	--tabHeight: 37px;
 	--menuHeight: 34px;
 	--statusHeight: 34px;
-	--editorTop: calc(var(--tabHeight) + var(--menuHeight) + 2px);
+	--editorTop: calc(var(--tabHeight));
 	--ui-icon-color: var(--mid);
 }
 
@@ -40,10 +40,6 @@ body {
 	margin:0; padding:0;
 }
 
-ui-action-bar #logo {
-	margin-left:8px;
-}
-
 ui-tab-item:not([active])::after { 
     display:inline-block;
     position:absolute;
@@ -63,7 +59,7 @@ ui-tab-item:not([active])::after {
 ui-tabbar[slim]>ui-tab-item { 
 	border-radius: 4px 4px 0 0; background:none; 
 	color: inherit;
-	border: 0px; transition: background 200ms ease-in-out; }
+	border: 0px; transition: background 150ms ease-in-out, margin 100ms ease-in-out; }
 ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme);  border:0px; color: var(--light)}
 /*ui-tabbar[slim]>ui-tab-item:hover+ui-tab-item { background: var(--dark);  }*/
 ui-tabbar[slim]>ui-tab-item:not([active]):hover {
@@ -75,24 +71,85 @@ ui-tabbar[slim]>ui-tab-item[active]:hover {
 ui-tab-item:hover::after {
 	opacity:0;
 }
-#ui_editor {
+
+ui-tab-item.drop-highlight {
+    /* Removed box-shadow to eliminate outline border */
+}
+
+#mainContent {
+    position: fixed;
+	opacity:1;
+	transition:opacity 333ms;
+    margin: 0;
+    top: var(--editorTop);
+    bottom: calc( var(--statusHeight)  +  2px );
+    left: 0;
+    right: 0;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    background: var(--dark);
+
+    user-select:none;
+    -webkit-user-select:none;
+}
+
+#leftHolder {
 	opacity:1;
 	transition:opacity 333ms;
     margin: 0;
     position: absolute;
-    top: var(--editorTop);
-    bottom: var(--statusHeight);
+    top: 0pc;
+    bottom: 0px;
     left: 0;
     right: 0;
     line-height:1.3em;
     box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    
+    user-select:none;
+    -webkit-user-select:none;
 }
 
-#editor {
-    margin:0;
-    height:100%;
-    width:100%;
+
+#rightHolder {
+    opacity: 1;
+    transition: opacity 333ms;
+    margin: 0;
+    position: absolute;
+    top: 0pc;
+    bottom: 0px;
+    right: 0;
+    width: 0;
+    line-height: 1.3em;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+
+    user-select:none;
+    -webkit-user-select:none;
 }
+
+#leftEdit,
+#rightEdit {
+    margin: 0;
+    width: calc(100% - 0.3em);
+    height: calc((100% - (var(--menuHeight) + 0.66em)) );
+    /*height: calc(100% - 0.66em);*/
+    
+    user-select:none;
+    -webkit-user-select:none;
+
+}
+
+#rightEdit {
+	left: 0px;
+}
+
+#leftMedia,
+#rightMedia {
+	top: calc(var(--menuHeight) + 6px);
+    left:0px;
+    right:0px;
+    bottom:0px;
+}
+
+
 
 .ace_scrollbar::-webkit-scrollbar,
 ui-file-list .inner::-webkit-scrollbar,
@@ -105,6 +162,7 @@ ui-menu::-webkit-scrollbar,
 ui-file-list .inner::-webkit-scrollbar-track,
 ui-menu::-webkit-scrollbar-track,
 #ace_settingsmenu::-webkit-scrollbar-track {
+	width: .66em; height: .66em;
 	box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
 }
 
@@ -116,27 +174,15 @@ ui-menu::-webkit-scrollbar-thumb,
 	border-radius:4px;
 }
 
-#ui_editor.loading {
+.ace_editor {
+	top: calc( var(--menuHeight) + 6px);
+}
+
+#leftHolder.loading {
 	opacity:0;
 }
 
-#ui_thumbstrip {
-	
-	opacity:1;
-	transition:opacity 333ms;
-    margin: 0;
-    position: absolute;
-    top: var(--editorTop);
-    bottom: 24;
-    width:128;
-    right: 0;
-    line-height:1.2em;
-    display:none;
-}
 
-#ui_thumbstrip.loading {
-	opacity:0;
-}
 
 
 header {
@@ -176,7 +222,7 @@ ui-actionbar#menu {
 	app-region: drag;
 }
 
-ui-actionbar#menu ui-inline:first-of-type {
+ui-actionbar#menu>ui-inline:first-of-type {
 	color:#000;
 	border-right: 1px solid rgba(0,0,0,0.5);
 	padding-right:8px;
@@ -186,13 +232,14 @@ ui-actionbar#menu ui-inline:first-of-type img {
 	margin-top: -4px;
 }
 
-ui-actionbar[slim]#tabs,
+ui-actionbar[slim]#leftTabs,
+ui-actionbar[slim]#rightTabs,
 ui-actionbar[slim]#fileActions {
 	padding:5px 0 0 0;
 }
 
 ui-actionbar#menu ui-button {
-	color:#fff
+	color:#fff;
 	-webkit-app-region: no-drag;
 	app-region: no-drag;
 
@@ -289,9 +336,10 @@ ui-file-item[icon=image_not_supported] ui-icon:first-child { var(--light); opaci
 ui-file-item[active] ui-icon:first-child { color: var(--light); }
 
 
-#tabs {
+#leftTabs,
+#rightTabs{
 	position:absolute;
-	top:var(--menuHeight) !important;
+	top:0;
 	left:0;
 	right:0;
 	background: var(--light);
@@ -300,17 +348,6 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
     box-sizing: border-box;
     border-bottom:2px solid var(--theme);
 }
-
-/*#tabs ui-tab-item {*/
-/*	display:inline-block;*/
-	/*min-width:128px;*/
-/*	height:calc(var(--tabHeight) -4);*/
-/*	background: var(--mid);*/
-/*	border-radius:var(--tabRadius);*/
-/*	margin:0px 1px;*/
-/*	padding:0 24px 0 5px;*/
-/*	line-height:var(--tabHeight);*/
-/*}*/
 
 #files {
 	z-index:5;
@@ -321,12 +358,16 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	left:-256;
 	top:var(--menuHeight) !important;
 	bottom: var(--statusHeight);
-	overflow:auto;
+	overflow:hidden;
 	pointer-events:none;
 }
 
-#tabs, #files, #ui_editor, #statusbar, ui-actionbar, ui-file-list {
+#mainContent, #files, #statusbar, ui-actionbar, ui-file-list {
 	transition:left var(--animRate), right var(--animRate), opacity var(--animRate), background var(--animRate), color var(--animRate);
+}
+
+#leftHolder, #rightHolder {
+	transition:width var(--animRate)
 }
 
 #statusbar {
@@ -335,7 +376,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	right:0;
 	bottom:0 !important;
 	top:auto !important;
-	z-index:6;
+	z-index:10;
 }
 #statusbar #cursor_pos {
 	margin-left: 8px;
@@ -354,14 +395,29 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	color: inherit;
 }
 
+#toggleSplitView {
+	position:fixed;
+	z-index:5;
+	top: var(--menuHeight);
+	right:0px;
+	background: var(--light);
+}
+
+#drawer {
+	z-index:9;
+    user-select:none;
+    -webkit-user-select:none;
+}
 
 .darkmode,
 .darkmode ui-menu,
-.darkmode #tabs,
+.darkmode #leftTabs,
+.darkmode #rightTabs,
 .darkmode #files,
 .darkmode #statusbar,
 .darkmode #ace_settingsmenu,
 .darkmode #kbshortcutmenu,
+.darkmode #toggleSplitView,
 .darkmode ui-panel,
 .darkmode ui-file-list,
 .darkmode ui-actionbar {
@@ -390,20 +446,11 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 }
 
 
-.showFiles #tabs,
-.showFiles #ui_editor {
-	left:256;
-}
 .showFiles #files {
 	opacity:1;
 	left: 0;
 	pointer-events:auto;
 }
-
-.showThumb #ui_editor {
-	right:128;
-}
-	
 
 #omni {
 	position:fixed;
@@ -502,5 +549,5 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 }
 
 @media (max-width:799px) {
-	.showFiles #ui_editor { left: 0; }
+	.showFiles #mainContent { left: 0; }
 }

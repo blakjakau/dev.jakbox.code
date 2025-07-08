@@ -100,8 +100,11 @@ async function readAndOrderDirectoryRecursive(handle) {
 
 class Element extends HTMLElement {
 	constructor(content) {
-		super(content)
-		if (isset(content)) this.innerHTML = content
+		super()
+		this._initialContent = content;
+		// It's generally safer to set innerHTML in connectedCallback or after the element is appended to the DOM
+		// However, given the existing structure, we'll keep it here for now, but be aware of potential future issues.
+		// If this continues to cause problems, we might need to defer setting innerHTML.
 		this.on = this.addEventListener
 		this.off = this.removeEventListener
 		this._displayType = "inline-block"
@@ -129,6 +132,7 @@ class Element extends HTMLElement {
 	}
 	connectedCallback() {
 		this._inDOM = true
+		if (isset(this._initialContent)) this.innerHTML = this._initialContent
 		// this.addClass("ui", "element")
 	}
 	disconnectedCallback() {
@@ -296,12 +300,15 @@ let inputCount = 0
 class Input extends Element {
 	// input handler with base input element and built in validation hooks
 	constructor(content) {
-		super(content)
+		super()
 		this._id = "ui_input_" + inputCount++
 		const input = (this._input = document.createElement("input"))
 		const label = (this._label = document.createElement("label"))
 		this.id = this._id
-		super.append.apply(this, [label, input])
+	}
+	connectedCallback() {
+		super.connectedCallback()
+		super.append.apply(this, [this._label, this._input])
 	}
 	setSelectionRange(x, y) {
 		this._input.setSelectionRange(x, y)
@@ -345,13 +352,12 @@ class Input extends Element {
 
 class Button extends Element {
 	constructor(content) {
-		super(content)
+		super()
 		// like a regular button, but automatically maintains an internal icon/text sub-elements
+		
+		this._initialContent = content
 		this._icon = new Icon()
 		this._text = new Inline()
-		this._text.innerHTML = this.innerHTML
-		this.innerHTML = ""
-		if (isset(content)) this._text.innerHTML = content
 
 		this._effect = new Effects()
 		this._ripple = new Ripple()
@@ -379,6 +385,11 @@ class Button extends Element {
 
 	connectedCallback() {
 		super.connectedCallback.apply(this)
+
+		if (this._initialContent) {
+			this._text.innerHTML = this._initialContent
+			this.innerHTML = ""
+		}
 
 		this.append(this._effect)
 		this.prepend(this._text, this._icon)
@@ -423,7 +434,8 @@ class Button extends Element {
 
 class FileItem extends Button {
 	constructor(content) {
-		super(content)
+		super()
+		if (isset(content)) this.innerHTML = content
 		this._refresh = new Icon()
 		this._refresh.innerHTML = "refresh"
 		this._refresh.style.visibility = "hidden"
@@ -495,77 +507,12 @@ class FileItem extends Button {
 	}
 }
 
-// scoping for tab function handlers
 
-const dragenter = function (e) {
-	e.stopPropagation()
-	e.preventDefault()
-}
-const dragover = function (e) {
-	e.stopPropagation()
-	e.preventDefault()
-	if (this.parentElement.animating === true) return
-
-	let target = e.target
-	let moving = this.parentElement.movingItem
-	let width = this.parentElement.movingWidth
-	if (moving == this) {
-		return
-	}
-
-	e.dataTransfer.dropEffect = "move"
-
-	let sibs = target.parentElement.children
-	for (let i = 0, l = sibs.length; i < l; i++) {
-		if (sibs[i] === this) continue
-		sibs[i].style.marginLeft = ""
-		sibs[i].style.marginRight = ""
-	}
-
-	let pre =
-		target.previousElementSibling && target.previousElementSibling instanceof TabItem
-			? target.previousElementSibling
-			: null
-	let next =
-		target.nextElementSibling && target.nextElementSibling instanceof TabItem ? target.nextElementSibling : null
-
-	if (next && next == moving) {
-		if (next.nextElementSibling && next.nextElementSibling instanceof TabItem) {
-			next = next.nextElementSibling
-		}
-	}
-	this.parentElement.dropTarget = this
-	if (target.style.marginLeft == `${width}px`) {
-		this.parentElement.dropPosition = "after"
-		target.style.marginLeft = ""
-		if (next) {
-			next.style.marginLeft = `${width}px`
-		}
-	} else {
-		this.parentElement.dropPosition = "before"
-		target.style.marginLeft = `${width}px`
-		if (next) {
-			next.style.marginLeft = ""
-		}
-	}
-	this.parentElement.animating = true
-	setTimeout(() => {
-		this.parentElement.animating = false
-	}, 150)
-}
-const dragleave = function (e) {
-	let target = e.target
-	let moving = this.parentElement.movingItem
-	if (moving == this) {
-		return
-	}
-}
-
-// const drop = function(e) {  this.parentElement.tabDrop(e) }
 
 class TabItem extends Button {
 	constructor(content) {
-		super(content)
+		super()
+		if (isset(content)) this.innerHTML = content
 		this._close = new Icon()
 		this._close.innerHTML = "close"
 		this._close.style.visibility = "visible"
@@ -574,9 +521,9 @@ class TabItem extends Button {
 		this.setAttribute("draggable", true)
 
 		this.ondragstart = (e) => {
-			this.ondrop = this.parentElement.tabDrop
+			this.originalParent = this.parentElement;
 			e.dataTransfer.effectAllowed = "move"
-			e.dataTransfer.setData("movingTab", this)
+			e.dataTransfer.setData("text/plain", this.getAttribute("id"))
 
 			this.parentElement.animating = true
 			this.parentElement.setAttribute("dragging", "true")
@@ -594,26 +541,112 @@ class TabItem extends Button {
 					}, 150)
 				}
 				setTimeout(() => {
-					this.parentElement.animating = false
+					if(this.parentElement) this.parentElement.animating = false
 				}, 150)
 			})
 		}
 		this.ondragend = (e) => {
-			//  this.parentElement.tabDrop(e);
-
-			this.parentElement.removeAttribute("dragging")
-			this.parentElement.movingItem = undefined
-			this.style.display = ""
-			let sibs = this.parentElement.children
-			for (let i = 0, l = sibs.length; i < l; i++) {
-				sibs[i].style.marginLeft = ""
-				sibs[i].style.marginRight = ""
+			const newParent = this.parentElement;
+			if(newParent) {
+				newParent.removeAttribute("dragging")
+				newParent.movingItem = undefined
+				// Disable transitions for instant reset
+				for (const tab of newParent.children) {
+					if (tab instanceof TabItem) {
+						tab.style.transition = "none";
+					}
+				}
+				if(newParent.resetMargins) newParent.resetMargins();
+				// Re-enable transitions after a short delay
+				setTimeout(() => {
+					for (const tab of newParent.children) {
+						if (tab instanceof TabItem) {
+							tab.style.transition = ""; // Revert to CSS defined transition
+						}
+					}
+				}, 0);
+				// Remove drop highlight from all tabs in the new parent
+				for (const tab of newParent.children) {
+					if (tab instanceof TabItem) {
+						tab.classList.remove("drop-highlight");
+					}
+				}
 			}
+			
+			if(this.originalParent && this.originalParent !== newParent && this.originalParent.resetMargins) {
+				// Disable transitions for instant reset
+				for (const tab of this.originalParent.children) {
+					if (tab instanceof TabItem) {
+						tab.style.transition = "none";
+					}
+				}
+				this.originalParent.resetMargins();
+				// Re-enable transitions after a short delay
+				setTimeout(() => {
+					if(!this?.originalParent?.children) return
+					for (const tab of this.originalParent?.children) {
+						if (tab instanceof TabItem) {
+							tab.style.transition = ""; // Revert to CSS defined transition
+						}
+					}
+				}, 0);
+				// Remove drop highlight from all tabs in the original parent
+				for (const tab of this.originalParent?.children) {
+					if (tab instanceof TabItem) {
+						tab.classList.remove("drop-highlight");
+					}
+				}
+			}
+			
+			this.style.display = ""
+			this.originalParent = null;
 		}
 
-		this.ondragover = dragover
-		this.ondragleave = dragleave
-		this.ondragenter = dragover
+		this.ondragover = (e) => {
+			e.stopPropagation();
+			e.preventDefault();
+
+			const parent = this.parentElement;
+			if (!parent) return;
+
+			const moving = parent.movingItem;
+			if (moving === this) return;
+
+			e.dataTransfer.dropEffect = "move";
+
+			const parentRect = parent.getBoundingClientRect();
+			const cursorXInParent = e.clientX - parentRect.left;
+			const midpoint = this.offsetLeft + (this.offsetWidth / 2);
+
+			parent.dropTarget = this;
+
+			// Remove drop highlight from all siblings and reset margins
+			for (const tab of parent.children) {
+				if (tab instanceof TabItem) {
+					tab.classList.remove("drop-highlight");
+					tab.style.marginLeft = "";
+					tab.style.marginRight = "";
+				}
+			}
+
+			this.classList.add("drop-highlight");
+
+			if (cursorXInParent < midpoint) {
+				parent.dropPosition = "before";
+				this.style.marginLeft = parent.movingWidth + "px";
+			} else {
+				parent.dropPosition = "after";
+				this.style.marginRight = parent.movingWidth + "px";
+			}
+		}
+		this.ondragenter = this.ondragover
+		this.ondrop = (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			if (this.parentElement && typeof this.parentElement.tabDrop === 'function') {
+				this.parentElement.tabDrop(e);
+			}
+		}
 
 		return this
 	}
@@ -652,7 +685,8 @@ class TabItem extends Button {
 
 class CounterButton extends Button {
 	constructor(content) {
-		super(content)
+		super()
+		if (isset(content)) this.innerHTML = content
 		this._counter = new Element()
 	}
 	connectedCallback() {
@@ -695,14 +729,20 @@ class Blank extends Block {
 }
 
 class Panel extends Block {
+	#minSize = 50
+	#maxSize = 500
 	constructor(content) {
-		super(content)
+		super()
+		if (isset(content)) this.innerHTML = content
+		
 		this.blanker = new Blank()
 		this.resizeListeners = []
 		this.resizeEndListeners= []
 		this.resize = false
-		this.activeBorder = "4px solid var(--theme)";
-		this.inactiveBorder = "4px solid var(--dark)";
+		this.borderHandleSize = 8
+		this.borderHandleVisual = 4
+		this.activeBorder = `${this.borderHandleVisual}px solid var(--theme)`;
+		this.inactiveBorder = `${this.borderHandleVisual}px solid var(--dark)`;
 		this.active;
 		
 		this.on("pointerleave", (e)=>{
@@ -719,21 +759,24 @@ class Panel extends Block {
 		})
 		
 		this.on("pointermove", (e)=>{
-			if(!this.resize) { return }
+			if(!this.resize) { 
+				document.body.style.cursor = ""
+				return 
+			}
 			
 			if(this.hotSpot(e)) {
 				if(this.resize=="left") {
 					this.style.borderLeft = this.activeBorder
-					this.style.cursor = "ew-resize"
+					document.body.style.cursor = "ew-resize"
 				} else if (this.resize=="right") {
 					this.style.borderRight = this.activeBorder
-					this.style.cursor = "ew-resize"
+					document.body.style.cursor = "ew-resize"
 				} else if (this.resize=="top") {
 					this.style.borderTop = this.activeBorder
-					this.style.cursor = "ns-resize"
+					document.body.style.cursor = "ns-resize"
 				} else if (this.resize=="bottom") {
 					this.style.borderBottom = this.activeBorder
-					this.style.cursor = "ns-resize"
+					document.body.style.cursor = "ns-resize"
 				}
 			} else {
 				if(this.active) return
@@ -746,36 +789,38 @@ class Panel extends Block {
 				} else if (this.resize=="bottom") {
 					this.style.borderBottom = this.inactiveBorder
 				}
-				this.style.cursor = ""
+				document.body.style.cursor = ""
 			}
 		})
 		
 		this.on("pointerdown", (e)=>{
-			if(!this.hotSpot(e) || !this.resize) return
+			if(!this.hotSpot(e) || !this.resize) {
+				document.body.style.cursor = ""
+				return
+			}
+			this.style.transition = "none"
 			this.active = true
 			
 			const move = (e)=>{
 				if(this.resize == "left" || this.resize == "right") { // horizontal
 					let nw;
-					// assumes 4px border
 					if (this.resize === "left") {
-						nw = (this.offsetWidth - e.movementX - 4)
+						nw = (this.offsetWidth - e.movementX - this.borderHandleVisual)
 					} else {
-						nw = (this.offsetWidth + e.movementX - 4)
+						nw = (this.offsetWidth + e.movementX - this.borderHandleVisual)
 					}
-					this.style.width = Math.max(200, nw)+"px"
+					this.style.width = Math.max(this.#minSize, Math.min(this.#maxSize, nw))+"px"
 					this.resizeListeners.forEach(f=>{
 						f(this.offsetWidth)
 					})
 				} else { // vertical
 					let nh;
-					// assumes 4px border
 					if (this.resize === "top") {
-						nh = (this.offsetHeight - e.movementY - 4)
+						nh = (this.offsetHeight - e.movementY - this.borderHandleVisual)
 					} else {
-						nh = (this.offsetHeight + e.movementY - 4)
+						nh = (this.offsetHeight + e.movementY - this.borderHandleVisual)
 					}
-					this.style.height = Math.max(32, nh)+"px"
+					this.style.height = Math.max(this.#minSize, Math.min(this.#maxSize, nh))+"px"
 					this.resizeListeners.forEach(f=>{
 						f(this.offsetHeight)
 					})
@@ -785,6 +830,7 @@ class Panel extends Block {
 				document.removeEventListener("pointermove", move)
 				document.removeEventListener("pointerup", release)
 				document.body.style.cursor = ""
+				this.style.transition = ""
 				this.active = false
 				if(this.resize == "left" || this.resize == "right") {
 					this.resizeEndListeners.forEach(f=>{ f(this.offsetWidth) })
@@ -817,10 +863,22 @@ class Panel extends Block {
 	}
 	
 	hotSpot(e) {
-		if(this.resize == "left" && e?.layerX < 5) { return true }
-		if(this.resize == "right" && e?.layerX > this.offsetWidth - 5) { return true }
-		if(this.resize == "top" && e?.layerY < 5) { return true }
-		if(this.resize == "bottom" && e?.layerY > this.offsetHeight - 5) { return true }
+		if(e.target !== this) return false
+		if(this.resize == "left" && e?.layerX < this.borderHandleSize) { return true }
+		if(this.resize == "right" && e?.layerX > this.offsetWidth - this.borderHandleSize) { return true }
+		if(this.resize == "top" && e?.layerY < this.borderHandleSize) { return true }
+		if(this.resize == "bottom" && e?.layerY > this.offsetHeight - this.borderHandleSize) { return true }
+		return false
+	}
+	
+	set maxSize(v) {
+		if(isNaN(v)) return
+		if(v > this.#minSize) this.#maxSize = v
+	}
+	
+	set minSize(v) {
+		if(isNaN(v) || v<0) return
+		if(v < this.#maxSize) this.#minSize = v
 	}
 	
 	set resizable(state) {
@@ -836,6 +894,7 @@ class Panel extends Block {
 	get resizable() {
 		return this.resize
 	}
+	
 	connectedCallback() {
 		super.connectedCallback.apply(this)
 		if (this.hasAttribute("blank")) {
@@ -856,7 +915,8 @@ class Panel extends Block {
 
 class MediaView extends Panel {
     constructor(content) {
-        super(content);
+        super()
+        if (isset(content)) this.innerHTML = content
         this.image = new Image();
         this.image.style.maxWidth = "100%";
         this.image.style.maxHeight = "100%";
@@ -890,7 +950,7 @@ class MediaView extends Panel {
     connectedCallback() {
         super.connectedCallback();
         this.style.overflow = "hidden";
-        this.style.display = "flex";
+        // this.style.display = "flex";
         this.style.justifyContent = "center";
         this.style.alignItems = "center";
         this.resizeObserver.observe(this);
@@ -1169,6 +1229,7 @@ class TabBar extends Block {
 	constructor(content) {
 		super()
 		this._tabs = []
+		this.tabCounter = 0
 		this.addEventListener("mousewheel", (e) => {
 			if (!e.shiftKey) {
 				e.preventDefault()
@@ -1179,35 +1240,112 @@ class TabBar extends Block {
 		//     this.dropTarget = undefined
 		// }
 		this.ondragover = (e) => {
-			e.preventDefault()
-			e.dataTransfer.dropEffect = "all"
-
-			let last = this._tabs[this._tabs.length - 1]
-			if (last == this.movingItem) {
-				if (this.length < 2) {
-					return
+			e.preventDefault();
+			e.dataTransfer.dropEffect = "move";
+		
+			let targetTab = null;
+			if (e.target instanceof TabItem) {
+				targetTab = e.target;
+			} else if (e.target.parentElement instanceof TabItem) {
+				targetTab = e.target.parentElement;
+			} else {
+				let closestTab = null;
+				let minDistance = Infinity;
+				for (const tab of this._tabs) {
+					if (tab === this.movingItem) continue;
+					const rect = tab.getBoundingClientRect();
+					const mid = rect.left + rect.width / 2;
+					const distance = Math.abs(e.clientX - mid);
+					if (distance < minDistance) {
+						minDistance = distance;
+						closestTab = tab;
+					}
 				}
-				last = this._tabs[this._tabs.length - 2]
+				targetTab = closestTab;
 			}
+		
+			if (targetTab) {
+				const parent = targetTab.parentElement;
+				if (!parent) return;
 
-			if (e.layerX > last.offsetLeft + last.offsetWidth) {
-				this._tabs.forEach((tab) => {
-					tab.style.marginLeft = ""
-				})
-				this.dropTarget = last
-				this.dropPostition = "after"
+				const moving = parent.movingItem;
+				if (moving === targetTab) return;
+
+				const parentRect = parent.getBoundingClientRect();
+				const cursorXInParent = e.clientX - parentRect.left;
+				const midpoint = targetTab.offsetLeft + (targetTab.offsetWidth / 2);
+
+				parent.dropTarget = targetTab;
+
+				// Remove drop indicator from all siblings
+				for (const tab of parent.children) {
+					if (tab instanceof TabItem) {
+						tab.classList.remove("drop-indicator-before", "drop-indicator-after");
+					}
+				}
+
+				if (cursorXInParent < midpoint) {
+					parent.dropPosition = "before";
+					targetTab.classList.add("drop-indicator-before");
+				} else {
+					parent.dropPosition = "after";
+					targetTab.classList.add("drop-indicator-after");
+				}
+			} else if (this._tabs.length > 0) {
+				let last = this._tabs[this._tabs.length - 1];
+				if (last === this.movingItem) {
+					if (this._tabs.length > 1) {
+						last = this._tabs[this._tabs.length - 2];
+					} else {
+						return;
+					}
+				}
+				this.dropTarget = last;
+				this.dropPosition = "after";
+			} else {
+				this.dropTarget = null;
+				this.dropPosition = "before";
 			}
-			//  console.log(e)
 		}
 		this.ondrop = this.tabDrop
 		this.on("contextmenu", (e) => {
 			e.preventDefault() && e.stopPropagation()
 		})
+		// Add a reference to the defaultTab function from main.mjs
+		this.defaultTab = null;
+	}
+
+	// Method to be called when the tab bar becomes empty
+	defaultTab() {
+		if (typeof this._defaultTab === 'function') {
+			this._defaultTab(this);
+		}
+	}
+
+	set _defaultTab(v) {
+		if (!isFunction(v)) throw new Error("defaultTab must be a function")
+		this.__defaultTab = v
+	}
+
+	get _defaultTab() {
+		return this.__defaultTab
 	}
 
 	async tabDrop(e) {
 		e.stopPropagation()
 		e.preventDefault()
+
+		// Remove drop highlight from all tabs in this TabBar
+		for (const tab of this.children) {
+			if (tab instanceof TabItem) {
+				tab.classList.remove("drop-highlight");
+			}
+		}
+
+		console.log("tabDrop event triggered", e);
+		console.log("dropTarget:", this.dropTarget);
+		console.log("dropPosition:", this.dropPosition);
+
 		const items = e.dataTransfer.items
 		const delayed = []
 		for (let i = 0, l = items.length; i < l; i++) {
@@ -1220,27 +1358,75 @@ class TabBar extends Block {
 			Promise.all(delayed).then((res) => {
 				res.forEach(this.dropFileHandle)
 			})
-		} else if (this.movingItem instanceof HTMLElement) {
-			if (this?.dropPosition == "before") {
-				this.insertBefore(this.movingItem, this.dropTarget)
-			} else {
-				if (this?.dropTarget?.nextElementSibling) {
-					this.insertBefore(this.movingItem, this.dropTarget.nextElementSibling)
-				} else {
-					this.appendChild(this.movingItem)
+		} else {
+			let movingTabId = e.dataTransfer.getData("text/plain")
+			let movingTab = document.getElementById(movingTabId)
+			
+			if (movingTab && movingTab.parentElement !== this) {
+				// Remove from old TabBar's _tabs array
+				let oldTabBar = movingTab.parentElement
+				if(oldTabBar && oldTabBar instanceof TabBar) {
+					const wasActive = movingTab.hasAttribute("active");
+					oldTabBar._tabs = oldTabBar._tabs.filter(tab => tab !== movingTab)
+					if(wasActive && oldTabBar._tabs.length > 0) {
+						oldTabBar._tabs[0].click();
+					} else if (oldTabBar._tabs.length === 0) {
+						oldTabBar.defaultTab();
+					}
 				}
-			}
+				
+				let dropTarget = this.dropTarget;
+				if (dropTarget && !(dropTarget instanceof TabItem)) {
+					if(dropTarget.parentElement instanceof TabItem) {
+						dropTarget = dropTarget.parentElement;
+					} else {
+						dropTarget = null;
+					}
+				}
 
-			// rebuilt the _tabs array with the new item order
-			while (this._tabs.length > 0) {
-				this._tabs.pop()
+				if (this?.dropPosition == "before" && dropTarget) {
+					this.insertBefore(movingTab, dropTarget)
+				} else if (dropTarget?.nextElementSibling) {
+					this.insertBefore(movingTab, dropTarget.nextElementSibling)
+				} else {
+					this.appendChild(movingTab)
+				}
+				
+				// Rebuild _tabs array for the new TabBar
+				this._tabs = Array.from(this.children).filter(child => child instanceof TabItem)
+				this.resetMargins();
+				movingTab.click()
+			} else if (this.movingItem instanceof HTMLElement) {
+				let dropTarget = this.dropTarget;
+				if (dropTarget && !(dropTarget instanceof TabItem)) {
+					if(dropTarget.parentElement instanceof TabItem) {
+						dropTarget = dropTarget.parentElement;
+					} else {
+						dropTarget = null;
+					}
+				}
+				if (this?.dropPosition == "before" && dropTarget) {
+					this.insertBefore(this.movingItem, dropTarget)
+				} else {
+					if (dropTarget?.nextElementSibling) {
+						this.insertBefore(this.movingItem, dropTarget.nextElementSibling)
+					} else {
+						this.appendChild(this.movingItem)
+					}
+				}
+
+				// rebuilt the _tabs array with the new item order
+				while (this._tabs.length > 0) {
+					this._tabs.pop()
+				}
+				let tabs = this.children
+				for (let i = 0, l = tabs.length; i < l; i++) {
+					if (!(tabs[i] instanceof TabItem)) continue
+					this._tabs.push(tabs[i])
+				}
+				this.resetMargins();
+				this.movingItem.click()
 			}
-			let tabs = this.children
-			for (let i = 0, l = tabs.length; i < l; i++) {
-				if (!(tabs[i] instanceof TabItem)) continue
-				this._tabs.push(tabs[i])
-			}
-			this.movingItem.click()
 		}
 	}
 
@@ -1299,17 +1485,22 @@ class TabBar extends Block {
 		const tab = new TabItem(config.name)
 		if (config.handle) tab.setAttribute("title", buildPath(config.handle))
 		tab.config = config
+		tab.id = `tab-${this.tabCounter++}`;
+		tab.setAttribute("id", `tab-${this.tabCounter++}`);
 		this._tabs.push(tab)
 		this.append(tab)
 
 		tab.onclick = (event) => {
-			this._tabs.forEach((t) => {
+			const tabBar = tab.parentElement;
+			if (!tabBar || !(tabBar instanceof TabBar)) return;
+			
+			tabBar.tabs.forEach((t) => {
 				t.removeAttribute("active")
 			})
 			tab.setAttribute("active", "active")
-			if ("function" == typeof this._click) {
+			if ("function" == typeof tabBar._click) {
 				event.tab = tab
-				this._click(event)
+				tabBar._click(event)
 			}
 		}
 
@@ -1350,24 +1541,117 @@ class TabBar extends Block {
 		return tab
 	}
 
-	remove(tab) {
+	remove(tab, suppressDefaultTabCreation = false) {
 		for (let i = 0, l = this._tabs.length; i < l; i++) {
 			if (this._tabs[i] == tab) {
 				this._tabs.splice(i, 1)
 				if (tab.getAttribute("active") != null) {
-					if (this._tabs[i]) {
-						this._tabs[i].click()
-					} else if (this._tabs[i + 1]) {
-						this._tabs[i + 1].click()
-					} else if (this._tabs[i - 1]) {
-						this._tabs[i - 1].click()
+					const nextActiveTab = this._tabs[i] || this._tabs[i - 1]
+					if (nextActiveTab) {
+						nextActiveTab.click()
+					} else if (!suppressDefaultTabCreation) {
+						this.defaultTab()
 					}
 				}
 				i--
 			}
 		}
 		tab.remove()
+		this.resetMargins()
 	}
+
+	resetMargins() {
+		// Reset margins on all tabs to prevent visual gaps from interrupted drag operations.
+		const sibs = this.children
+		for (let i = 0, l = sibs.length; i < l; i++) {
+			const sib = sibs[i]
+			if (sib instanceof TabItem) {
+				sib.style.marginLeft = ""
+				sib.style.marginRight = ""
+			}
+		}
+	}
+
+	moveAllTabsTo(otherTabBar, mark, suppressDefaultTab = false) {
+		if (!(otherTabBar instanceof TabBar)) {
+			console.error("Target is not a TabBar");
+			return;
+		}
+
+		const tabsToMove = [...this.tabs];
+		if (tabsToMove.length === 0) return;
+
+		const activeTabInSource = this.activeTab;
+
+		tabsToMove.forEach(tab => {
+            if (mark) {
+                tab.setAttribute("data-original-parent", mark);
+            }
+			otherTabBar.append(tab);
+		});
+
+		this._tabs = [];
+		otherTabBar._tabs = Array.from(otherTabBar.children).filter(child => child instanceof TabItem);
+
+		if (activeTabInSource) {
+			activeTabInSource.click();
+		} else if (otherTabBar.tabs.length > 0 && !otherTabBar.activeTab) {
+            otherTabBar.tabs[0].click();
+        }
+
+        if (this.tabs.length === 0 && !suppressDefaultTab) {
+            this.defaultTab();
+        }
+	}
+
+    reclaimTabs(sourceTabBar, mark) {
+        if (!(sourceTabBar instanceof TabBar)) {
+            console.error("Source is not a TabBar");
+            return;
+        }
+
+        const tabsToMove = [];
+        sourceTabBar.tabs.forEach(tab => {
+            if (tab.getAttribute("data-original-parent") === mark) {
+                tabsToMove.push(tab);
+            }
+        });
+
+        if (tabsToMove.length === 0) return;
+
+        const sourceActiveTab = sourceTabBar.activeTab;
+        let activeTabIsMoving = tabsToMove.includes(sourceActiveTab);
+
+        tabsToMove.forEach(tab => {
+            this.append(tab);
+            tab.removeAttribute("data-original-parent");
+        });
+
+        // Update tab arrays for both tab bars
+        this._tabs = Array.from(this.children).filter(child => child instanceof TabItem);
+        sourceTabBar._tabs = Array.from(sourceTabBar.children).filter(child => child instanceof TabItem);
+
+        // Handle active tab
+        if (activeTabIsMoving) {
+            sourceActiveTab.click(); // click it in its new home
+            if (sourceTabBar.tabs.length > 0) {
+                sourceTabBar.tabs[0].click();
+            }
+        } else {
+            // if source has no active tab, but still has tabs, activate one
+            if (sourceTabBar.tabs.length > 0 && !sourceTabBar.activeTab) {
+                sourceTabBar.tabs[0].click();
+            }
+            // if this tab bar has no active tab, but now has tabs, activate one
+            if (this.tabs.length > 0 && !this.activeTab) {
+                this.tabs[0].click();
+            }
+        }
+        
+        if (sourceTabBar.tabs.length === 0) {
+            sourceTabBar.defaultTab();
+        }
+    }
 }
 
 // file selection list, takes an array of file/folder handles and produces a directory tree

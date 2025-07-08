@@ -348,6 +348,7 @@ ui-tabbar[slim] > ui-tab-item {
 	color: var(--ui-highlight-fg);
 	margin-top: 6px;
 	padding-right: 0px;
+	padding-left: 8px;
 	white-space: nowrap;
 }
 
@@ -401,6 +402,10 @@ ui-tabbar::-webkit-scrollbar {
 [hook="right"]:first-child,
 [overflow] {
 	margin-right: 8px;
+}
+
+ui-tabbar > [hook="right"] {
+	float: right;
 }
 
 ui-file-list {

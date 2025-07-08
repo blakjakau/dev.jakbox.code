@@ -1,5 +1,5 @@
-// TODO: enhancements
-// --- drag+drop tabs on the tabbar
+// TODO enhancements completed
+// --- drag+drop tabs on the leftTabs
 // --- disable live autocomplete
 // --- set text baseValue at load and save, use it for change tracking
 // --- Add "notSupported" page for firefox/brave other browsers that don't support the FileAPI
@@ -19,7 +19,7 @@
 // --- add licence information (including prettier/ace credits to about)
 // --- restore workspace open files during app load
 // --- implement file-type icons in file view
-//
+
 // implement multiple workspaces (restore last open?)
 // move ace settings panel into a tabbed modal with other application settings
 // implement @lookup in omnibox
@@ -72,8 +72,6 @@ function safeString(string) {
 	return string.replace(/\ /g, "-").replace(/[^A-Za-z0-9\-]/g, "")
 }
 
-const editorElementID = "editor"
-const thumbElementID = "thumbstrip"
 let permissionNotReloaded = true // should we re-request permission for folders added
 
 ui.create()
@@ -81,6 +79,18 @@ window.ui = ui
 window.code = {
 	version: "0.3.2",
 }
+
+const leftEdit = ui.leftEdit
+const rightEdit = ui.rightEdit
+const leftMedia = ui.leftMedia
+const rightMedia = ui.rightMedia
+
+const installer = ui.installer
+const fileActions = ui.fileActions
+const fileList = ui.fileList
+const leftTabs = ui.leftTabs
+const rightTabs = ui.rightTabs
+const prettify = document.querySelector("#prettier")
 
 const app = {
 	folders: [],
@@ -104,14 +114,9 @@ window.workspace = workspace
 
 const fileOpen = new elements.Button("Add Folder to Workspace")
 const fileAccess = new elements.Button("Restore")
+const menuRestoreFolders = document.querySelector("#menu_restore_folders")
 
-const editor = ui.editor
-const thumbs = ui.thumb
-const installer = ui.installer
-const fileActions = ui.fileActions
-const fileList = ui.fileList
-const tabBar = ui.tabBar
-const prettify = document.querySelector("#prettier")
+
 
 window.ui.commands = {
 	byKeys: {},
@@ -121,7 +126,7 @@ window.ui.commands = {
 			switch (command.target) {
 				case "editor":
 					//register with ACE editor
-					editor.commands.addCommand({
+					leftEdit.commands.addCommand({
 						name: command.name,
 						bindKey: command.bindKey,
 						exec: command.exec,
@@ -180,7 +185,7 @@ window.ui.commands = {
 		}
 	},
 	exec(commandName, args) {
-		console.log("execCommand", commandName, args)
+		// console.log("execCommand", commandName, args)
 		if (commandName in this.byName) {
 			this.byName[commandName].exec(args)
 		}
@@ -235,7 +240,8 @@ window.ui.commands = {
 window.ui.commands.bindToDocument()
 
 const saveFile = async (text, handle) => {
-	const tab = tabBar.activeTab
+    console.log(`saveFile: Saving file ${handle.name}.`);
+	const tab = currentTabs.activeTab
 	const file = fileList.activeItem
 
 	const writable = await handle.createWritable()
@@ -248,9 +254,9 @@ const saveFile = async (text, handle) => {
 }
 
 const saveAppConfig = async () => {
-	app.sessionOptions = ui.editor.session.getOptions()
-	app.rendererOptions = ui.editor.renderer.getOptions()
-	app.enableLiveAutocompletion = ui.editor.$enableLiveAutocompletion
+	app.sessionOptions = ui.leftEdit.session.getOptions()
+	app.rendererOptions = ui.leftEdit.renderer.getOptions()
+	app.enableLiveAutocompletion = ui.leftEdit.$enableLiveAutocompletion
 	delete app.sessionOptions.mode // don't persist the mode, that's dumb
 	delete app.folders //app.folders = workspace.folders
 
@@ -269,9 +275,8 @@ const saveAppConfig = async () => {
 let workspaceUnloading = false
 const saveWorkspace = async () => {
 	if (workspaceUnloading) return
-	let name = workspace.name
-	set(`workspace_${workspace.id}`, workspace)
-	console.debug("saved", workspace)
+	console.log("saveWorkspace: Saving workspace.", workspace);
+	set(`workspace_${workspace.id}`, workspace);
 }
 
 const updateWorkspaceSelectors = (() => {
@@ -321,7 +326,9 @@ const openWorkspace = (() => {
 	rename.remove()
 
 	return async (name, triggered = false) => {
+		console.log(`openWorkspace: Opening workspace ${name}.`);
 		let load = await get(`workspace_${name}`)
+
 
 		const hideActions = () => {
 			close.remove()
@@ -331,11 +338,11 @@ const openWorkspace = (() => {
 
 		if ("undefined" != typeof load) {
 			workspaceUnloading = true
-			// clear the tabBar
-			while (tabBar.tabs.length > 1) {
-				tabBar.tabs[0].close.click()
+			// clear the leftTabs
+			while (leftTabs.tabs.length > 1) {
+				leftTabs.tabs[0].close.click()
 			}
-			if (tabBar.tabs[0]) tabBar.tabs[0].close.click()
+			if (leftTabs.tabs[0]) leftTabs.tabs[0].close.click()
 
 			workspaceUnloading = false
 
@@ -344,10 +351,26 @@ const openWorkspace = (() => {
 			workspace.files = load.files || []
 			workspace.id = load.id || safeString(workspace.name)
 
+			fileActions.append(fileAccess)
+			fileOpen.text = "Add Folder"
+
 			if (workspace.folders.length > 0) {
-				fileActions.append(fileAccess)
-				fileOpen.text = "Add Folder"
-				if (triggered) await fileAccess.click()
+				fileAccess.style.display = "";
+				menuRestoreFolders.style.display = "";
+
+				let hasLockedFolders = false;
+				for (const folder of workspace.folders) {
+					if (folder.locked) {
+						hasLockedFolders = true;
+						break;
+					}
+				}
+				if (hasLockedFolders && triggered) {
+					await fileAccess.click();
+				}
+			} else {
+				fileAccess.style.display = "none";
+				menuRestoreFolders.style.display = "none";
 			}
 
 			app.workspace = workspace.id
@@ -416,7 +439,7 @@ prefersDarkMode.addEventListener('change', () => {
 const updateThemeAndMode = (doSave = false) => {
 	ui.updateThemeAndMode()
 
-	if (editor.getOption("mode") in canPrettify) {
+	if (leftEdit.getOption("mode") in canPrettify) {
 		prettify.removeAttribute("disabled")
 	} else {
 		prettify.setAttribute("disabled", "disabled")
@@ -425,25 +448,25 @@ const updateThemeAndMode = (doSave = false) => {
 }
 
 const execCommandPrettify = () => {
-	let text = editor.getValue()
-	const mode = editor.getOption("mode")
+	let text = leftEdit.getValue()
+	const mode = leftEdit.getOption("mode")
 	if (!(mode in canPrettify)) return
 
 	const parser = canPrettify[mode]
-	const activeRow = editor.getCursorPosition().row + 1
+	const activeRow = leftEdit.getCursorPosition().row + 1
 
 	try {
 		text = prettier.format(text, {
 			parser: parser.name,
 			plugins: parser.plugins,
-			printWidth: editor.getOption("printMargin") || 120,
-			tabWidth: editor.getOption("tabSize") || 4,
-			useTabs: !editor.getOption("useSoftTabs") || false,
+			printWidth: leftEdit.getOption("printMargin") || 120,
+			tabWidth: leftEdit.getOption("tabSize") || 4,
+			useTabs: !leftEdit.getOption("useSoftTabs") || false,
 			semi: false,
 		})
-		editor.setValue(text)
-		editor.clearSelection()
-		editor.gotoLine(activeRow)
+		leftEdit.setValue(text)
+		leftEdit.clearSelection()
+		leftEdit.gotoLine(activeRow)
 	} catch (e) {
 		console.warn("Unable to prettify", e)
 		const m = e.message
@@ -451,7 +474,7 @@ const execCommandPrettify = () => {
 			let match = m.match(/\>\s(\d*) \|/g)
 			if (match.length > 0) {
 				let l = parseInt(match[0].replace(/[\>\|\s]/g, "")) - 1
-				editor.getSession().setAnnotations([
+				leftEdit.getSession().setAnnotations([
 					{
 						row: l,
 						column: 0,
@@ -459,7 +482,7 @@ const execCommandPrettify = () => {
 						type: "error", // also "warning" and "information"
 					},
 				])
-				editor.execCommand("goToNextError")
+				leftEdit.execCommand("goToNextError")
 			}
 		} catch (er) {
 			console.error("Unable to prettify", e, er)
@@ -468,14 +491,25 @@ const execCommandPrettify = () => {
 }
 
 const execCommandEditorOptions = () => {
-	if (app.sessionOptions) editor.session.setOptions(app.sessionOptions)
-	if (app.rendererOptions) editor.renderer.setOptions(app.rendererOptions)
-	if (app.enableLiveAutocompletion) editor.$enableLiveAutocompletion = app.enableLiveAutocompletion
+	if (app.sessionOptions) {
+		leftEdit.session.setOptions(app.sessionOptions);
+		rightEdit.session.setOptions(app.sessionOptions);
+	}
+	if (app.rendererOptions) {
+		leftEdit.renderer.setOptions(app.rendererOptions);
+		rightEdit.renderer.setOptions(app.rendererOptions);
+	}
+	if (app.enableLiveAutocompletion) {
+		leftEdit.$enableLiveAutocompletion = app.enableLiveAutocompletion;
+		rightEdit.$enableLiveAutocompletion = app.enableLiveAutocompletion;
+	}
 
-	if (editor.getOption("mode") === "ace/mode/javascript") {
-		editor.setOption("useWorker", false)
+	if (leftEdit.getOption("mode") === "ace/mode/javascript") {
+		leftEdit.setOption("useWorker", false);
+		rightEdit.setOption("useWorker", false);
 	} else {
-		editor.setOption("useWorker", true)
+		leftEdit.setOption("useWorker", true);
+		rightEdit.setOption("useWorker", true);
 	}
 }
 
@@ -498,6 +532,10 @@ const execCommandToggleFolders = () => {
 	ui.toggleFiles()
 }
 
+const execCommandSplitView = () => {
+	ui.toggleSplitView()
+}
+
 const execCommandRemoveAllFolders = () => {
 	setTimeout(async () => {
 		const l = workspace.folders.length
@@ -518,14 +556,20 @@ const execCommandRemoveAllFolders = () => {
 
 const execCommandRefreshFolders = () => {}
 
+const execCommandRestoreFolders = () => {
+	fileAccess.click();
+	fileAccess.style.display = "none";
+	menuRestoreFolders.style.display = "none";
+}
+
 const execCommandCloseActiveTab = async () => {
-	const tab = tabBar.activeTab
+	const tab = leftTabs.activeTab
 	tab.close.click()
 }
 const execCommandSave = async () => {
-	const config = tabBar.activeTab.config
+	const config = currentTabs.activeTab.config
 	if (config.handle) {
-		const text = editor.getValue()
+		const text = currentEditor.getValue()
 		await saveFile(text, config.handle)
 		config.session.baseValue = text
 	} else {
@@ -536,15 +580,15 @@ const execCommandSave = async () => {
 		}
 		config.handle = newHandle
 		config.name = newHandle.name
-		tabBar.activeTab.text = config.name
-		const text = editor.getValue()
+		currentTabs.activeTab.text = config.name
+		const text = currentEditor.getValue()
 		await saveFile(text, config.handle)
 		config.session.baseValue = text
 	}
 }
 
 const execCommandSaveAs = async () => {
-	const config = tabBar.activeTab.config
+	const config = currentTabs.activeTab.config
 	const newHandle = await window.showSaveFilePicker().catch(console.warn)
 	if (!newHandle) {
 		alert("File NOT saved")
@@ -552,8 +596,8 @@ const execCommandSaveAs = async () => {
 	}
 	config.handle = newHandle
 	config.name = newHandle.name
-	tabBar.activeTab.text = config.name
-	saveFile(editor.getValue(), config.handle)
+	currentTabs.activeTab.text = config.name
+	saveFile(currentEditor.getValue(), config.handle)
 }
 
 const execCommandOpen = async () => {
@@ -565,17 +609,22 @@ const execCommandOpen = async () => {
 }
 
 const execCommandNewFile = async () => {
-	const srcTab = tabBar.activeTab
-	const mode = srcTab.config?.mode?.mode || ""
-	const folder = srcTab.config?.folder || undefined
-	const newSession = ace.createEditSession("", mode)
-	newSession.baseValue = ""
+    console.log("execCommandNewFile: Creating new file.");
+	const srcTab = leftTabs.activeTab || rightTabs.activeTab;
+	const mode = srcTab?.config?.mode?.mode || "";
+	const folder = srcTab?.config?.folder || undefined;
+	const newSession = ace.createEditSession("", mode);
+	newSession.baseValue = "";
 
-	const tab = tabBar.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder })
+	let targetTabs = leftTabs;
+	if (rightTabs.activeTab) {
+		targetTabs = rightTabs;
+	}
 
-	editor.setSession(newSession)
-	execCommandEditorOptions()
-	tab.click()
+	const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder, side: (targetTabs === leftTabs) ? "left" : "right" });
+
+	
+	tab.click();
 }
 
 const execCommandNewWindow = async () => {
@@ -591,11 +640,43 @@ const buildPath = (f) => {
 	return n
 }
 
-const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath = null) => {
+let currentEditor = leftEdit;
+let currentTabs = leftEdit;
+let currentMediaView = ui.leftMedia;
+
+const setCurrentEditor = (editor)=>{
+	ui.currentEditor = currentEditor = editor
+	ui.currentTabs = currentTabs = (editor === leftEdit ? ui.leftTabs : ui.rightTabs)
+	ui.currentMediaView = currentMediaView = (editor === leftEdit ? ui.leftMedia : ui.rightMedia)
+	
+	const tab = editor?.tabs?.activeTab
+	if(tab) {
+		fileList.active = tab.config.handle;
+    	tab.scrollIntoViewIfNeeded();
+    	tab.parentElement.scrollTop = 0;
+    	if (tab.changed && fileList.activeItem) {
+	        fileList.activeItem.changed = true;
+	    }
+
+		// Update the side property in workspace.files when the active editor changes
+		const fileInWorkspace = workspace.files.find(file => file.handle === tab.config.handle);
+		if (fileInWorkspace) {
+			fileInWorkspace.side = (editor === leftEdit) ? "left" : "right";
+			saveWorkspace();
+		}
+	}
+}
+
+const openFileHandle = async (handle, knownPath = null, targetEditor = currentEditor) => {
+    // This function will be assigned to leftTabs.dropFileHandle and rightTabs.dropFileHandle later
+    // So, we don't need to assign it here.
+
 	// don't add a new tab if the file is already open in a tab
 	const path = knownPath != null ? knownPath : buildPath(handle)
 	{
-		let tab = tabBar.byTitle(path)
+		let tab = leftTabs.byTitle(path)
+		if (tab) return tab.click()
+		tab = rightTabs.byTitle(path)
 		if (tab) return tab.click()
 	}
 
@@ -672,23 +753,32 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath = null)
 		})
 	}
 
-	if (tabBar.tabs.length == 1 && editor.getValue() == "") {
-		tabBar.remove(tabBar.tabs[0])
-	}
+	// Check for and remove empty "untitled" tabs before opening a new file.
+	const removeEmptyUntitledTab = (tabGroup) => {
+		if (tabGroup.tabs.length === 1) {
+			const tab = tabGroup.tabs[0];
+			            if (tab.config.name === "untitled" && tab.config.session.getValue() === "") {
+				tabGroup.remove(tab, true); // Pass true to suppress defaultTab creation
+			}
+		}
+	};
+
+	removeEmptyUntitledTab(leftTabs);
+	removeEmptyUntitledTab(rightTabs);
 
 	const newSession = ace.createEditSession(text, fileMode.mode)
 	newSession.baseValue = text
 
-	editor.setSession(newSession)
+	targetEditor.setSession(newSession)
 	execCommandEditorOptions()
-	thumbstrip.setValue(editor.getValue())
-	thumbStrip.clearSelection()
-	thumbStrip.gotoLine(0)
 
-	const tab = tabBar.add({
+	let targetTabs = targetEditor.tabs
+
+	const tab = targetTabs.add({
 		name: file.name,
 		mode: fileMode,
 		session: newSession,
+		side: (targetEditor === leftEdit) ? "left" : "right",
 		handle: handle,
 		folder: handle.container,
 	})
@@ -698,6 +788,7 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath = null)
 	for (let i = 0; i < workspace.files.length; i++) {
 		if (workspace.files[i].handle == tab.config.handle) {
 			matched = true
+			workspace.files[i].side = (targetEditor === leftEdit) ? "left" : "right";
 		}
 	}
 
@@ -708,6 +799,7 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath = null)
 			name: file.name,
 			path: path,
 			handle: handle,
+			side: (targetEditor === leftEdit) ? "left" : "right",
 			containers: (() => {
 				const containers = []
 				const recurse = (container) => {
@@ -718,24 +810,24 @@ const openFileHandle = (tabBar.dropFileHandle = async (handle, knownPath = null)
 				}
 				recurse(handle.container)
 				return containers
-			})(),
+			})()
 		})
 	}
 	saveWorkspace()
-})
+}
 
 const fileMenu = document.getElementById("file_context")
 const folderMenu = document.getElementById("folder_context")
 const topfolderMenu = document.getElementById("top_folder_context")
 
 folderMenu.click = topfolderMenu.click = (action) => {
-	console.log(action)
+	//console.log(action)
 	const active = fileList.contextElement
 	const file = active.item
 	switch (action) {
 		case "remove":
 			for (let i = 0; i < workspace.folders.length; i++) {
-				console.log(workspace.folders[i] === file)
+				//console.log(workspace.folders[i] === file)
 				if (workspace.folders[i] === file) {
 					workspace.folders.splice(i, 1)
 					i--
@@ -770,94 +862,116 @@ fileList.context = (e) => {
 }
 
 fileList.unlock = verifyPermission
-fileList.open = openFileHandle
-fileList.unsupported = openFileHandle
+
 fileList.expand = (item) => {
-	for (const tab of tabBar.tabs) {
+	for (const tab of leftTabs.tabs) {
 		fileList.active = tab.config.handle
 		if (tab._changed) {
 			fileList.activeItem.changed = true
 		}
 	}
-	fileList.active = tabBar.activeTab.config.handle
+	fileList.active = leftTabs.activeTab.config.handle
 }
 
-tabBar.click = async (event) => {
-	const tab = event.tab
+const updateEditorUI = async (targetEditor, targetMediaView, tab) => {
+    if (tab.config.mode.mode === "media") {
+        targetEditor.container.style.display = 'none';
+        targetMediaView.style.display = 'block';
 
-	if (tab.config.mode.mode === "media") {
-		ui.editorElement.style.display = 'none';
-		ui.mediaView.style.display = 'block';
-
-		const file = await tab.config.handle.getFile();
-		const imageUrl = URL.createObjectURL(file);
-		ui.mediaView.setImage(imageUrl);
-
-		fileList.active = tab.config.handle;
-		tab.scrollIntoViewIfNeeded();
-		tabBar.scrollTop = 0;
-		updateThemeAndMode();
-	} else {
-		ui.editorElement.style.display = 'block';
-		ui.mediaView.style.display = 'none';
-		// ui.mediaView.style.backgroundImage = ''; // Clear background image - handled by setImage
-		// ui.mediaView.style.backgroundColor = ''; // Reset background color - handled by setImage
-
-		editor.setSession(tab.config.session);
-		fileList.active = tab.config.handle;
-
-		tab.scrollIntoViewIfNeeded();
-		tabBar.scrollTop = 0;
-
-		if (tab.changed && fileList.activeItem) {
-			fileList.activeItem.changed = true;
-		}
-		thumbStrip.setValue(editor.getValue());
-		thumbStrip.clearSelection();
-		thumbStrip.gotoLine(editor.getCursorPosition().row + 1);
-		updateThemeAndMode();
-		editor.focus();
-	}
+        const file = await tab.config.handle.getFile();
+        const imageUrl = URL.createObjectURL(file);
+        targetMediaView.setImage(imageUrl);
+    } else {
+        targetEditor.container.style.display = 'block';
+        targetMediaView.style.display = 'none';
+        targetEditor.setSession(tab.config.session);
+        targetEditor.focus();
+    }
+    setCurrentEditor(targetEditor);
+    fileList.active = tab.config.handle;
+    tab.scrollIntoViewIfNeeded();
+    tab.parentElement.scrollTop = 0;
+    updateThemeAndMode();
+    if (tab.changed && fileList.activeItem) {
+        fileList.activeItem.changed = true;
+    }
 }
 
-tabBar.close = (event) => {
-	const tab = event.tab
-	if (tab.changed) {
-		if (!confirm("This file has unsaved changes, are you sure?")) {
-			return
-		}
+leftTabs.click = async (event) => {
+    const tab = event.tab;
+    setCurrentEditor(leftEdit);
+    updateEditorUI(leftEdit, ui.leftMedia, tab);
+};
+
+rightTabs.click = async (event) => {
+    const tab = event.tab;
+    setCurrentEditor(rightEdit);
+    updateEditorUI(rightEdit, ui.rightMedia, tab);
+};
+
+const closeTab = (targetTabs, event) => {
+    const tab = event.tab;
+    if (tab.changed) {
+        if (!confirm("This file has unsaved changes, are you sure?")) {
+            return;
+        }
+    }
+
+    // If the tab is a media file, revoke the object URL
+    if (tab.config.mode.mode === "media") {
+        if (targetTabs === leftTabs && ui.leftMedia.style.backgroundImage) {
+            const imageUrl = ui.leftMedia.style.backgroundImage.replace(/url\("|"\)/g, '');
+            URL.revokeObjectURL(imageUrl);
+        } else if (targetTabs === rightTabs && ui.rightMedia.style.backgroundImage) {
+            const imageUrl = ui.rightMedia.style.backgroundImage.replace(/url\("|"\)/g, '');
+            URL.revokeObjectURL(imageUrl);
+        }
+    }
+
+    // remove from workspace recent files
+    for (let i = 0; i < workspace.files.length; i++) {
+        if (workspace.files[i].handle == tab.config.handle) {
+            workspace.files.splice(i, 1);
+            i--;
+        }
+    }
+
+    fileList.inactive = tab.config.handle;
+
+    targetTabs.remove(tab);
+    if (targetTabs.tabs.length == 0) {
+        defaultTab(targetTabs);
+    }
+    tab.config.session.destroy();
+    saveWorkspace();
+};
+
+leftTabs.close = (event) => {
+    closeTab(leftTabs, event);
+};
+
+rightTabs.close = (event) => {
+    closeTab(rightTabs, event);
+};
+
+const defaultTab = (targetTabs) => {
+	if (!targetTabs || !(targetTabs instanceof elements.TabBar)) {
+		console.error("No valid target tab bar provided for default tab.");
+		return;
 	}
-
-	// If the tab is a media file, revoke the object URL
-	if (tab.config.mode.mode === "media" && ui.mediaView.style.backgroundImage) {
-		const imageUrl = ui.mediaView.style.backgroundImage.replace(/url\("|"\)/g, '');
-		URL.revokeObjectURL(imageUrl);
-	}
-
-	// remove from workspace recent files
-	for (let i = 0; i < workspace.files.length; i++) {
-		if (workspace.files[i].handle == tab.config.handle) {
-			workspace.files.splice(i, 1)
-			i--
-		}
-	}
-	//if(workspace.files.indexOf(tab.config.handle)>-1) { workspace.files.splice(workspace.files.indexOf(tab.config.handle), 1) }
-
-	fileList.inactive = tab.config.handle
-
-	tabBar.remove(tab)
-	if (tabBar.tabs.length == 0) {
-		defaultTab()
-	}
-	tab.config.session.destroy()
-	//saveAppConfig()
-	saveWorkspace()
-}
-
-const defaultTab = () => {
 	const defaultSession = ace.createEditSession("", "")
-	const tab = tabBar.add({ name: "untitled", mode: { mode: "" }, session: defaultSession })
-	editor.setSession(defaultSession)
+	const tab = targetTabs.add({ name: "untitled", mode: { mode: "" }, session: defaultSession })
+	
+	// Determine which editor and media view to use based on the targetTabs
+	let editorToUse = leftEdit;
+	let mediaViewToUse = leftMedia;
+	
+	if (targetTabs === rightTabs) {
+		editorToUse = rightEdit;
+		mediaViewToUse = rightMedia;
+	}
+
+	editorToUse.setSession(defaultSession)
 	execCommandEditorOptions()
 	tab.click()
 }
@@ -875,6 +989,21 @@ fileAccess.on("click", async () => {
 			// ui.showFolders(0)
 		} else {
 			allGood = false
+		}
+	}
+
+	// Check if split view needs to be enabled
+	let enableSplitView = false;
+	for (const file of workspace.files) {
+		if (file.side === "right") {
+			enableSplitView = true;
+			break;
+		}
+	}
+
+	if (enableSplitView) {
+		if(!document.body.classList.contains("showSplitView")) {
+			ui.toggleSplitView(); // Enable split view if needed
 		}
 	}
 
@@ -897,7 +1026,7 @@ fileAccess.on("click", async () => {
 				}
 				file.containers = newContainers
 				file.handle.container = fileContainers.container
-				openFileHandle(file.handle, file.path)
+				openFileHandle(file.handle, file.path, (file.side === "right" ? rightEdit : leftEdit))
 				fileList.active = file.handle
 			}
 		}
@@ -911,8 +1040,8 @@ fileOpen.icon = "create_new_folder"
 fileOpen.title = "Add Folder to Workspace"
 fileActions.append(fileOpen)
 
+fileActions.append(fileAccess)
 if (workspace.folders.length > 0) {
-	fileActions.append(fileAccess)
 	fileOpen.text = "Add Folder"
 }
 
@@ -942,8 +1071,8 @@ const keyBinds = [
 		bindKey: { win: "ctrl-alt-k", mac: "Command-Alt-k" },
 		exec: function () {
 			ace.config.loadModule("ace/ext/keybinding_menu", function (module) {
-				module.init(editor)
-				editor.showKeyboardShortcuts()
+				module.init(leftEdit)
+				currentEditor.showKeyboardShortcuts()
 			})
 		},
 	},
@@ -960,7 +1089,7 @@ const keyBinds = [
 		name: "find-next",
 		bindKey: { win: "F3", mac: "F3" },
 		exec: () => {
-			editor.execCommand("findnext")
+			currentEditor.execCommand("findnext")
 		},
 	},
 	{
@@ -968,7 +1097,7 @@ const keyBinds = [
 		name: "collapselines",
 		bindKey: { win: "Ctrl-Shift-J", mac: "Command-Shift-J" },
 		exec: () => {
-			editor.execCommand("joinlines")
+			currentEditor.execCommand("joinlines")
 		},
 	},
 	{
@@ -1008,7 +1137,7 @@ const keyBinds = [
 		name: "showAllCommands",
 		bindKey: { win: "Ctrl+Shift+P", mac: "Command+Shift+P" },
 		exec: () => {
-			editor.execCommand("openCommandPallete")
+			currentEditor.execCommand("openCommandPallete")
 		},
 	},
 	{
@@ -1024,7 +1153,7 @@ const keyBinds = [
 		name: "next-buffer",
 		bindKey: { win: "Ctrl+Tab", mac: "Command+Tab" },
 		exec: () => {
-			tabBar.next()
+			leftTabs.next()
 		},
 	},
 	{
@@ -1032,7 +1161,7 @@ const keyBinds = [
 		name: "prev-buffer",
 		bindKey: { win: "Ctrl+Shift+Tab", mac: "Command+Shift+Tab" },
 		exec: () => {
-			tabBar.prev()
+			leftTabs.prev()
 		},
 	},
 	{
@@ -1069,7 +1198,7 @@ const keyBinds = [
 		target: "app",
 		name: "showEditorSettings",
 		exec: () => {
-			editor.execCommand("showSettingsMenu", () => {
+			currentEditor.execCommand("showSettingsMenu", () => {
 				updateThemeAndMode(true)
 			})
 		},
@@ -1083,7 +1212,14 @@ const keyBinds = [
 	{
 		target: "app",
 		name: "toggleFolders",
+		bindKey: { win: "Alt+F", mac: "Option+F" },
 		exec: execCommandToggleFolders,
+	},
+	{
+		target: "app",
+		name: "toggleSplitView",
+		bindKey: { win: "Alt+S", mac: "Option+S" },
+		exec: execCommandSplitView,
 	},
 	{
 		target: "app",
@@ -1102,6 +1238,12 @@ const keyBinds = [
 	},
 	{
 		target: "app",
+		name: "restoreFolders",
+		bindKey: { win: "Alt+R", mac: "Option+R" },
+		exec: execCommandRestoreFolders,
+	},
+	{
+		target: "app",
 		name: "showAbout",
 		exec: execCommandAbout,
 	},
@@ -1109,7 +1251,9 @@ const keyBinds = [
 		target: "app",
 		name: "setTheme",
 		exec: (theme) => {
-			editor.setOption("theme", theme)
+			window.editors.forEach(editor=>{
+				editor.setOption("theme", theme)
+			})
 			updateThemeAndMode(true)
 		},
 	},
@@ -1117,7 +1261,7 @@ const keyBinds = [
 		target: "app",
 		name: "setMode",
 		exec: (mode) => {
-			editor.setOption("mode", mode)
+			currentEditor.setOption("mode", mode)
 			updateThemeAndMode(false)
 		},
 	},
@@ -1177,7 +1321,7 @@ const keyBinds = [
 			await sleep(400)
 			// ensure there are no unsaved edits
 			let unsaved = false
-			for (const tab of tabBar.tabs) {
+			for (const tab of leftTabs.tabs) {
 				if (tab._changed) unsaved = true
 			}
 			if (unsaved) {
@@ -1201,13 +1345,13 @@ const keyBinds = [
 				workspace.folders = []
 				workspace.files = []
 
-				// clear the tabBar
-				while (tabBar.tabs.length > 1) {
-					tabBar.tabs[0].close.click()
+				// clear the leftTabs
+				while (leftTabs.tabs.length > 1) {
+					leftTabs.tabs[0].close.click()
 				}
-				tabBar.tabs[0].close.click()
+				leftTabs.tabs[0].close.click()
 
-				console.log("new workspace", name)
+				//console.log("new workspace", name)
 				// refresh the folder list
 				ui.showFolders()
 				// update the workspace menu
@@ -1245,13 +1389,13 @@ window.ui.execCommand = (c, args) => {
 		}
 	}
 	if (target == "editor") {
-		editor.focus()
-		editor.execCommand(command, ext)
+		currentEditor.focus()
+		currentEditor.execCommand(command, ext)
 	} else if (target == "editor-ex") {
-		editor.execCommand(command, ext)
+		currentEditor.execCommand(command, ext)
 	} else {
 		window.ui.commands.exec(command, ext)
-		// editor.execCommand(command, ext)
+		// leftEdit.execCommand(command, ext)
 	}
 }
 
@@ -1290,8 +1434,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 })
 
 setTimeout(async () => {
-	ui.editorElement.classList.remove("loading")
-	ui.thumbElement.classList.remove("loading")
+	ui.leftElement.classList.remove("loading")
 
 	window.filesReceiver.addEventListener("message", (e) => {
 		if (e.data?.open && window.activeFileReceiver) {
@@ -1300,7 +1443,10 @@ setTimeout(async () => {
 		}
 	})
 
-	editor.on("ready", async () => {
+    leftEdit.on("focus", () => setCurrentEditor(leftEdit));
+    rightEdit.on("focus", () => setCurrentEditor(rightEdit));
+
+	leftEdit.on("ready", async () => {
 		// preload stored file and folder handles
 		let stored = await get("appConfig")
 
@@ -1342,21 +1488,19 @@ setTimeout(async () => {
 
 		Promise.all(all).then(() => {
 			ui.showFolders()
-
-			let allGood = true
-			workspace.folders.forEach((handle) => {
-				if (handle.locked) allGood = false
-			})
-			if (allGood) {
-				fileAccess.click()
-			}
 		})
 
 		if (workspace.folders.length > 0) {
 			ui.showFolders()
 		}
 		ui.toggleFiles()
-		defaultTab()
+		defaultTab(leftTabs)
+		ui.fileList.open = openFileHandle;
+		fileList.unsupported = openFileHandle;
+		leftTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, leftEdit);
+		rightTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, rightEdit);
+		leftTabs.defaultTab = () => defaultTab(leftTabs);
+		rightTabs.defaultTab = () => defaultTab(rightTabs);
 
 		if ("launchQueue" in window) {
 			launchQueue.setConsumer((params) => {

@@ -3,6 +3,7 @@
 # Learn more about .gitignore:
 #     https://www.atlassian.com/git/tutorials/saving-changes/gitignore
 
+GEMINI.md
 
 # Node artifact files
 node_modules/
@@ -51,3 +52,5 @@ Thumbs.db
 *Zone.Identifier
 *.swo
 *.swp
+
+
