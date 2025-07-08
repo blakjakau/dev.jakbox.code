@@ -522,6 +522,7 @@ class TabItem extends Button {
 
 		this.ondragstart = (e) => {
 			this.originalParent = this.parentElement;
+			this.dropPosition = ""
 			e.dataTransfer.effectAllowed = "move"
 			e.dataTransfer.setData("text/plain", this.getAttribute("id"))
 
@@ -1230,6 +1231,7 @@ class TabBar extends Block {
 		super()
 		this._tabs = []
 		this.tabCounter = 0
+		this.onEmpty = null;
 		this.addEventListener("mousewheel", (e) => {
 			if (!e.shiftKey) {
 				e.preventDefault()
@@ -1342,9 +1344,9 @@ class TabBar extends Block {
 			}
 		}
 
-		console.log("tabDrop event triggered", e);
-		console.log("dropTarget:", this.dropTarget);
-		console.log("dropPosition:", this.dropPosition);
+		console.debug("tabDrop event triggered", e);
+		console.debug("dropTarget:", this.dropTarget);
+		console.debug("dropPosition:", this.dropPosition);
 
 		const items = e.dataTransfer.items
 		const delayed = []
@@ -1371,7 +1373,9 @@ class TabBar extends Block {
 					if(wasActive && oldTabBar._tabs.length > 0) {
 						oldTabBar._tabs[0].click();
 					} else if (oldTabBar._tabs.length === 0) {
-						oldTabBar.defaultTab();
+						if (typeof oldTabBar.onEmpty === 'function') {
+                            oldTabBar.onEmpty();
+                        }
 					}
 				}
 				
@@ -1383,6 +1387,8 @@ class TabBar extends Block {
 						dropTarget = null;
 					}
 				}
+
+				movingTab.tabBar = this
 
 				if (this?.dropPosition == "before" && dropTarget) {
 					this.insertBefore(movingTab, dropTarget)
@@ -1487,6 +1493,7 @@ class TabBar extends Block {
 		tab.config = config
 		tab.id = `tab-${this.tabCounter++}`;
 		tab.setAttribute("id", `tab-${this.tabCounter++}`);
+		tab.tabBar = this
 		this._tabs.push(tab)
 		this.append(tab)
 
@@ -1542,22 +1549,29 @@ class TabBar extends Block {
 	}
 
 	remove(tab, suppressDefaultTabCreation = false) {
-		for (let i = 0, l = this._tabs.length; i < l; i++) {
-			if (this._tabs[i] == tab) {
-				this._tabs.splice(i, 1)
-				if (tab.getAttribute("active") != null) {
-					const nextActiveTab = this._tabs[i] || this._tabs[i - 1]
-					if (nextActiveTab) {
-						nextActiveTab.click()
-					} else if (!suppressDefaultTabCreation) {
-						this.defaultTab()
-					}
+		const wasActive = tab.getAttribute("active") != null;
+		const index = this._tabs.indexOf(tab);
+
+		if (index === -1) {
+			tab.remove(); // remove from DOM even if not in _tabs array
+		} else {
+			this._tabs.splice(index, 1);
+			if (wasActive) {
+				const nextActiveTab = this._tabs[index] || this._tabs[index - 1];
+				if (nextActiveTab) {
+					nextActiveTab.click();
 				}
-				i--
+			}
+			tab.remove();
+		}
+
+		if (this._tabs.length === 0) {
+			if (typeof this.onEmpty === 'function') {
+				this.onEmpty();
 			}
 		}
-		tab.remove()
-		this.resetMargins()
+
+		this.resetMargins();
 	}
 
 	resetMargins() {
@@ -1599,8 +1613,14 @@ class TabBar extends Block {
             otherTabBar.tabs[0].click();
         }
 
-        if (this.tabs.length === 0 && !suppressDefaultTab) {
-            this.defaultTab();
+        if (this.tabs.length === 0) {
+            if (suppressDefaultTab) {
+                if (typeof this.onEmpty === 'function') {
+                    this.onEmpty();
+                }
+            } else {
+                this.defaultTab();
+            }
         }
 	}
 

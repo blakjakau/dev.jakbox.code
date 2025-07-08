@@ -134,6 +134,9 @@ const uiManager = {
 				leftHolder.style.width = "50%"
 				rightHolder.style.width = "50%"
 				rightTabs.reclaimTabs(leftTabs, "rightTabs");
+				if (rightTabs.tabs.length === 0) {
+					rightTabs.onEmpty();
+				}
 			} else {
 				toggleSplitViewBtn.icon = "vertical_split"
 				toggleSplitViewBtn.setAttribute("title", "Show split view")
@@ -207,6 +210,19 @@ const uiManager = {
 		leftMedia = new elements.MediaView()
 		leftMedia.setAttribute("id", "leftMedia")
 		leftHolder.appendChild(leftMedia)
+		
+		const backgroundElement = document.createElement("div");
+		backgroundElement.classList.add("background-element");
+		
+		const image = document.createElement("img");
+		image.src = "/images/code-192.png";
+		
+		const caption = document.createElement("div");
+		caption.classList.add("caption");
+		caption.textContent = "CTRL+N for a new file \n  CTRL+O to open a file";
+		backgroundElement.appendChild(image);
+		backgroundElement.appendChild(caption);
+		leftHolder.appendChild(backgroundElement);
 
 		rightHolder = new elements.Panel()
 		rightHolder.setAttribute("id", "rightHolder")
