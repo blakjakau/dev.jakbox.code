@@ -43,6 +43,9 @@ const toggleBodyClass = (className) => {
 const uiManager = {
 	create: (options = {}) => {
 
+		const animRate = 250
+		document.documentElement.style.setProperty('--animRate', `${animRate}ms`);
+		
 		const defaults = {
 			theme: "ace/theme/code",
 			mode: "ace/mode/javascript",
@@ -70,7 +73,7 @@ const uiManager = {
 			setTimeout(()=>{
 				leftEdit.resize()
 				rightEdit.resize()
-			}, 300)
+			}, animRate)
 		}
 
 		options = { ...defaults, ...options }
@@ -108,16 +111,15 @@ const uiManager = {
 				openDir.icon = "menu_open"
 				openDir.setAttribute("title", "hide file list")
 				mainContent.style.left = sidebarWidth + "px"
-				
 			} else {
 				openDir.icon = "menu"
 				openDir.setAttribute("title", "show file list")
 				mainContent.style.left = ""
 			}
 			setTimeout(()=>{
-				console.warn("checking resize constraints")
+				drawer.style.left = (files.offsetLeft+sidebarWidth)+"px"
 				constrainHolders()
-			},400)
+			},animRate)
 		})
 
 		toggleSplitViewBtn = new elements.Button()
@@ -137,9 +139,10 @@ const uiManager = {
 				leftHolder.style.width = "100%"
 				rightHolder.style.width = "0%"
 			}
-			
-			leftEdit.resize()
-			rightEdit.resize()
+
+			setTimeout(()=>{
+				constrainHolders()
+			},animRate)
 		})
 
 		leftTabs = new elements.TabBar()
@@ -225,6 +228,7 @@ const uiManager = {
 			sidebarWidth = width
 			mainContent.style.transition = "none"
 			mainContent.style.left = width + "px"
+			drawer.style.left = (files.offsetLeft+sidebarWidth)+"px"
 		})
 		
 		files.resizeEndListener(()=>{

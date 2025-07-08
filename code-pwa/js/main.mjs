@@ -998,7 +998,9 @@ fileAccess.on("click", async () => {
 	}
 
 	if (enableSplitView) {
-		ui.toggleSplitView(); // Enable split view if needed
+		if(!document.body.classList.contains("showSplitView")) {
+			ui.toggleSplitView(); // Enable split view if needed
+		}
 	}
 
 	if (allGood) {
