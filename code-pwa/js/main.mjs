@@ -870,7 +870,7 @@ fileList.expand = (item) => {
 			fileList.activeItem.changed = true
 		}
 	}
-	fileList.active = leftTabs.activeTab.config.handle
+	fileList.active = currentTabs?.activeTab?.config?.handle
 }
 
 const updateEditorUI = async (targetEditor, targetMediaView, tab) => {

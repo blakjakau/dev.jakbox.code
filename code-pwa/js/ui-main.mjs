@@ -211,18 +211,7 @@ const uiManager = {
 		leftMedia.setAttribute("id", "leftMedia")
 		leftHolder.appendChild(leftMedia)
 		
-		const backgroundElement = document.createElement("div");
-		backgroundElement.classList.add("background-element");
 		
-		const image = document.createElement("img");
-		image.src = "/images/code-192.png";
-		
-		const caption = document.createElement("div");
-		caption.classList.add("caption");
-		caption.textContent = "CTRL+N for a new file \n  CTRL+O to open a file";
-		backgroundElement.appendChild(image);
-		backgroundElement.appendChild(caption);
-		leftHolder.appendChild(backgroundElement);
 
 		rightHolder = new elements.Panel()
 		rightHolder.setAttribute("id", "rightHolder")
@@ -231,6 +220,19 @@ const uiManager = {
 		rightHolder.resizable = "left"
 		rightHolder.minSize = 0
 		rightHolder.maxSize = 2440
+
+		;([leftHolder, ]).forEach(holder=>{
+			const backgroundElement = document.createElement("div");
+			backgroundElement.classList.add("background-element");
+			const image = document.createElement("img");
+			image.src = "/images/code-192.png";
+			const caption = document.createElement("div");
+			caption.classList.add("caption");
+			caption.innerHTML = "CTRL+O to open a file <br/> CTRL+N to create a new file";
+			backgroundElement.appendChild(image);
+			backgroundElement.appendChild(caption);
+			holder.appendChild(backgroundElement);
+		})
 
 		rightElement = document.createElement("div")
 		
