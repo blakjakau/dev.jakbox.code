@@ -1572,7 +1572,7 @@ class TabBar extends Block {
 		}
 	}
 
-	moveAllTabsTo(otherTabBar, mark) {
+	moveAllTabsTo(otherTabBar, mark, suppressDefaultTab = false) {
 		if (!(otherTabBar instanceof TabBar)) {
 			console.error("Target is not a TabBar");
 			return;
@@ -1599,7 +1599,7 @@ class TabBar extends Block {
             otherTabBar.tabs[0].click();
         }
 
-        if (this.tabs.length === 0) {
+        if (this.tabs.length === 0 && !suppressDefaultTab) {
             this.defaultTab();
         }
 	}
@@ -1634,6 +1634,9 @@ class TabBar extends Block {
         // Handle active tab
         if (activeTabIsMoving) {
             sourceActiveTab.click(); // click it in its new home
+            if (sourceTabBar.tabs.length > 0) {
+                sourceTabBar.tabs[0].click();
+            }
         } else {
             // if source has no active tab, but still has tabs, activate one
             if (sourceTabBar.tabs.length > 0 && !sourceTabBar.activeTab) {

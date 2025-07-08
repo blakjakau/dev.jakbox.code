@@ -954,7 +954,11 @@ rightTabs.close = (event) => {
     closeTab(rightTabs, event);
 };
 
-const defaultTab = (targetTabs = leftTabs) => {
+const defaultTab = (targetTabs) => {
+	if (!targetTabs || !(targetTabs instanceof elements.TabBar)) {
+		console.error("No valid target tab bar provided for default tab.");
+		return;
+	}
 	const defaultSession = ace.createEditSession("", "")
 	const tab = targetTabs.add({ name: "untitled", mode: { mode: "" }, session: defaultSession })
 	
@@ -1490,13 +1494,13 @@ setTimeout(async () => {
 			ui.showFolders()
 		}
 		ui.toggleFiles()
-		defaultTab()
+		defaultTab(leftTabs)
 		ui.fileList.open = openFileHandle;
 		fileList.unsupported = openFileHandle;
 		leftTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, leftEdit);
 		rightTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, rightEdit);
-		leftTabs.defaultTab = defaultTab; // Assign defaultTab to leftTabs
-		rightTabs.defaultTab = defaultTab; // Assign defaultTab to rightTabs
+		leftTabs.defaultTab = () => defaultTab(leftTabs);
+		rightTabs.defaultTab = () => defaultTab(rightTabs);
 
 		if ("launchQueue" in window) {
 			launchQueue.setConsumer((params) => {

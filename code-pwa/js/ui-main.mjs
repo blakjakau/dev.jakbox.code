@@ -139,7 +139,7 @@ const uiManager = {
 				toggleSplitViewBtn.setAttribute("title", "Show split view")
 				leftHolder.style.width = "100%"
 				rightHolder.style.width = "0%"
-				rightTabs.moveAllTabsTo(leftTabs, "rightTabs");
+				rightTabs.moveAllTabsTo(leftTabs, "rightTabs", true);
 			}
 
 			setTimeout(()=>{
