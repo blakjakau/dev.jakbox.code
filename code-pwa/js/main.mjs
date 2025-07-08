@@ -979,6 +979,19 @@ fileAccess.on("click", async () => {
 		}
 	}
 
+	// Check if split view needs to be enabled
+	let enableSplitView = false;
+	for (const file of workspace.files) {
+		if (file.side === "right") {
+			enableSplitView = true;
+			break;
+		}
+	}
+
+	if (enableSplitView) {
+		ui.toggleSplitView(); // Enable split view if needed
+	}
+
 	if (allGood) {
 		// hide this button now
 		fileAccess.remove()
