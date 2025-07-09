@@ -1,5 +1,6 @@
 :root {
-	/*--theme: #00aabb;*/
+	--theme: #00aabb;
+	--themeDark: #007788;
 	--light: #fff;
 	--high: #dadada;
 	--mid: #afafaf;
@@ -578,7 +579,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
     bottom:32px;
     left: 32px; /* 8px offset from left */
     right: 32px; /* 8px offset from right */
-    background-color: var(--theme); /* Dark background */
+    background-color: var(--dark); /* Dark background */
     color: #fff; /* White text */
     padding: 6px;
     display: flex;
@@ -588,6 +589,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
     z-index: 1000; /* Ensure it's on top */
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); /* Subtle shadow (changed from bottom to top) */
     border-radius: 5px; /* Slightly rounded corners */
+    border: 1px solid var(--theme);
 }
 
 .notice-bar span {
@@ -596,7 +598,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 }
 
 .notice-bar button {
-    background-color: #007bff; /* Blue button */
+    background-color: var(--theme); /* Blue button */
     color: white;
     border: none;
     padding: 8px 15px;
@@ -606,15 +608,5 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 }
 
 .notice-bar button:hover {
-    background-color: #0056b3; /* Darker blue on hover */
-}
-
-.notice-bar button#leftDismissNoticeBtn,
-.notice-bar button#rightDismissNoticeBtn { /* Target both dismiss buttons */
-    background-color: #6c757d; /* Grey for dismiss */
-}
-
-.notice-bar button#leftDismissNoticeBtn:hover,
-.notice-bar button#rightDismissNoticeBtn:hover { /* Target both dismiss buttons on hover */
-    background-color: #5a6268; /* Darker grey on hover */
+    background-color: var(--themeDark); /* Darker blue on hover */
 }
