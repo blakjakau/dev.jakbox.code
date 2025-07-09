@@ -79,7 +79,16 @@ let isSavingFile = false; // New flag for file saving status
 ui.create()
 window.ui = ui
 window.code = {
-	version: "0.3.2",
+	version: (()=>{
+		const last="0.3.2"
+		 fetch("/version.json").then(async response=>{
+			const version = await response.json()
+			if(version.appName && version.version) {
+				window.code = {...window.code, ...version}
+			}
+		})
+		return last
+	})(),
 }
 
 const leftEdit = ui.leftEdit

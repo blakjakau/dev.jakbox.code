@@ -20,7 +20,7 @@
   "scope": "/",
   "theme_color": "#0077bb",
   "background_color": "#ffffff",
-  "description": "Super light code editing in your brower",
+  "description": "Super light code editing in your brower!",
   "screenshots": [
     {
       "src": "images/screen-small-720x540.png",
@@ -30,7 +30,8 @@
     {
       "src": "images/screen-mid-1024x662.png",
       "type": "image/png",
-      "sizes": "1024x662"
+      "sizes": "1024x662",
+      "form_factor":"wide"
     }
   ],
   "file_handlers": [

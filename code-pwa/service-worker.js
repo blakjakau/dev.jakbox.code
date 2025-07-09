@@ -1,3 +1,4 @@
+const APP_VERSION = "0.3.5"
 const CACHE_PRELOAD = "preload_resources"
 const CACHE_OFFLINE = "offline_access"
 
@@ -56,7 +57,6 @@ const staticAssets = [
 	"https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs",
 ]
 
-
 self.addEventListener("install", function (event) {
 	console.debug("[service] Installing")
 
@@ -67,7 +67,7 @@ self.addEventListener("install", function (event) {
 
 			// await caches.delete(CACHE_PRELOAD);
 			// await caches.delete(CACHE_OFFLINE);
-			
+
 			// Setting {cache: 'reload'} in the new request will ensure that the response
 			// isn't fulfilled from the HTTP cache; i.e., it will be from the network.
 			await cache.add(new Request(OFFLINE_URL, { cache: "reload" }))
@@ -85,7 +85,7 @@ self.addEventListener("install", function (event) {
 			}
 
 			// force cache these only if we're deployed
-			
+
 			if (deploy) {
 				for (let i = 0, l = essential.length; i < l; i++) {
 					try {
@@ -119,6 +119,20 @@ self.addEventListener("activate", (event) => {
 })
 
 self.addEventListener("fetch", function (event) {
+
+	// special handler for version request to read the variable in here
+	// Check if the request is for /version.json
+	const url = new URL(event.request.url)
+	if (url.pathname === "/version.json") {
+		const responseBody = { appName: "code.jakbox.dev", version: APP_VERSION, }
+		const jsonResponse = new Response(JSON.stringify(responseBody), {
+			headers: { "Content-Type": "application/json" },
+		})
+		event.respondWith(jsonResponse)
+		return
+	}
+
+	
 	if (event.request.mode === "navigate") {
 		event.respondWith(
 			(async () => {
@@ -153,24 +167,22 @@ self.addEventListener("fetch", function (event) {
 				const preload = await caches.open(CACHE_PRELOAD)
 				const offline = await caches.open(CACHE_OFFLINE)
 
-
 				// filter some url's for DEV
-				const dev = self.location.hostname=="localhost"
-				if(dev) {
+				const dev = self.location.hostname == "localhost"
+				if (dev) {
 					let substitute
-					if(event.request.url.indexOf("manifest.json") > 0) {
+					if (event.request.url.indexOf("manifest.json") > 0) {
 						substitute = event.request.url.replace("manifest.json", "manifest_dev.json")
 					}
-					if(event.request.url.indexOf("favicon.png") > 0) {
+					if (event.request.url.indexOf("favicon.png") > 0) {
 						substitute = event.request.url.replace("favicon.png", "favicon_dev.png")
 					}
-					
-					if(substitute) {
+
+					if (substitute) {
 						console.log("[service] [dev-substitute]", substitute)
 						return fetch(new Request(substitute)).catch(console.warn)
 					}
 				}
-				
 
 				const preloadResponse = await event.preloadResponse
 				if (preloadResponse) {
@@ -184,9 +196,9 @@ self.addEventListener("fetch", function (event) {
 					return preloaded
 				}
 
-				if(!navigator.onLine) {
+				if (!navigator.onLine) {
 					const cached = await offline.match(event.request.url)
-					if(cached) {
+					if (cached) {
 						console.debug("[service] [cache] offline", event.request.url)
 						return cached
 					} else {
@@ -194,13 +206,13 @@ self.addEventListener("fetch", function (event) {
 						return null
 					}
 				}
-				
+
 				const networkResponse = await fetch(event.request).catch(console.warn)
 
 				if (networkResponse) {
 					console.debug("[service] [updating] ", event.request.url)
-					if(event.request.url.indexOf("http")===0) {
-						// let's only cache HTTP/S content	
+					if (event.request.url.indexOf("http") === 0) {
+						// let's only cache HTTP/S content
 						offline.add(new Request(event.request.url))
 					}
 					return networkResponse

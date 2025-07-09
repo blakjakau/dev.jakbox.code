@@ -1,10 +1,10 @@
 :root {
-	--theme: #00aabb;
-	--themeDark: #007788;
+	/* theme colours are now specified in index.html */
+	/*--theme: #00aabb;*/
+	/*--themeDark: #007788;*/
 	--light: #fff;
 	--high: #dadada;
 	--mid: #afafaf;
-	/*--dark: #272822;*/
 	--low: #455155;
 	--dark: #384144;
 	--animRate:10ms;
