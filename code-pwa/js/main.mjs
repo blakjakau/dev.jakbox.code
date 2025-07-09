@@ -479,25 +479,25 @@ const updateThemeAndMode = (doSave = false) => {
 }
 
 const execCommandPrettify = () => {
-	let text = leftEdit.getValue()
-	const mode = leftEdit.getOption("mode")
+	let text = currentEditor.getValue()
+	const mode = currentEditor.getOption("mode")
 	if (!(mode in canPrettify)) return
 
 	const parser = canPrettify[mode]
-	const activeRow = leftEdit.getCursorPosition().row + 1
+	const activeRow = currentEditor.getCursorPosition().row + 1
 
 	try {
 		text = prettier.format(text, {
 			parser: parser.name,
 			plugins: parser.plugins,
-			printWidth: leftEdit.getOption("printMargin") || 120,
-			tabWidth: leftEdit.getOption("tabSize") || 4,
-			useTabs: !leftEdit.getOption("useSoftTabs") || false,
+			printWidth: currentEditor.getOption("printMargin") || 120,
+			tabWidth: currentEditor.getOption("tabSize") || 4,
+			useTabs: !currentEditor.getOption("useSoftTabs") || false,
 			semi: false,
 		})
-		leftEdit.setValue(text)
-		leftEdit.clearSelection()
-		leftEdit.gotoLine(activeRow)
+		currentEditor.setValue(text)
+		currentEditor.clearSelection()
+		currentEditor.gotoLine(activeRow)
 	} catch (e) {
 		console.warn("Unable to prettify", e)
 		const m = e.message
@@ -505,7 +505,7 @@ const execCommandPrettify = () => {
 			let match = m.match(/\>\s(\d*) \|/g)
 			if (match.length > 0) {
 				let l = parseInt(match[0].replace(/[\>\|\s]/g, "")) - 1
-				leftEdit.getSession().setAnnotations([
+				currentEditor.getSession().setAnnotations([
 					{
 						row: l,
 						column: 0,
@@ -513,7 +513,7 @@ const execCommandPrettify = () => {
 						type: "error", // also "warning" and "information"
 					},
 				])
-				leftEdit.execCommand("goToNextError")
+				currentEditor.execCommand("goToNextError")
 			}
 		} catch (er) {
 			console.error("Unable to prettify", e, er)
@@ -560,7 +560,7 @@ const execCommandAddFolder = () => {
 	fileOpen.click()
 }
 const execCommandToggleFolders = () => {
-	ui.toggleFiles()
+	ui.toggleSidebar()
 }
 
 const execCommandSplitView = () => {
@@ -1572,7 +1572,7 @@ setTimeout(async () => {
 		if (workspace.folders.length > 0) {
 			ui.showFolders()
 		}
-		ui.toggleFiles()
+		ui.toggleSidebar()
 		defaultTab(leftTabs)
 		ui.fileList.open = openFileHandle;
 		fileList.unsupported = openFileHandle;

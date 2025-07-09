@@ -27,8 +27,8 @@ a:visited {
 	bottom: var(--menuHeight);
 	box-shadow:none;
 	width: 400px;
-
 }
+
 tr.ace_optionsMenuEntry { line-height:1.5em; font-size:14px; }
 
 button { border:0; }
@@ -344,7 +344,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
     border-bottom:2px solid var(--theme);
 }
 
-#files {
+#sidebar {
 	z-index:5;
 	opacity:0;
 	background:var(--light);
@@ -357,7 +357,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	pointer-events:none;
 }
 
-#mainContent, #files, #statusbar, ui-actionbar, ui-file-list {
+#mainContent, #sidebar, #statusbar, ui-actionbar, ui-file-list {
 	transition:left var(--animRate), right var(--animRate), opacity var(--animRate), background var(--animRate), color var(--animRate);
 }
 
@@ -408,7 +408,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 .darkmode ui-menu,
 .darkmode #leftTabs,
 .darkmode #rightTabs,
-.darkmode #files,
+.darkmode #sidebar,
 .darkmode #statusbar,
 .darkmode #ace_settingsmenu,
 .darkmode #kbshortcutmenu,
@@ -441,7 +441,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 }
 
 
-.showFiles #files {
+.showFiles #sidebar {
 	opacity:1;
 	left: 0;
 	pointer-events:auto;

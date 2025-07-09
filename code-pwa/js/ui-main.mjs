@@ -22,7 +22,7 @@ var rightEdit, rightElement, rightHolder, rightMedia, rightTabs
 
 var menu
 var omni, modal, installer
-var files, fileActions, fileList
+var sidebar, fileActions, fileList
 var drawer, statusbar, statusTheme, statusMode, statusWorkspace
 var themeMenu, modeMenu, workspaceMenu
 var darkmodeMenu, darkmodeSelect
@@ -86,12 +86,12 @@ const uiManager = {
 
 		fileList = new elements.FileList()
 
-		files = new elements.Panel()
-		files.setAttribute("id", "files")
-		files.append(fileActions)
-		files.append(fileList)
-		files.resizable = "right"
-		files.minSize = 200
+		sidebar = new elements.Panel()
+		sidebar.setAttribute("id", "sidebar")
+		sidebar.append(fileActions)
+		sidebar.append(fileList)
+		sidebar.resizable = "right"
+		sidebar.minSize = 200
 		let sidebarWidth = 258
 
 		menu = document.querySelector("#menu")
@@ -117,7 +117,7 @@ const uiManager = {
 				mainContent.style.left = ""
 			}
 			setTimeout(()=>{
-				drawer.style.left = (files.offsetLeft+sidebarWidth)+"px"
+				drawer.style.left = (sidebar.offsetLeft+sidebarWidth)+"px"
 				constrainHolders()
 			},animRate)
 		})
@@ -244,14 +244,14 @@ const uiManager = {
 		rightMedia.setAttribute("id", "rightMedia")
 		rightHolder.appendChild(rightMedia)
 		
-		files.resizeListener((width)=>{
+		sidebar.resizeListener((width)=>{
 			sidebarWidth = width
 			mainContent.style.transition = "none"
 			mainContent.style.left = width + "px"
-			drawer.style.left = (files.offsetLeft+sidebarWidth)+"px"
+			drawer.style.left = (sidebar.offsetLeft+sidebarWidth)+"px"
 		})
 		
-		files.resizeEndListener(()=>{
+		sidebar.resizeEndListener(()=>{
 			mainContent.style.transition = ""
 			constrainHolders()
 		})
@@ -279,7 +279,7 @@ const uiManager = {
 		drawer.resizeListener((height)=>{
 			mainContent.style.transition = "none"
 			mainContent.style.bottom = height + "px"
-			// drawer.style.left = files.offsetWidth
+			// drawer.style.left = sidebar.offsetWidth
 		})
 
 		drawer.resizeEndListener(()=>{
@@ -670,7 +670,7 @@ const uiManager = {
             <button rel="reload">Reload</button> <button rel="dismiss">X</button> `;
         rightHolder.appendChild(rightFileModifiedNotice); // Append to rightHolder
 		
-		document.body.appendChild(files)
+		document.body.appendChild(sidebar)
 		document.body.appendChild(drawer)
 		document.body.appendChild(omni)
 
@@ -831,7 +831,7 @@ const uiManager = {
 		fileList.files = workspace.folders
 	},
 
-	toggleFiles: () => {
+	toggleSidebar: () => {
 		return openDir.click()
 	},
 	
@@ -895,7 +895,7 @@ const uiManager = {
 	get installer() { return installer },
 	
 	get fileActions() { return fileActions },
-	get files() { return files },
+	get sidebar() { return sidebar },
 	get fileList() { return fileList },
 	get leftTabs() { return leftTabs },
 	get darkmodeSelect() { return darkmodeSelect },
