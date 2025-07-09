@@ -574,18 +574,19 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 
 .notice-bar {
     position: absolute;
-    top: calc(var(--tabHeight) + 8px); /* Move to top with 8px offset */
-    left: 8px; /* 8px offset from left */
-    right: 8px; /* 8px offset from right */
+    /*top: calc(var(--tabHeight) + 8px); /* Move to top with 8px offset */
+    bottom:32px;
+    left: 32px; /* 8px offset from left */
+    right: 32px; /* 8px offset from right */
     background-color: var(--theme); /* Dark background */
     color: #fff; /* White text */
-    padding: 10px;
+    padding: 6px;
     display: flex;
     justify-content: space-between; /* Space between items */
     align-items: center;
-    gap: 10px; /* Space between items */
+    gap: 6px; /* Space between items */
     z-index: 1000; /* Ensure it's on top */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Subtle shadow (changed from bottom to top) */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); /* Subtle shadow (changed from bottom to top) */
     border-radius: 5px; /* Slightly rounded corners */
 }
 

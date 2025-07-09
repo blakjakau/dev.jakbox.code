@@ -658,7 +658,7 @@ const uiManager = {
         leftFileModifiedNotice.innerHTML = `
             <span>This file has been modified outside the editor.</span>
             <button id="leftReloadFileBtn">Reload</button>
-            <button id="leftDismissNoticeBtn">Dismiss</button>
+            <button id="leftDismissNoticeBtn">X</button>
         `;
         leftHolder.appendChild(leftFileModifiedNotice); // Append to leftHolder
 
@@ -670,7 +670,7 @@ const uiManager = {
         rightFileModifiedNotice.innerHTML = `
             <span>This file has been modified outside the editor.</span>
             <button id="rightReloadFileBtn">Reload</button>
-            <button id="rightDismissNoticeBtn">Dismiss</button>
+            <button id="rightDismissNoticeBtn">X</button>
         `;
         rightHolder.appendChild(rightFileModifiedNotice); // Append to rightHolder
 		
