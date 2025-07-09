@@ -21,6 +21,7 @@ a:visited {
 	text-decoration:none;
 }
 
+
 #ace_settingsmenu, #kbshortcutmenu {
 	top: var(--editorTop);
 	bottom: var(--menuHeight);
@@ -568,4 +569,53 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 .background-element .caption {
     margin-top: 1em;
     white-space: pre-wrap;
+}
+
+
+.notice-bar {
+    position: absolute;
+    top: 8px; /* Move to top with 8px offset */
+    left: 8px; /* 8px offset from left */
+    right: 8px; /* 8px offset from right */
+    background-color: #333; /* Dark background */
+    color: #fff; /* White text */
+    padding: 10px;
+    display: flex;
+    justify-content: space-between; /* Space between items */
+    align-items: center;
+    gap: 10px; /* Space between items */
+    z-index: 1000; /* Ensure it's on top */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Subtle shadow (changed from bottom to top) */
+    border-radius: 5px; /* Slightly rounded corners */
+}
+
+.notice-bar span {
+    flex-grow: 1; /* Allow text to take available space */
+    text-align: center;
+}
+
+.notice-bar button {
+    background-color: #007bff; /* Blue button */
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+
+
+.notice-bar button:hover {
+    background-color: #0056b3; /* Darker blue on hover */
+}
+
+.notice-bar button#leftDismissNoticeBtn,
+.notice-bar button#rightDismissNoticeBtn { /* Target both dismiss buttons */
+    background-color: #6c757d; /* Grey for dismiss */
+}
+
+.notice-bar button#leftDismissNoticeBtn:hover,
+.notice-bar button#rightDismissNoticeBtn:hover { /* Target both dismiss buttons on hover */
+    background-color: #5a6268; /* Darker grey on hover */
 }

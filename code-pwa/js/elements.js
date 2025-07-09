@@ -659,11 +659,17 @@ class TabItem extends Button {
 	}
 
 	set changed(v) {
-		this._changed = !!v
-		if (this._changed) {
-			this._close.innerHTML = "circle"
+		this._changed = !!v;
+		// Update the icon based on both internal 'changed' and external 'fileModified'
+		if (this.config && this.config.fileModified) {
+			this._close.innerHTML = "sync"; // Or "warning", "refresh", etc.
+			this._close.style.color = "orange"; // Optional: add a color hint
+		} else if (this._changed) {
+			this._close.innerHTML = "circle";
+			this._close.style.color = ""; // Reset color
 		} else {
-			this._close.innerHTML = "close"
+			this._close.innerHTML = "close";
+			this._close.style.color = ""; // Reset color
 		}
 	}
 

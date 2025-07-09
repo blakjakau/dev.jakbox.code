@@ -648,7 +648,31 @@ const uiManager = {
 		
 		
 		mainContent.appendChild(leftHolder)
-		mainContent.appendChild(rightHolder)
+		        mainContent.appendChild(rightHolder)
+
+        // Add the left file modified notice bar
+        const leftFileModifiedNotice = document.createElement("div");
+        leftFileModifiedNotice.setAttribute("id", "leftFileModifiedNotice");
+        leftFileModifiedNotice.classList.add("notice-bar");
+        leftFileModifiedNotice.style.display = "none"; // Hidden by default
+        leftFileModifiedNotice.innerHTML = `
+            <span>This file has been modified outside the editor.</span>
+            <button id="leftReloadFileBtn">Reload</button>
+            <button id="leftDismissNoticeBtn">Dismiss</button>
+        `;
+        leftHolder.appendChild(leftFileModifiedNotice); // Append to leftHolder
+
+        // Add the right file modified notice bar
+        const rightFileModifiedNotice = document.createElement("div");
+        rightFileModifiedNotice.setAttribute("id", "rightFileModifiedNotice");
+        rightFileModifiedNotice.classList.add("notice-bar");
+        rightFileModifiedNotice.style.display = "none"; // Hidden by default
+        rightFileModifiedNotice.innerHTML = `
+            <span>This file has been modified outside the editor.</span>
+            <button id="rightReloadFileBtn">Reload</button>
+            <button id="rightDismissNoticeBtn">Dismiss</button>
+        `;
+        rightHolder.appendChild(rightFileModifiedNotice); // Append to rightHolder
 		
 		document.body.appendChild(files)
 		document.body.appendChild(drawer)
@@ -688,7 +712,10 @@ const uiManager = {
 			editor.on("changeSelection", () => {
 				const selection = editor.getSelection()
 				var cursor = selection.getCursor()
-				const displayText = cursor.row + 1 + ":" + (cursor.column + 1)
+				let displayText = cursor.row + 1 + ":" + (cursor.column + 1)
+				if (editor.tabs && editor.tabs.activeTab && editor.tabs.activeTab.config && editor.tabs.activeTab.config.name) {
+					displayText = displayText + " - " + editor.tabs.activeTab.config.name
+				}
 				cursorpos.innerHTML = displayText
 			})
 	
@@ -893,6 +920,39 @@ const uiManager = {
 	set currentEditor(v) { currentEditor = v },
 	set currentTabs(v) { currentTabs = v },
 	set currentMediaView(v) { currentMediaView = v },
+
+    showFileModifiedNotice: (tab, side) => {
+        const noticeBarId = (side === 'left') ? "leftFileModifiedNotice" : "rightFileModifiedNotice";
+        const reloadBtnId = (side === 'left') ? "leftReloadFileBtn" : "rightReloadFileBtn";
+        const dismissBtnId = (side === 'left') ? "leftDismissNoticeBtn" : "rightDismissNoticeBtn";
+
+        const noticeBar = document.getElementById(noticeBarId);
+        const reloadBtn = document.getElementById(reloadBtnId);
+        const dismissBtn = document.getElementById(dismissBtnId);
+
+        // Store the tab reference on the notice bar for event handlers
+        noticeBar.currentTab = tab;
+
+        reloadBtn.onclick = () => {
+            console.log("Reload button clicked for tab:", tab.config.name);
+            window.app.reloadFile(tab);
+            uiManager.hideFileModifiedNotice(side); // Pass side
+        };
+
+        dismissBtn.onclick = () => {
+            tab.config.fileModified = false; // Clear the flag
+            uiManager.hideFileModifiedNotice(side); // Pass side
+        };
+
+        noticeBar.style.display = "flex"; // Show the notice bar
+    },
+
+    hideFileModifiedNotice: (side) => {
+        const noticeBarId = (side === 'left') ? "leftFileModifiedNotice" : "rightFileModifiedNotice";
+        const noticeBar = document.getElementById(noticeBarId);
+        noticeBar.style.display = "none"; // Hide the notice bar
+        noticeBar.currentTab = null; // Clear the tab reference
+    },
 }
 
 setTimeout(() => {
