@@ -1,5 +1,6 @@
 :root {
-	/*--theme: #00aabb;*/
+	--theme: #00aabb;
+	--themeDark: #007788;
 	--light: #fff;
 	--high: #dadada;
 	--mid: #afafaf;
@@ -568,4 +569,43 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 .background-element .caption {
     margin-top: 1em;
     white-space: pre-wrap;
+}
+
+
+.notice-bar {
+    position: absolute;
+    /*top: calc(var(--tabHeight) + 8px); /* Move to top with 8px offset */
+    bottom:32px;
+    left: 32px; /* 8px offset from left */
+    right: 32px; /* 8px offset from right */
+    background-color: var(--dark); /* Dark background */
+    color: #fff; /* White text */
+    padding: 6px;
+    display: flex;
+    justify-content: space-between; /* Space between items */
+    align-items: center;
+    gap: 6px; /* Space between items */
+    z-index: 1000; /* Ensure it's on top */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); /* Subtle shadow (changed from bottom to top) */
+    border-radius: 5px; /* Slightly rounded corners */
+    border: 1px solid var(--theme);
+}
+
+.notice-bar span {
+    flex-grow: 1; /* Allow text to take available space */
+    text-align: center;
+}
+
+.notice-bar button {
+    background-color: var(--theme); /* Blue button */
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.notice-bar button:hover {
+    background-color: var(--themeDark); /* Darker blue on hover */
 }

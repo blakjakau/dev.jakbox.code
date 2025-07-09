@@ -41,6 +41,7 @@ const toggleBodyClass = (className) => {
 }
 
 const uiManager = {
+	
 	create: (options = {}) => {
 
 		const animRate = 250
@@ -62,7 +63,6 @@ const uiManager = {
 			let l = leftHolder.offsetWidth/w
 			let r = rightHolder.offsetWidth/w
 			
-			console.log(w, l, r)
 			l = Math.max(0.25, Math.min(0.75, l))
 			r = 1 - l
 			// r = Math.max(0.25, Math.min(0.75, r))
@@ -420,7 +420,7 @@ const uiManager = {
 							currentEditor.find(reg)
 						} else {
 							const match = reg.exec(currentEditor.getValue())
-							// console.log(match);
+							
 							if (match && match.length > 0) {
 								currentEditor.selection.setRange({
 									start: currentEditor.session.doc.indexToPosition(match.index),
@@ -447,7 +447,7 @@ const uiManager = {
 							} else {
 								omni.results.hide()
 							}
-							// console.log(matches)
+							
 							let counter = 0
 							for (let item of matches) {
 								// if(counter>10) continue
@@ -648,7 +648,27 @@ const uiManager = {
 		
 		
 		mainContent.appendChild(leftHolder)
-		mainContent.appendChild(rightHolder)
+		        mainContent.appendChild(rightHolder)
+
+        // Add the left file modified notice bar
+        const leftFileModifiedNotice = document.createElement("div");
+        leftFileModifiedNotice.setAttribute("id", "leftFileModifiedNotice");
+        leftFileModifiedNotice.classList.add("notice-bar");
+        leftFileModifiedNotice.style.display = "none"; // Hidden by default
+        leftFileModifiedNotice.innerHTML = `
+            <span>This file has been modified outside the editor.</span>
+            <button rel="reload">Reload</button> <button rel="dismiss">X</button> `;
+        leftHolder.appendChild(leftFileModifiedNotice); // Append to leftHolder
+
+        // Add the right file modified notice bar
+        const rightFileModifiedNotice = document.createElement("div");
+        rightFileModifiedNotice.setAttribute("id", "rightFileModifiedNotice");
+        rightFileModifiedNotice.classList.add("notice-bar");
+        rightFileModifiedNotice.style.display = "none"; // Hidden by default
+        rightFileModifiedNotice.innerHTML = `
+            <span>This file has been modified outside the editor.</span>
+            <button rel="reload">Reload</button> <button rel="dismiss">X</button> `;
+        rightHolder.appendChild(rightFileModifiedNotice); // Append to rightHolder
 		
 		document.body.appendChild(files)
 		document.body.appendChild(drawer)
@@ -688,7 +708,10 @@ const uiManager = {
 			editor.on("changeSelection", () => {
 				const selection = editor.getSelection()
 				var cursor = selection.getCursor()
-				const displayText = cursor.row + 1 + ":" + (cursor.column + 1)
+				let displayText = cursor.row + 1 + ":" + (cursor.column + 1)
+				if (editor.tabs && editor.tabs.activeTab && editor.tabs.activeTab.config && editor.tabs.activeTab.config.name) {
+					displayText = displayText + " - " + editor.tabs.activeTab.config.name
+				}
 				cursorpos.innerHTML = displayText
 			})
 	
@@ -748,7 +771,7 @@ const uiManager = {
 				for (const n in ace_themes) {
 					if (ace_themes[n].theme == c_theme) {
 						statusTheme.text = ace_themes[n].caption
-						// console.log("THEME:",`[rel-data='${ace_themes[n].theme}']`)
+						
 						themeMenu.querySelector(`[rel-data='${ace_themes[n].theme}']`).icon = "done"
 					}
 				}
@@ -771,7 +794,7 @@ const uiManager = {
 				for (const n in ace_modes) {
 					if (ace_modes[n].mode == c_mode) {
 						statusMode.text = ace_modes[n].caption
-						// console.log("MODE:",`[rel-data='${ace_modes[n].mode}']`)
+						
 						modeMenu.querySelector(`[rel-data='${ace_modes[n].mode}']`).icon = "done"
 					}
 				}
@@ -796,8 +819,6 @@ const uiManager = {
 			}
 
 			// Set the 'done' icon for the currently selected mode in the menu
-			//console.log('app.darkmode:', app.darkmode);
-			//console.log('Querying for:', `[args='${app.darkmode}']`);
 			const selectedMenuItem = darkmodeMenu.querySelector(`[args='${app.darkmode}']`);
 			if (selectedMenuItem) {
 				selectedMenuItem.icon = "done";
@@ -866,7 +887,7 @@ const uiManager = {
 	},
 
 	showSettings: (opts) => {
-		console.log(opts)
+		console.debug(opts)
 		settingsPanel.show()
 	},
 
@@ -893,6 +914,41 @@ const uiManager = {
 	set currentEditor(v) { currentEditor = v },
 	set currentTabs(v) { currentTabs = v },
 	set currentMediaView(v) { currentMediaView = v },
+
+	set reloadFile(v) {
+		if("function" == typeof v) {
+			uiManager._reloadFile = v
+		}
+	},
+
+    showFileModifiedNotice: (tab, side) => {
+        const noticeBarId = (side === 'left') ? "leftFileModifiedNotice" : "rightFileModifiedNotice";
+        const noticeBar = document.getElementById(noticeBarId);
+        const reloadBtn = noticeBar.querySelector("button[rel=reload]");
+        const dismissBtn = noticeBar.querySelector("button[rel=dismiss]");
+
+        // Store the tab reference on the notice bar for event handlers
+        noticeBar.currentTab = tab;
+
+        reloadBtn.onclick = () => {
+            console.debug("Reload button clicked for tab:", tab.config.name);
+            uiManager._reloadFile(tab)
+            uiManager.hideFileModifiedNotice(side); // Pass side
+        };
+        dismissBtn.onclick = () => {
+            tab.config.fileModified = false; // Clear the flag
+            uiManager.hideFileModifiedNotice(side); // Pass side
+        };
+
+        noticeBar.style.display = "flex"; // Show the notice bar
+    },
+
+    hideFileModifiedNotice: (side) => {
+        const noticeBarId = (side === 'left') ? "leftFileModifiedNotice" : "rightFileModifiedNotice";
+        const noticeBar = document.getElementById(noticeBarId);
+        noticeBar.style.display = "none"; // Hide the notice bar
+        noticeBar.currentTab = null; // Clear the tab reference
+    },
 }
 
 setTimeout(() => {

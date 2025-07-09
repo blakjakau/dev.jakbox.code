@@ -659,11 +659,17 @@ class TabItem extends Button {
 	}
 
 	set changed(v) {
-		this._changed = !!v
-		if (this._changed) {
-			this._close.innerHTML = "circle"
+		this._changed = !!v;
+		// Update the icon based on both internal 'changed' and external 'fileModified'
+		if (this.config && this.config.fileModified) {
+			this._close.innerHTML = "sync"; // Or "warning", "refresh", etc.
+			this._close.style.color = "orange"; // Optional: add a color hint
+		} else if (this._changed) {
+			this._close.innerHTML = "circle";
+			this._close.style.color = ""; // Reset color
 		} else {
-			this._close.innerHTML = "close"
+			this._close.innerHTML = "close";
+			this._close.style.color = ""; // Reset color
 		}
 	}
 
@@ -1226,11 +1232,12 @@ const buildPath = (f) => {
 	return n
 }
 
+let tabCounter = 0;
+
 class TabBar extends Block {
 	constructor(content) {
 		super()
 		this._tabs = []
-		this.tabCounter = 0
 		this.onEmpty = null;
 		this.addEventListener("mousewheel", (e) => {
 			if (!e.shiftKey) {
@@ -1389,6 +1396,7 @@ class TabBar extends Block {
 				}
 
 				movingTab.tabBar = this
+                movingTab.config.side = this.id === 'leftTabs' ? 'left' : 'right'; // Update tab.config.side
 
 				if (this?.dropPosition == "before" && dropTarget) {
 					this.insertBefore(movingTab, dropTarget)
@@ -1491,8 +1499,8 @@ class TabBar extends Block {
 		const tab = new TabItem(config.name)
 		if (config.handle) tab.setAttribute("title", buildPath(config.handle))
 		tab.config = config
-		tab.id = `tab-${this.tabCounter++}`;
-		tab.setAttribute("id", `tab-${this.tabCounter++}`);
+		tab.id = `tab-${tabCounter++}`;
+		tab.setAttribute("id", `tab-${tabCounter++}`);
 		tab.tabBar = this
 		this._tabs.push(tab)
 		this.append(tab)
@@ -1613,6 +1621,13 @@ class TabBar extends Block {
             otherTabBar.tabs[0].click();
         }
 
+        // Update notice bar for the target tab bar
+        if (otherTabBar.activeTab && otherTabBar.activeTab.config.fileModified) {
+            window.ui.showFileModifiedNotice(otherTabBar.activeTab, otherTabBar.activeTab.config.side);
+        } else {
+            window.ui.hideFileModifiedNotice(otherTabBar.activeTab?.config?.side || (otherTabBar.id === 'leftTabs' ? 'left' : 'right'));
+        }
+
         if (this.tabs.length === 0) {
             if (suppressDefaultTab) {
                 if (typeof this.onEmpty === 'function') {
@@ -1621,6 +1636,8 @@ class TabBar extends Block {
             } else {
                 this.defaultTab();
             }
+            // Hide notice bar for the source tab bar if it becomes empty
+            window.ui.hideFileModifiedNotice(this.id === 'leftTabs' ? 'left' : 'right');
         }
 	}
 
@@ -1645,6 +1662,7 @@ class TabBar extends Block {
         tabsToMove.forEach(tab => {
             this.append(tab);
             tab.removeAttribute("data-original-parent");
+            tab.config.side = this.id === 'leftTabs' ? 'left' : 'right'; // Update tab.config.side
         });
 
         // Update tab arrays for both tab bars
@@ -1668,8 +1686,21 @@ class TabBar extends Block {
             }
         }
         
+        // Update notice bar for the target tab bar
+        if (this.activeTab && this.activeTab.config.fileModified) {
+            window.ui.showFileModifiedNotice(this.activeTab, this.activeTab.config.side);
+        } else {
+            window.ui.hideFileModifiedNotice(this.id === 'leftTabs' ? 'left' : 'right');
+        }
+
         if (sourceTabBar.tabs.length === 0) {
             sourceTabBar.defaultTab();
+            // Hide notice bar for the source tab bar if it becomes empty
+            window.ui.hideFileModifiedNotice(sourceTabBar.id === 'leftTabs' ? 'left' : 'right');
+        } else if (sourceTabBar.activeTab && sourceTabBar.activeTab.config.fileModified) {
+            window.ui.showFileModifiedNotice(sourceTabBar.activeTab, sourceTabBar.activeTab.config.side);
+        } else {
+            window.ui.hideFileModifiedNotice(sourceTabBar.id === 'leftTabs' ? 'left' : 'right');
         }
     }
 }
@@ -2441,10 +2472,8 @@ class Menu extends Panel {
 			this.showAt(el)
 		}
 		const attach = this.getAttribute("attachTo")
-		// 		console.log("attach to", attach)
 		if (attach) {
 			const el = document.querySelector(attach)
-			//  console.log("attached to", attach, el)
 			if (el) {
 				el.addEventListener("click", () => {
 					if (MenuOpen && CurrentMenu == this) return
@@ -2532,7 +2561,6 @@ class Menu extends Panel {
 
 		const event = new CustomEvent("show")
 		this.dispatchEvent(event)
-		// console.log(event)
 
 		setTimeout(() => {
 			if (CurrentMenu === this) {

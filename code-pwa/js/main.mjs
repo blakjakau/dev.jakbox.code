@@ -37,6 +37,7 @@ import parserCss from "https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs"
 import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
 
 import ui from "./ui-main.mjs"
+import { observeFile, unobserveFile } from "./fileSystemObserver.mjs"
 
 const canPrettify = {
 	"ace/mode/javascript": { name: "babel", plugins: [parserBabel] },
@@ -73,6 +74,7 @@ function safeString(string) {
 }
 
 let permissionNotReloaded = true // should we re-request permission for folders added
+let isSavingFile = false; // New flag for file saving status
 
 ui.create()
 window.ui = ui
@@ -185,7 +187,6 @@ window.ui.commands = {
 		}
 	},
 	exec(commandName, args) {
-		// console.log("execCommand", commandName, args)
 		if (commandName in this.byName) {
 			this.byName[commandName].exec(args)
 		}
@@ -240,7 +241,6 @@ window.ui.commands = {
 window.ui.commands.bindToDocument()
 
 const saveFile = async (text, handle) => {
-    console.log(`saveFile: Saving file ${handle.name}.`);
 	const tab = currentTabs.activeTab
 	const file = fileList.activeItem
 
@@ -272,10 +272,41 @@ const saveAppConfig = async () => {
 	console.debug("saved", app)
 }
 
+// New function to handle file modifications from FileSystemObserver
+const onFileModified = (fileHandle) => {
+    if (isSavingFile) { // Ignore changes if a save operation is in progress
+        return;
+    }
+    // Find the tab associated with the modified fileHandle
+    let foundTab = null;
+    for (const tab of leftTabs.tabs) {
+        if (tab.config.handle === fileHandle) {
+            foundTab = tab;
+            break;
+        }
+    }
+    if (!foundTab) {
+        for (const tab of rightTabs.tabs) {
+            if (tab.config.handle === fileHandle) {
+                foundTab = tab;
+                break;
+            }
+        }
+    }
+
+    if (foundTab) {
+        foundTab.config.fileModified = true;
+        // If the modified tab is the active tab, show the notice bar
+        if (foundTab === currentTabs.activeTab) {
+            ui.showFileModifiedNotice(foundTab, foundTab.config.side);
+        }
+    }
+};
+
 let workspaceUnloading = false
 const saveWorkspace = async () => {
 	if (workspaceUnloading) return
-	console.log("saveWorkspace: Saving workspace.", workspace);
+	console.debug("saveWorkspace: Saving workspace.", workspace);
 	set(`workspace_${workspace.id}`, workspace);
 }
 
@@ -326,7 +357,7 @@ const openWorkspace = (() => {
 	rename.remove()
 
 	return async (name, triggered = false) => {
-		console.log(`openWorkspace: Opening workspace ${name}.`);
+		console.debug(`openWorkspace: Opening workspace ${name}.`);
 		let load = await get(`workspace_${name}`)
 
 
@@ -567,6 +598,7 @@ const execCommandCloseActiveTab = async () => {
 	tab.close.click()
 }
 const execCommandSave = async () => {
+    isSavingFile = true; // Set flag at the beginning of save operation
 	const config = currentTabs.activeTab.config
 	if (config.handle) {
 		const text = currentEditor.getValue()
@@ -576,6 +608,7 @@ const execCommandSave = async () => {
 		const newHandle = await window.showSaveFilePicker().catch(console.warn)
 		if (!newHandle) {
 			alert("File NOT saved")
+            isSavingFile = false; // Reset flag if save is cancelled
 			return
 		}
 		config.handle = newHandle
@@ -585,19 +618,27 @@ const execCommandSave = async () => {
 		await saveFile(text, config.handle)
 		config.session.baseValue = text
 	}
+    setTimeout(() => { // Reset flag after a short delay
+        isSavingFile = false;
+    }, 500); // 500ms delay
 }
 
 const execCommandSaveAs = async () => {
+    isSavingFile = true; // Set flag at the beginning of save operation
 	const config = currentTabs.activeTab.config
 	const newHandle = await window.showSaveFilePicker().catch(console.warn)
 	if (!newHandle) {
 		alert("File NOT saved")
+        isSavingFile = false; // Reset flag if save is cancelled
 		return
 	}
 	config.handle = newHandle
 	config.name = newHandle.name
 	currentTabs.activeTab.text = config.name
 	saveFile(currentEditor.getValue(), config.handle)
+    setTimeout(() => { // Reset flag after a short delay
+        isSavingFile = false;
+    }, 500); // 500ms delay
 }
 
 const execCommandOpen = async () => {
@@ -609,7 +650,6 @@ const execCommandOpen = async () => {
 }
 
 const execCommandNewFile = async () => {
-    console.log("execCommandNewFile: Creating new file.");
 	const srcTab = leftTabs.activeTab || rightTabs.activeTab;
 	const mode = srcTab?.config?.mode?.mode || "";
 	const folder = srcTab?.config?.folder || undefined;
@@ -630,6 +670,38 @@ const execCommandNewFile = async () => {
 const execCommandNewWindow = async () => {
 	window.open("/", "new-window", `width=${window.outerWidth},height=${window.outerHeight}`)
 }
+
+// Function to reload a file from disk
+const reloadFile = async (tab) => {
+    const handle = tab.config.handle;
+    if (!handle) {
+        console.warn("No file handle found for tab:", tab.config.name);
+        return;
+    }
+
+    try {
+        const file = await handle.getFile();
+        const text = await file.text();
+
+        // Update the session with the new content
+        tab.config.session.setValue(text);
+        tab.config.session.baseValue = text; // Reset baseValue to current content
+        tab.config.fileModified = false; // Clear the file modified flag
+        tab.changed = false; // Clear unsaved changes flag
+
+        // If the reloaded tab is the active one, ensure the editor updates
+        if (tab === currentTabs.activeTab) {
+            currentEditor.setSession(tab.config.session);
+            currentEditor.focus();
+        }
+    } catch (error) {
+        console.error("Error reloading file:", tab.config.name, error);
+        alert(`Error reloading file ${tab.config.name}: ${error.message}`);
+    }
+};
+
+// Expose it globally for ui-main.mjs to call
+window.ui.reloadFile = reloadFile;
 
 const buildPath = (f) => {
 	if (!(f instanceof FileSystemFileHandle || f instanceof FileSystemDirectoryHandle)) {
@@ -742,7 +814,6 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 	}
 
 	if (fileMode.name == "javascript" && 1 == 0) {
-		// console.log("Pretifying JavaScript")
 		text = prettier.format(text, {
 			parser: "babel",
 			plugins: [parserBabel, parserHtml],
@@ -781,8 +852,11 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 		side: (targetEditor === leftEdit) ? "left" : "right",
 		handle: handle,
 		folder: handle.container,
+		fileModified: false, // Initialize fileModified flag
 	})
 	tab.click()
+
+	observeFile(handle, onFileModified); // Observe the file for changes
 
 	let matched = false
 	for (let i = 0; i < workspace.files.length; i++) {
@@ -821,19 +895,16 @@ const folderMenu = document.getElementById("folder_context")
 const topfolderMenu = document.getElementById("top_folder_context")
 
 folderMenu.click = topfolderMenu.click = (action) => {
-	//console.log(action)
 	const active = fileList.contextElement
 	const file = active.item
 	switch (action) {
 		case "remove":
 			for (let i = 0; i < workspace.folders.length; i++) {
-				//console.log(workspace.folders[i] === file)
 				if (workspace.folders[i] === file) {
 					workspace.folders.splice(i, 1)
 					i--
 				}
 			}
-			// 			saveAppConfig()
 			saveWorkspace()
 			ui.showFolders()
 			break
@@ -843,7 +914,6 @@ folderMenu.click = topfolderMenu.click = (action) => {
 			}
 			break
 	}
-	// console.log(fileList.contextElement.item)
 }
 fileList.context = (e) => {
 	let menu = folderMenu
@@ -901,12 +971,24 @@ leftTabs.click = async (event) => {
     const tab = event.tab;
     setCurrentEditor(leftEdit);
     updateEditorUI(leftEdit, ui.leftMedia, tab);
+    // Check if the file has been modified externally and show notice
+    if (tab.config.fileModified) {
+        ui.showFileModifiedNotice(tab, 'left');
+    } else {
+        ui.hideFileModifiedNotice('left'); // Hide if not modified
+    }
 };
 
 rightTabs.click = async (event) => {
     const tab = event.tab;
     setCurrentEditor(rightEdit);
     updateEditorUI(rightEdit, ui.rightMedia, tab);
+    // Check if the file has been modified externally and show notice
+    if (tab.config.fileModified) {
+        ui.showFileModifiedNotice(tab, 'right');
+    } else {
+        ui.hideFileModifiedNotice('right'); // Hide if not modified
+    }
 };
 
 const closeTab = (targetTabs, event) => {
@@ -937,6 +1019,8 @@ const closeTab = (targetTabs, event) => {
     }
 
     fileList.inactive = tab.config.handle;
+
+    unobserveFile(tab.config.handle); // Stop observing the file
 
 	tab.tabBar.remove(tab)
     // targetTabs.remove(tab);
@@ -1349,7 +1433,6 @@ const keyBinds = [
 				}
 				leftTabs.tabs[0].close.click()
 
-				//console.log("new workspace", name)
 				// refresh the folder list
 				ui.showFolders()
 				// update the workspace menu
@@ -1448,26 +1531,24 @@ setTimeout(async () => {
 		// preload stored file and folder handles
 		let stored = await get("appConfig")
 
-		if ("undefined" != typeof stored) {
-			app.darkmode = stored.darkmode || true
-			app.sessionOptions = stored.sessionOptions || null
-			app.rendererOptions = stored.rendererOptions || null
-			app.enableLiveAutocompletion = stored.enableLiveAutocompletion || null
+		app.darkmode = stored?.darkmode || "system"
+		app.sessionOptions = stored?.sessionOptions || null
+		app.rendererOptions = stored?.rendererOptions || null
+		app.enableLiveAutocompletion = stored?.enableLiveAutocompletion || null
 
-			app.workspace = stored.workspace || "default"
-			app.workspaces = stored.workspaces || [app.workspace]
+		app.workspace = stored?.workspace || "default"
+		app.workspaces = stored?.workspaces || [app.workspace]
 
-			if (app.workspace) {
-				openWorkspace(app.workspace)
-			} else {
-				updateWorkspaceSelectors()
-			}
-
-			if (app.darkmode) {
-				execCommandSetDarkMode(app.darkmode);
-			}
+		if (app.workspace) {
+			openWorkspace(app.workspace)
+		} else {
+			updateWorkspaceSelectors()
 		}
 
+		execCommandSetDarkMode(app.darkmode); 
+
+		saveAppConfig()
+		
 		// set supported files in our FileList control
 		let regs = []
 		for (let n in ace_modes) {
@@ -1504,12 +1585,14 @@ setTimeout(async () => {
 			leftEdit.setSession(ace.createEditSession(""));
 			leftEdit.container.style.display = 'none';
 			leftMedia.style.display = 'none';
+			window.ui.hideFileModifiedNotice('left'); // Hide notice bar when empty
 		};
 
 		rightTabs.onEmpty = () => {
 			rightEdit.setSession(ace.createEditSession(""));
 			rightEdit.container.style.display = 'none';
 			rightMedia.style.display = 'none';
+		    window.ui.hideFileModifiedNotice('right'); // Hide notice bar when empty
 		};
 
 		if ("launchQueue" in window) {
