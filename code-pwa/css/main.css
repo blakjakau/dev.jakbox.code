@@ -22,7 +22,6 @@ a:visited {
 	text-decoration:none;
 }
 
-
 #ace_settingsmenu, #kbshortcutmenu {
 	top: var(--editorTop);
 	bottom: var(--menuHeight);

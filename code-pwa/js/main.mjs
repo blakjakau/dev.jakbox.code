@@ -187,7 +187,6 @@ window.ui.commands = {
 		}
 	},
 	exec(commandName, args) {
-		// console.log("execCommand", commandName, args)
 		if (commandName in this.byName) {
 			this.byName[commandName].exec(args)
 		}
@@ -242,7 +241,6 @@ window.ui.commands = {
 window.ui.commands.bindToDocument()
 
 const saveFile = async (text, handle) => {
-    console.log(`saveFile: Saving file ${handle.name}.`);
 	const tab = currentTabs.activeTab
 	const file = fileList.activeItem
 
@@ -277,7 +275,6 @@ const saveAppConfig = async () => {
 // New function to handle file modifications from FileSystemObserver
 const onFileModified = (fileHandle) => {
     if (isSavingFile) { // Ignore changes if a save operation is in progress
-        console.log("Ignoring file modification during save operation.");
         return;
     }
     // Find the tab associated with the modified fileHandle
@@ -309,7 +306,7 @@ const onFileModified = (fileHandle) => {
 let workspaceUnloading = false
 const saveWorkspace = async () => {
 	if (workspaceUnloading) return
-	console.log("saveWorkspace: Saving workspace.", workspace);
+	console.debug("saveWorkspace: Saving workspace.", workspace);
 	set(`workspace_${workspace.id}`, workspace);
 }
 
@@ -360,7 +357,7 @@ const openWorkspace = (() => {
 	rename.remove()
 
 	return async (name, triggered = false) => {
-		console.log(`openWorkspace: Opening workspace ${name}.`);
+		console.debug(`openWorkspace: Opening workspace ${name}.`);
 		let load = await get(`workspace_${name}`)
 
 
@@ -653,7 +650,6 @@ const execCommandOpen = async () => {
 }
 
 const execCommandNewFile = async () => {
-    console.log("execCommandNewFile: Creating new file.");
 	const srcTab = leftTabs.activeTab || rightTabs.activeTab;
 	const mode = srcTab?.config?.mode?.mode || "";
 	const folder = srcTab?.config?.folder || undefined;
@@ -677,7 +673,6 @@ const execCommandNewWindow = async () => {
 
 // Function to reload a file from disk
 const reloadFile = async (tab) => {
-    console.log("Reloading file:", tab.config.name);
     const handle = tab.config.handle;
     if (!handle) {
         console.warn("No file handle found for tab:", tab.config.name);
@@ -699,7 +694,6 @@ const reloadFile = async (tab) => {
             currentEditor.setSession(tab.config.session);
             currentEditor.focus();
         }
-        console.log("File reloaded successfully:", tab.config.name);
     } catch (error) {
         console.error("Error reloading file:", tab.config.name, error);
         alert(`Error reloading file ${tab.config.name}: ${error.message}`);
@@ -707,7 +701,7 @@ const reloadFile = async (tab) => {
 };
 
 // Expose it globally for ui-main.mjs to call
-window.app.reloadFile = reloadFile;
+window.ui.reloadFile = reloadFile;
 
 const buildPath = (f) => {
 	if (!(f instanceof FileSystemFileHandle || f instanceof FileSystemDirectoryHandle)) {
@@ -820,7 +814,6 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 	}
 
 	if (fileMode.name == "javascript" && 1 == 0) {
-		// console.log("Pretifying JavaScript")
 		text = prettier.format(text, {
 			parser: "babel",
 			plugins: [parserBabel, parserHtml],
@@ -902,19 +895,16 @@ const folderMenu = document.getElementById("folder_context")
 const topfolderMenu = document.getElementById("top_folder_context")
 
 folderMenu.click = topfolderMenu.click = (action) => {
-	//console.log(action)
 	const active = fileList.contextElement
 	const file = active.item
 	switch (action) {
 		case "remove":
 			for (let i = 0; i < workspace.folders.length; i++) {
-				//console.log(workspace.folders[i] === file)
 				if (workspace.folders[i] === file) {
 					workspace.folders.splice(i, 1)
 					i--
 				}
 			}
-			// 			saveAppConfig()
 			saveWorkspace()
 			ui.showFolders()
 			break
@@ -924,7 +914,6 @@ folderMenu.click = topfolderMenu.click = (action) => {
 			}
 			break
 	}
-	// console.log(fileList.contextElement.item)
 }
 fileList.context = (e) => {
 	let menu = folderMenu
@@ -1444,7 +1433,6 @@ const keyBinds = [
 				}
 				leftTabs.tabs[0].close.click()
 
-				//console.log("new workspace", name)
 				// refresh the folder list
 				ui.showFolders()
 				// update the workspace menu
@@ -1543,26 +1531,24 @@ setTimeout(async () => {
 		// preload stored file and folder handles
 		let stored = await get("appConfig")
 
-		if ("undefined" != typeof stored) {
-			app.darkmode = stored.darkmode || true
-			app.sessionOptions = stored.sessionOptions || null
-			app.rendererOptions = stored.rendererOptions || null
-			app.enableLiveAutocompletion = stored.enableLiveAutocompletion || null
+		app.darkmode = stored?.darkmode || "system"
+		app.sessionOptions = stored?.sessionOptions || null
+		app.rendererOptions = stored?.rendererOptions || null
+		app.enableLiveAutocompletion = stored?.enableLiveAutocompletion || null
 
-			app.workspace = stored.workspace || "default"
-			app.workspaces = stored.workspaces || [app.workspace]
+		app.workspace = stored?.workspace || "default"
+		app.workspaces = stored?.workspaces || [app.workspace]
 
-			if (app.workspace) {
-				openWorkspace(app.workspace)
-			} else {
-				updateWorkspaceSelectors()
-			}
-
-			if (app.darkmode) {
-				execCommandSetDarkMode(app.darkmode);
-			}
+		if (app.workspace) {
+			openWorkspace(app.workspace)
+		} else {
+			updateWorkspaceSelectors()
 		}
 
+		execCommandSetDarkMode(app.darkmode); 
+
+		saveAppConfig()
+		
 		// set supported files in our FileList control
 		let regs = []
 		for (let n in ace_modes) {
@@ -1598,16 +1584,16 @@ setTimeout(async () => {
 		leftTabs.onEmpty = () => {
 			leftEdit.setSession(ace.createEditSession(""));
 			leftEdit.container.style.display = 'none';
-				leftMedia.style.display = 'none';
-    window.ui.hideFileModifiedNotice('left'); // Hide notice bar when empty
-};
+			leftMedia.style.display = 'none';
+			window.ui.hideFileModifiedNotice('left'); // Hide notice bar when empty
+		};
 
 		rightTabs.onEmpty = () => {
-	rightEdit.setSession(ace.createEditSession(""));
-	rightEdit.container.style.display = 'none';
-	rightMedia.style.display = 'none';
-    window.ui.hideFileModifiedNotice('right'); // Hide notice bar when empty
-};
+			rightEdit.setSession(ace.createEditSession(""));
+			rightEdit.container.style.display = 'none';
+			rightMedia.style.display = 'none';
+		    window.ui.hideFileModifiedNotice('right'); // Hide notice bar when empty
+		};
 
 		if ("launchQueue" in window) {
 			launchQueue.setConsumer((params) => {

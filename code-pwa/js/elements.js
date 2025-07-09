@@ -1232,11 +1232,12 @@ const buildPath = (f) => {
 	return n
 }
 
+let tabCounter = 0;
+
 class TabBar extends Block {
 	constructor(content) {
 		super()
 		this._tabs = []
-		this.tabCounter = 0
 		this.onEmpty = null;
 		this.addEventListener("mousewheel", (e) => {
 			if (!e.shiftKey) {
@@ -1395,6 +1396,7 @@ class TabBar extends Block {
 				}
 
 				movingTab.tabBar = this
+                movingTab.config.side = this.id === 'leftTabs' ? 'left' : 'right'; // Update tab.config.side
 
 				if (this?.dropPosition == "before" && dropTarget) {
 					this.insertBefore(movingTab, dropTarget)
@@ -1497,8 +1499,8 @@ class TabBar extends Block {
 		const tab = new TabItem(config.name)
 		if (config.handle) tab.setAttribute("title", buildPath(config.handle))
 		tab.config = config
-		tab.id = `tab-${this.tabCounter++}`;
-		tab.setAttribute("id", `tab-${this.tabCounter++}`);
+		tab.id = `tab-${tabCounter++}`;
+		tab.setAttribute("id", `tab-${tabCounter++}`);
 		tab.tabBar = this
 		this._tabs.push(tab)
 		this.append(tab)
@@ -1660,6 +1662,7 @@ class TabBar extends Block {
         tabsToMove.forEach(tab => {
             this.append(tab);
             tab.removeAttribute("data-original-parent");
+            tab.config.side = this.id === 'leftTabs' ? 'left' : 'right'; // Update tab.config.side
         });
 
         // Update tab arrays for both tab bars
@@ -2469,10 +2472,8 @@ class Menu extends Panel {
 			this.showAt(el)
 		}
 		const attach = this.getAttribute("attachTo")
-		// 		console.log("attach to", attach)
 		if (attach) {
 			const el = document.querySelector(attach)
-			//  console.log("attached to", attach, el)
 			if (el) {
 				el.addEventListener("click", () => {
 					if (MenuOpen && CurrentMenu == this) return
@@ -2560,7 +2561,6 @@ class Menu extends Panel {
 
 		const event = new CustomEvent("show")
 		this.dispatchEvent(event)
-		// console.log(event)
 
 		setTimeout(() => {
 			if (CurrentMenu === this) {
