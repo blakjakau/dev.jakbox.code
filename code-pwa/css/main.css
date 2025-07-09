@@ -574,10 +574,10 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 
 .notice-bar {
     position: absolute;
-    top: 8px; /* Move to top with 8px offset */
+    top: calc(var(--tabHeight) + 8px); /* Move to top with 8px offset */
     left: 8px; /* 8px offset from left */
     right: 8px; /* 8px offset from right */
-    background-color: #333; /* Dark background */
+    background-color: var(--theme); /* Dark background */
     color: #fff; /* White text */
     padding: 10px;
     display: flex;
@@ -603,8 +603,6 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
     cursor: pointer;
     font-size: 0.9em;
 }
-
-
 
 .notice-bar button:hover {
     background-color: #0056b3; /* Darker blue on hover */

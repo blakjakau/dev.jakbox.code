@@ -1598,14 +1598,16 @@ setTimeout(async () => {
 		leftTabs.onEmpty = () => {
 			leftEdit.setSession(ace.createEditSession(""));
 			leftEdit.container.style.display = 'none';
-			leftMedia.style.display = 'none';
-		};
+				leftMedia.style.display = 'none';
+    window.ui.hideFileModifiedNotice('left'); // Hide notice bar when empty
+};
 
 		rightTabs.onEmpty = () => {
-			rightEdit.setSession(ace.createEditSession(""));
-			rightEdit.container.style.display = 'none';
-			rightMedia.style.display = 'none';
-		};
+	rightEdit.setSession(ace.createEditSession(""));
+	rightEdit.container.style.display = 'none';
+	rightMedia.style.display = 'none';
+    window.ui.hideFileModifiedNotice('right'); // Hide notice bar when empty
+};
 
 		if ("launchQueue" in window) {
 			launchQueue.setConsumer((params) => {

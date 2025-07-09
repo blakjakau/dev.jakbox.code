@@ -1619,6 +1619,13 @@ class TabBar extends Block {
             otherTabBar.tabs[0].click();
         }
 
+        // Update notice bar for the target tab bar
+        if (otherTabBar.activeTab && otherTabBar.activeTab.config.fileModified) {
+            window.ui.showFileModifiedNotice(otherTabBar.activeTab, otherTabBar.activeTab.config.side);
+        } else {
+            window.ui.hideFileModifiedNotice(otherTabBar.activeTab?.config?.side || (otherTabBar.id === 'leftTabs' ? 'left' : 'right'));
+        }
+
         if (this.tabs.length === 0) {
             if (suppressDefaultTab) {
                 if (typeof this.onEmpty === 'function') {
@@ -1627,6 +1634,8 @@ class TabBar extends Block {
             } else {
                 this.defaultTab();
             }
+            // Hide notice bar for the source tab bar if it becomes empty
+            window.ui.hideFileModifiedNotice(this.id === 'leftTabs' ? 'left' : 'right');
         }
 	}
 
@@ -1674,8 +1683,21 @@ class TabBar extends Block {
             }
         }
         
+        // Update notice bar for the target tab bar
+        if (this.activeTab && this.activeTab.config.fileModified) {
+            window.ui.showFileModifiedNotice(this.activeTab, this.activeTab.config.side);
+        } else {
+            window.ui.hideFileModifiedNotice(this.id === 'leftTabs' ? 'left' : 'right');
+        }
+
         if (sourceTabBar.tabs.length === 0) {
             sourceTabBar.defaultTab();
+            // Hide notice bar for the source tab bar if it becomes empty
+            window.ui.hideFileModifiedNotice(sourceTabBar.id === 'leftTabs' ? 'left' : 'right');
+        } else if (sourceTabBar.activeTab && sourceTabBar.activeTab.config.fileModified) {
+            window.ui.showFileModifiedNotice(sourceTabBar.activeTab, sourceTabBar.activeTab.config.side);
+        } else {
+            window.ui.hideFileModifiedNotice(sourceTabBar.id === 'leftTabs' ? 'left' : 'right');
         }
     }
 }
