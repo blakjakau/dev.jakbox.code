@@ -40,11 +40,12 @@ const toggleBodyClass = (className) => {
 	}
 }
 
+var animRate = 250, constrainHolders
+
 const uiManager = {
 	
 	create: (options = {}) => {
 
-		const animRate = 250
 		document.documentElement.style.setProperty('--animRate', `${animRate}ms`);
 		
 		const defaults = {
@@ -53,7 +54,7 @@ const uiManager = {
 			keyboard: "ace/keyboard/sublime",
 		}
 
-		const constrainHolders = ()=>{
+		constrainHolders = ()=>{
 			if(!document.body.classList.contains("showSplitView")) {
 				leftEdit.resize()
 				rightEdit.resize()
@@ -127,29 +128,7 @@ const uiManager = {
 		toggleSplitViewBtn.setAttribute("title", "Toggle split view")
 		toggleSplitViewBtn.setAttribute("id", "toggleSplitView")
 		toggleSplitViewBtn.on("click", () => {
-			const targetWidth = (window.innerWidth - leftHolder.offsetLeft)/2
-			if (toggleBodyClass("showSplitView")) {
-				toggleSplitViewBtn.icon = "view_column"
-				toggleSplitViewBtn.setAttribute("title", "Hide split view")
-				leftHolder.style.width = "50%"
-				rightHolder.style.width = "50%"
-				rightTabs.reclaimTabs(leftTabs, "rightTabs");
-				if (rightTabs.tabs.length === 0) {
-					rightTabs.onEmpty();
-				}
-				uiManager.currentEditor = rightEdit;
-			} else {
-				toggleSplitViewBtn.icon = "vertical_split"
-				toggleSplitViewBtn.setAttribute("title", "Show split view")
-				leftHolder.style.width = "100%"
-				rightHolder.style.width = "0%"
-				rightTabs.moveAllTabsTo(leftTabs, "rightTabs", true);
-				uiManager.currentEditor = leftEdit;
-			}
-
-			setTimeout(()=>{
-				constrainHolders()
-			},animRate)
+			uiManager.toggleSplitView()
 		})
 
 		leftTabs = new elements.TabBar()
@@ -850,7 +829,26 @@ const uiManager = {
 	},
 	
 	toggleSplitView: (forceOpen=false)=>{
-		return toggleSplitViewBtn.click(forceOpen)
+		const targetWidth = (window.innerWidth - leftHolder.offsetLeft)/2
+		if (toggleBodyClass("showSplitView")) {
+			toggleSplitViewBtn.icon = "view_column"
+			toggleSplitViewBtn.setAttribute("title", "Hide split view")
+			leftHolder.style.width = "50%"
+			rightHolder.style.width = "50%"
+			rightTabs.reclaimTabs(leftTabs, "rightTabs");
+			uiManager.currentEditor = rightEdit;
+		} else {
+			toggleSplitViewBtn.icon = "vertical_split"
+			toggleSplitViewBtn.setAttribute("title", "Show split view")
+			leftHolder.style.width = "100%"
+			rightHolder.style.width = "0%"
+			rightTabs.moveAllTabsTo(leftTabs, "rightTabs", true);
+			uiManager.currentEditor = leftEdit;
+		}
+
+		setTimeout(()=>{
+			constrainHolders()
+		},animRate)
 	},
 
 	omnibox: (mode) => {
