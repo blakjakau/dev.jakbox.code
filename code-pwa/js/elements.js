@@ -1239,19 +1239,38 @@ class TabBar extends Block {
 		super()
 		this._tabs = []
 		this.onEmpty = null;
+		this.splitViewDragEnabled = false;
 		this.addEventListener("mousewheel", (e) => {
 			if (!e.shiftKey) {
 				e.preventDefault()
 				this.scrollLeft += e.deltaY
 			}
 		}, {passive:false})
-		// this.ondragleave = (e)=>{
-		//     this.dropTarget = undefined
-		// }
+		
 		this.ondragover = (e) => {
 			e.preventDefault();
 			e.dataTransfer.dropEffect = "move";
-		
+
+			// Reset dropPosition and remove split view indicator at the beginning of every dragover event
+			this.dropPosition = null;
+			this.classList.remove('show-split-view-indicator');
+
+			// If split view is active, disable the split view drag functionality
+			if (document.body.classList.contains('showSplitView')) {
+				return;
+			}
+
+			const rect = this.getBoundingClientRect();
+			const x = e.clientX - rect.left;
+
+			if (this.splitViewDragEnabled && x > (rect.width - 100)) {
+				this.classList.add('show-split-view-indicator');
+				this.dropTarget = null;
+				this.dropPosition = 'split';
+				return;
+			}
+
+			// If not in split view drag area, proceed with normal tab reordering logic
 			let targetTab = null;
 			if (e.target instanceof TabItem) {
 				targetTab = e.target;
@@ -1350,6 +1369,7 @@ class TabBar extends Block {
 				tab.classList.remove("drop-highlight");
 			}
 		}
+		this.classList.remove('show-split-view-indicator'); // Remove split view indicator
 
 		console.debug("tabDrop event triggered", e);
 		console.debug("dropTarget:", this.dropTarget);
@@ -1371,7 +1391,34 @@ class TabBar extends Block {
 			let movingTabId = e.dataTransfer.getData("text/plain")
 			let movingTab = document.getElementById(movingTabId)
 			
-			if (movingTab && movingTab.parentElement !== this) {
+			if (this.dropPosition === 'split') {
+				window.ui.toggleSplitView(true);
+				const rightTabs = window.ui.rightTabs;
+				const leftTabs = window.ui.leftTabs;
+				
+				// Remove from old TabBar's _tabs array
+				let oldTabBar = movingTab.parentElement;
+				if(oldTabBar && oldTabBar instanceof TabBar) {
+					const wasActive = movingTab.hasAttribute("active");
+					oldTabBar._tabs = oldTabBar._tabs.filter(tab => tab !== movingTab);
+					if(wasActive && oldTabBar._tabs.length > 0) {
+						oldTabBar._tabs[0].click();
+					} else if (oldTabBar._tabs.length === 0) {
+						if (typeof oldTabBar.onEmpty === 'function') {
+                            oldTabBar.onEmpty();
+                        }
+					}
+				}
+
+				rightTabs.append(movingTab);
+				movingTab.tabBar = rightTabs;
+				movingTab.config.side = 'right';
+				rightTabs._tabs = Array.from(rightTabs.children).filter(child => child instanceof TabItem);
+				rightTabs.resetMargins();
+				movingTab.click();
+				window.ui.currentEditor = window.ui.rightEdit;
+
+			} else if (movingTab && movingTab.parentElement !== this) {
 				// Remove from old TabBar's _tabs array
 				let oldTabBar = movingTab.parentElement
 				if(oldTabBar && oldTabBar instanceof TabBar) {

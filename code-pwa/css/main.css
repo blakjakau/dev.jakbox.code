@@ -349,6 +349,18 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
     border-bottom:2px solid var(--themeDark);
 }
 
+ui-tabbar.show-split-view-indicator::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 100px; /* This is the 100px region */
+    background: rgba(0, 255, 0, 0.1); /* Light green overlay */
+    pointer-events: none; /* Ensure it doesn't interfere with drag events */
+    display: block;
+}
+
 .current #leftTabs,
 .current #rightTabs {
     border-bottom:2px solid var(--theme);

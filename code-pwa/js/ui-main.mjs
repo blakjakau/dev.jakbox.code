@@ -156,6 +156,7 @@ const uiManager = {
 		leftTabs.type = "tabs"
 		leftTabs.setAttribute("id", "leftTabs")
 		leftTabs.setAttribute("slim", "true")
+		leftTabs.splitViewDragEnabled = true;
 		
 		leftTabs.append(openDir)
 		leftTabs.append(toggleSplitViewBtn)
