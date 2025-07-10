@@ -137,12 +137,14 @@ const uiManager = {
 				if (rightTabs.tabs.length === 0) {
 					rightTabs.onEmpty();
 				}
+				uiManager.currentEditor = rightEdit;
 			} else {
 				toggleSplitViewBtn.icon = "vertical_split"
 				toggleSplitViewBtn.setAttribute("title", "Show split view")
 				leftHolder.style.width = "100%"
 				rightHolder.style.width = "0%"
 				rightTabs.moveAllTabsTo(leftTabs, "rightTabs", true);
+				uiManager.currentEditor = leftEdit;
 			}
 
 			setTimeout(()=>{
@@ -201,6 +203,7 @@ const uiManager = {
 
 		leftHolder = new elements.Panel()
 		leftHolder.setAttribute("id", "leftHolder")
+		leftHolder.classList.add("current")
 		
 		leftElement = document.createElement("div")
 		leftElement.classList.add("loading")
@@ -642,6 +645,11 @@ const uiManager = {
 		leftHolder.appendChild(leftTabs)
 		rightHolder.appendChild(rightTabs)
 
+		leftTabs.on("click", () => { uiManager.currentEditor = leftEdit })
+		rightTabs.on("click", () => { uiManager.currentEditor = rightEdit })
+		leftHolder.on("click", () => { uiManager.currentEditor = leftEdit })
+		rightHolder.on("click", () => { uiManager.currentEditor = rightEdit })
+
 		document.body.appendChild(menu)
 		document.body.appendChild(statusbar)
 		
@@ -685,6 +693,7 @@ const uiManager = {
 		leftEdit.tabs = leftTabs
 		rightEdit.tabs = rightTabs
 		
+		uiManager.currentEditor = leftEdit;
 		window.omni = omni
 		ace.require("ace/keyboard/sublime")
 		ace.require("ace/etc/keybindings_menu")
@@ -705,6 +714,10 @@ const uiManager = {
 			})
 	
 	
+			editor.on("focus", () => {
+				uiManager.currentEditor = editor
+			})
+
 			editor.on("changeSelection", () => {
 				const selection = editor.getSelection()
 				var cursor = selection.getCursor()
@@ -911,8 +924,23 @@ const uiManager = {
 	get rightMedia() { return rightMedia },
 	get rightTabs() { return rightTabs },
 	
-	set currentEditor(v) { currentEditor = v },
+	set currentEditor(v) {
+		currentEditor = v;
+		if (v === leftEdit) {
+			leftHolder.classList.add("current");
+			rightHolder.classList.remove("current");
+			currentTabs = leftTabs;
+		} else {
+			leftHolder.classList.remove("current");
+			rightHolder.classList.add("current");
+			currentTabs = rightTabs;
+		}
+	},
 	set currentTabs(v) { currentTabs = v },
+	get currentEditor() { return currentEditor },
+	get currentTabs() { return currentTabs },
+	get currentMediaView() { return currentMediaView },
+
 	set currentMediaView(v) { currentMediaView = v },
 
 	set reloadFile(v) {

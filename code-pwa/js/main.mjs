@@ -659,16 +659,13 @@ const execCommandOpen = async () => {
 }
 
 const execCommandNewFile = async () => {
-	const srcTab = leftTabs.activeTab || rightTabs.activeTab;
+	const srcTab = ui.currentTabs.activeTab
 	const mode = srcTab?.config?.mode?.mode || "";
 	const folder = srcTab?.config?.folder || undefined;
 	const newSession = ace.createEditSession("", mode);
 	newSession.baseValue = "";
 
-	let targetTabs = leftTabs;
-	if (rightTabs.activeTab) {
-		targetTabs = rightTabs;
-	}
+	let targetTabs = ui.currentTabs
 
 	const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder, side: (targetTabs === leftTabs) ? "left" : "right" });
 
@@ -1046,9 +1043,8 @@ rightTabs.close = (event) => {
 };
 
 const defaultTab = (targetTabs) => {
-	if (!targetTabs || !(targetTabs instanceof elements.TabBar)) {
-		console.error("No valid target tab bar provided for default tab.");
-		return;
+	if(!targetTabs) {
+		targetTabs = ui.currentTabs
 	}
 	const defaultSession = ace.createEditSession("", "")
 	const tab = targetTabs.add({ name: "untitled", mode: { mode: "" }, session: defaultSession })
@@ -1582,7 +1578,9 @@ setTimeout(async () => {
 			ui.showFolders()
 		}
 		ui.toggleSidebar()
-		defaultTab(leftTabs)
+		ui.currentTabs = ui.leftTabs
+		
+		defaultTab()
 		ui.fileList.open = openFileHandle;
 		fileList.unsupported = openFileHandle;
 		leftTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, leftEdit);
@@ -1602,6 +1600,7 @@ setTimeout(async () => {
 			rightEdit.container.style.display = 'none';
 			rightMedia.style.display = 'none';
 		    window.ui.hideFileModifiedNotice('right'); // Hide notice bar when empty
+			ui.toggleSplitView();
 		};
 
 		if ("launchQueue" in window) {

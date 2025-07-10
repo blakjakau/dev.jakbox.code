@@ -61,7 +61,9 @@ ui-tabbar[slim]>ui-tab-item {
 	border-radius: 4px 4px 0 0; background:none; 
 	color: inherit;
 	border: 0px; transition: background 150ms ease-in-out, margin 100ms ease-in-out; }
-ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme);  border:0px; color: var(--light)}
+ui-tabbar[slim]>ui-tab-item[active] {  background: var(--themeDark);  border:0px; color: var(--light)}
+.current ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme); }
+
 /*ui-tabbar[slim]>ui-tab-item:hover+ui-tab-item { background: var(--dark);  }*/
 ui-tabbar[slim]>ui-tab-item:not([active]):hover {
 	background: var(--high);
@@ -117,6 +119,9 @@ ui-tab-item.drop-highlight {
 
 #rightHolder {
     width: 0;
+}
+body:not(.showSplitView) #rightHolder {
+	pointer-events:none;
 }
 
 #leftEdit,
@@ -341,6 +346,11 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	display:flex;
 	overflow-x: auto;
     box-sizing: border-box;
+    border-bottom:2px solid var(--themeDark);
+}
+
+.current #leftTabs,
+.current #rightTabs {
     border-bottom:2px solid var(--theme);
 }
 
