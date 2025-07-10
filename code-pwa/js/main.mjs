@@ -36,7 +36,7 @@ import parserHtml from "https://unpkg.com/prettier@2.4.1/esm/parser-html.mjs"
 import parserCss from "https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs"
 import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
 
-import ui from "./ui-main.mjs"
+import {uiManager as ui, ActionBar, Block, Button, ContentFill, CounterButton, Element, Effects, Effect, FileItem, FileList, Icon, Inline, Input, Inner, MediaView, Panel, Ripple, TabBar, TabItem, View, Menu, MenuItem, FileUploadList, actionBars, addStylesheet, buildPath, clone, isElement, isFunction, isNotNull, isset, readAndOrderDirectory, readAndOrderDirectoryRecursive, sortOnName } from './ui-main.mjs';
 import { observeFile, unobserveFile } from "./fileSystemObserver.mjs"
 
 const canPrettify = {
@@ -123,8 +123,8 @@ const workspace = {
 window.app = app
 window.workspace = workspace
 
-const fileOpen = new elements.Button("Add Folder to Workspace")
-const fileAccess = new elements.Button("Restore")
+const fileOpen = new Button("Add Folder to Workspace")
+const fileAccess = new Button("Restore")
 const menuRestoreFolders = document.querySelector("#menu_restore_folders")
 
 
@@ -709,14 +709,14 @@ const reloadFile = async (tab) => {
 // Expose it globally for ui-main.mjs to call
 window.ui.reloadFile = reloadFile;
 
-const buildPath = (f) => {
-	if (!(f instanceof FileSystemFileHandle || f instanceof FileSystemDirectoryHandle)) {
-		return ""
-	}
-	let n = f.name
-	if (f.container) n = buildPath(f.container) + "/" + n
-	return n
-}
+// 	const buildPath = (f) => {
+// 	if (!(f instanceof FileSystemFileHandle || f instanceof FileSystemDirectoryHandle)) {
+// 		return ""
+// 	}
+// 	let n = f.name
+// 	if (f.container) n = buildPath(f.container) + "/" + n
+// 	return n
+// }
 
 let currentEditor = leftEdit;
 let currentTabs = leftEdit;
@@ -924,7 +924,7 @@ folderMenu.click = topfolderMenu.click = (action) => {
 fileList.context = (e) => {
 	let menu = folderMenu
 
-	if (e.srcElement.parentElement.parentElement instanceof elements.FileList) {
+	if (e.srcElement.parentElement.parentElement instanceof FileList) {
 		menu = topfolderMenu
 	} else {
 		if (e.srcElement?.item?.kind == "file") {

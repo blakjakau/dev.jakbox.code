@@ -1,4 +1,5 @@
-// import elements from "../elements/elements.mjs"
+import { ActionBar, Block, Button, ContentFill, CounterButton, Element, Effects, Effect, FileItem, FileList, Icon, Inline, Input, Inner, MediaView, Panel, Ripple, TabBar, TabItem, View, Menu, MenuItem, FileUploadList, actionBars, addStylesheet, buildPath, clone, isElement, isFunction, isNotNull, isset, readAndOrderDirectory, readAndOrderDirectoryRecursive, sortOnName } from './elements.mjs';
+export { ActionBar, Block, Button, ContentFill, CounterButton, Element, Effects, Effect, FileItem, FileList, Icon, Inline, Input, Inner, MediaView, Panel, Ripple, TabBar, TabItem, View, Menu, MenuItem, FileUploadList, actionBars, addStylesheet, buildPath, clone, isElement, isFunction, isNotNull, isset, readAndOrderDirectory, readAndOrderDirectoryRecursive, sortOnName } from './elements.mjs';
 
 const defaultSettings = {
 	showGutter: true, //set to true to hide the line numbering
@@ -81,13 +82,13 @@ const uiManager = {
 
 		mainContent = document.querySelector("#mainContent")
 
-		fileActions = new elements.ActionBar()
+		fileActions = new ActionBar()
 		fileActions.setAttribute("id", "fileActions")
 		fileActions.setAttribute("slim", "true")
 
-		fileList = new elements.FileList()
+		fileList = new FileList()
 
-		sidebar = new elements.Panel()
+		sidebar = new Panel()
 		sidebar.setAttribute("id", "sidebar")
 		sidebar.append(fileActions)
 		sidebar.append(fileList)
@@ -97,13 +98,13 @@ const uiManager = {
 
 		menu = document.querySelector("#menu")
 		if (menu == null) {
-			menu = new elements.ActionBar()
+			menu = new ActionBar()
 			menu.setAttribute("id", "menu")
 			menu.addClass("slim")
-			menu.append(new elements.Inline('<img src="images/code-192.png"/> Code'))
+			menu.append(new Inline('<img src="images/code-192.png"/> Code'))
 		}
 
-		openDir = new elements.Button()
+		openDir = new Button()
 		openDir.icon = "menu_open"
 		openDir.setAttribute("title", "hide file list")
 
@@ -123,7 +124,7 @@ const uiManager = {
 			},animRate)
 		})
 
-		toggleSplitViewBtn = new elements.Button()
+		toggleSplitViewBtn = new Button()
 		toggleSplitViewBtn.icon = "vertical_split"
 		toggleSplitViewBtn.setAttribute("title", "Toggle split view")
 		toggleSplitViewBtn.setAttribute("id", "toggleSplitView")
@@ -131,7 +132,7 @@ const uiManager = {
 			uiManager.toggleSplitView()
 		})
 
-		leftTabs = new elements.TabBar()
+		leftTabs = new TabBar()
 		leftTabs.type = "tabs"
 		leftTabs.setAttribute("id", "leftTabs")
 		leftTabs.setAttribute("slim", "true")
@@ -140,14 +141,14 @@ const uiManager = {
 		leftTabs.append(openDir)
 		leftTabs.append(toggleSplitViewBtn)
 		
-		rightTabs = new elements.TabBar()
+		rightTabs = new TabBar()
 		rightTabs.type = "tabs"
 		rightTabs.setAttribute("id", "rightTabs")
 		rightTabs.setAttribute("slim", "true")
 
 		statusbar = document.querySelector("#statusbar")
 		if (statusbar == null) {
-			statusbar = new elements.ActionBar()
+			statusbar = new ActionBar()
 			statusbar.setAttribute("id", "statusbar")
 			statusbar.setAttribute("slim", "true")
 			statusbar.hook = "top"
@@ -160,6 +161,10 @@ const uiManager = {
 
 		themeMenu = document.querySelector("#theme_menu")
 		modeMenu = document.querySelector("#mode_menu")
+
+		// Query darkmode elements directly within the function
+		darkmodeSelect = document.querySelector("#darkmode_select");
+		darkmodeMenu = document.querySelector("#darkmode_menu");
 
 		themeMenu.on( "show", (e) => {
 			e.stopPropagation()
@@ -181,7 +186,7 @@ const uiManager = {
 		darkmodeSelect = document.querySelector("#darkmode_select");
 		darkmodeMenu = document.querySelector("#darkmode_menu");
 
-		leftHolder = new elements.Panel()
+		leftHolder = new Panel()
 		leftHolder.setAttribute("id", "leftHolder")
 		leftHolder.classList.add("current")
 		
@@ -190,19 +195,25 @@ const uiManager = {
 		leftElement.setAttribute("id", "leftEdit")
 
 		leftHolder.appendChild(leftElement)
-		leftMedia = new elements.MediaView()
+		leftMedia = new MediaView()
 		leftMedia.setAttribute("id", "leftMedia")
 		leftHolder.appendChild(leftMedia)
 		
 		
 
-		rightHolder = new elements.Panel()
+		rightHolder = new Panel()
 		rightHolder.setAttribute("id", "rightHolder")
 		rightHolder.style.width = "0px"
 		rightHolder.style.right = "0px"
 		rightHolder.resizable = "left"
 		rightHolder.minSize = 0
 		rightHolder.maxSize = 2440
+
+		;([leftHolder, rightHolder]).forEach(holder=>{
+			const overlay = document.createElement("div");
+			overlay.classList.add("holder-overlay");
+			holder.appendChild(overlay);
+		});
 
 		;([leftHolder, ]).forEach(holder=>{
 			const backgroundElement = document.createElement("div");
@@ -223,7 +234,7 @@ const uiManager = {
 		rightElement.setAttribute("id", "rightEdit")
 		rightHolder.appendChild(rightElement)
 
-		rightMedia = new elements.MediaView()
+		rightMedia = new MediaView()
 		rightMedia.setAttribute("id", "rightMedia")
 		rightHolder.appendChild(rightMedia)
 		
@@ -251,7 +262,7 @@ const uiManager = {
 			constrainHolders()
 		})
 
-		drawer = new elements.Panel()
+		drawer = new Panel()
 		drawer.setAttribute("id", "drawer")
 		drawer.resizable = "top"
 		let drawerHeight = 34
@@ -270,22 +281,22 @@ const uiManager = {
 			constrainHolders()
 		})
 
-		installer = new elements.Panel()
+		installer = new Panel()
 		installer.setAttribute("type", "modal")
 		document.body.append(installer)
 		installer.classList.add("slideUp")
 		installer.style.cssText = `left:auto; top:auto; right:32px; bottom:64px; width:auto; height:105px; text-align:center;`
 		installer.innerHTML = `<p><img src="images/code-192.png" height='32px' style="vertical-align:middle; margin-top:-4px;">&nbsp;&nbsp;<b>Add 'Code' as an app?</b></p>`
 
-		installer.confirm = new elements.Button("Yes please!")
+		installer.confirm = new Button("Yes please!")
 		installer.confirm.classList.add("themed")
 		installer.confirm.icon = "done"
 
-		installer.later = new elements.Button("Later")
+		installer.later = new Button("Later")
 		installer.later.classList.add("themed")
 		installer.later.icon = "watch_later"
 
-		installer.deny = new elements.Button("No thanks")
+		installer.deny = new Button("No thanks")
 		installer.deny.classList.add("cancel")
 		// installer.deny.icon = "close"
 
@@ -303,7 +314,7 @@ const uiManager = {
 			}, 333)
 		}
 
-		installer.clear = new elements.Button("")
+		installer.clear = new Button("")
 		installer.clear.icon = "close"
 		installer.clear.style.cssText = `
         position:absolute;
@@ -324,8 +335,8 @@ const uiManager = {
 
 		installer.hide()
 
-		omni = new elements.Panel()
-		omni.results = new elements.Panel()
+		omni = new Panel()
+		omni.results = new Panel()
 		omni.results.classList.add("results")
 		omni.results.next = (step = 1) => {
 			omni.resultItemIndex += step
@@ -364,8 +375,8 @@ const uiManager = {
 
 		omni.appendChild(omni.results)
 
-		omni.titleElement = new elements.Block("omni box")
-		omni.input = new elements.Input()
+		omni.titleElement = new Block("omni box")
+		omni.input = new Input()
 		omni.input.value = ""
 		omni.stack = []
 		omni.perform = (e, next = false, prev = false) => {
@@ -434,7 +445,7 @@ const uiManager = {
 							let counter = 0
 							for (let item of matches) {
 								// if(counter>10) continue
-								const result = new elements.Block()
+								const result = new Block()
 								if (counter === 0) result.classList.add("active")
 								result.itemIndex = counter
 								result.addEventListener("click", () => {
@@ -596,7 +607,7 @@ const uiManager = {
 		omni.prepend(omni.titleElement)
 		omni.append(omni.input)
 		omni.append(
-			new elements.Block(
+			new Block(
 				`
 				&nbsp;&nbsp; <acronym title='Ctrl-G'>:Goto</acronym> 
 				&nbsp;&nbsp; <acronym title='Ctrl-F'>/Find</acronym> 
@@ -630,6 +641,86 @@ const uiManager = {
 		leftHolder.on("click", () => { uiManager.currentEditor = leftEdit })
 		rightHolder.on("click", () => { uiManager.currentEditor = rightEdit })
 
+		const setupHolder = (holder, tabs) => {
+			let dragCounter = 0;
+
+			holder.addEventListener("dragenter", (e) => {
+				if (e.dataTransfer.types.includes("application/x-tab-item")) {
+					e.preventDefault();
+					dragCounter++;
+					holder.classList.add("drag-over");
+				}
+			});
+
+			holder.addEventListener("dragleave", (e) => {
+				if (e.dataTransfer.types.includes("application/x-tab-item")) {
+					e.preventDefault();
+					dragCounter--;
+					if (dragCounter === 0) {
+						holder.classList.remove("drag-over");
+					}
+				}
+			});
+
+			holder.addEventListener("dragover", (e) => {
+				if (e.dataTransfer.types.includes("application/x-tab-item")) {
+					e.preventDefault();
+				}
+			});
+
+			holder.addEventListener("drop", async (e) => {
+				e.preventDefault();
+				dragCounter = 0;
+				leftHolder.classList.remove("drag-over");
+				rightHolder.classList.remove("drag-over");
+				const tabId = e.dataTransfer.getData("application/x-tab-item");
+				const tab = document.getElementById(tabId);
+
+				if (tab && tab.parentElement !== tabs) {
+					const sourceTabBar = tab.parentElement;
+
+					// Remove from source tab bar's internal array
+					if (sourceTabBar && sourceTabBar.tagName === 'UI-TABBAR') {
+						const index = sourceTabBar._tabs.indexOf(tab);
+						if (index > -1) {
+							const wasActive = tab.hasAttribute("active");
+							sourceTabBar._tabs.splice(index, 1);
+
+							if (wasActive && sourceTabBar._tabs.length > 0) {
+								// Activate the next or previous tab in the source bar
+								const nextActiveTab = sourceTabBar._tabs[index] || sourceTabBar._tabs[index - 1];
+								if (nextActiveTab) {
+									nextActiveTab.click();
+								}
+							} else if (sourceTabBar._tabs.length === 0) {
+								// Handle empty source tab bar
+								if (typeof sourceTabBar.onEmpty === 'function') {
+									sourceTabBar.onEmpty();
+								}
+							}
+						}
+					}
+
+					// Add to the new tab bar
+					tabs.append(tab); // This moves the DOM element
+					tabs._tabs.push(tab); // Update internal array
+					tab.tabBar = tabs; // Update tab's reference to its parent bar
+					tab.config.side = (tabs.id === 'leftTabs' ? 'left' : 'right');
+
+					// Make the moved tab active in its new home
+					tab.click();
+				}
+			});
+		};
+
+		setupHolder(leftHolder, leftTabs);
+		setupHolder(rightHolder, rightTabs);
+
+		document.body.addEventListener('tabdroppedonbar', () => {
+			leftHolder.classList.remove("drag-over");
+			rightHolder.classList.remove("drag-over");
+		});
+
 		document.body.appendChild(menu)
 		document.body.appendChild(statusbar)
 		
@@ -662,7 +753,7 @@ const uiManager = {
 		document.body.appendChild(drawer)
 		document.body.appendChild(omni)
 
-		let cursorpos = new elements.Inline()
+		let cursorpos = new Inline()
 		cursorpos.setAttribute("id", "cursor_pos")
 		statusbar.append(cursorpos)
 
@@ -751,7 +842,7 @@ const uiManager = {
 			if (themeMenu.children.length == 0) {
 				for (const n in ace_themes) {
 					const theme = ace_themes[n]
-					const item = new elements.MenuItem(theme.caption)
+					const item = new MenuItem(theme.caption)
 					item.setAttribute("rel-data", ace_themes[n].theme)
 					item.setAttribute("command", `app:setTheme:${ace_themes[n].theme}`)
 					themeMenu.append(item)
@@ -775,7 +866,7 @@ const uiManager = {
 			if (modeMenu.children.length == 0) {
 				for (const n in ace_modes) {
 					const mode = ace_modes[n]
-					const item = new elements.MenuItem(mode.caption)
+					const item = new MenuItem(mode.caption)
 					item.setAttribute("rel-data", ace_modes[n].mode)
 					item.setAttribute("command", `app:setMode:${ace_modes[n].mode}`)
 					modeMenu.append(item)
@@ -985,4 +1076,4 @@ setTimeout(() => {
 })
 
 uiManager.defaultSettings = defaultSettings
-export default uiManager
+export { uiManager }

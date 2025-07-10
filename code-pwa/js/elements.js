@@ -525,6 +525,7 @@ class TabItem extends Button {
 			this.dropPosition = ""
 			e.dataTransfer.effectAllowed = "move"
 			e.dataTransfer.setData("text/plain", this.getAttribute("id"))
+			e.dataTransfer.setData("application/x-tab-item", this.getAttribute("id"))
 
 			this.parentElement.animating = true
 			this.parentElement.setAttribute("dragging", "true")
@@ -1489,6 +1490,8 @@ class TabBar extends Block {
 				this.movingItem.click()
 			}
 		}
+		// Dispatch custom event after tab is dropped and handled
+		this.dispatchEvent(new CustomEvent('tabdroppedonbar', { bubbles: true }));
 	}
 
 	get tabs() {

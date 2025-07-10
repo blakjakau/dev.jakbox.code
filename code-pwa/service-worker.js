@@ -14,7 +14,7 @@ const essential = [
 	"index.html",
 	"js/main.mjs",
 	"js/ui-main.mjs",
-	"js/elements.js",
+	"js/elements.mjs",
 	"css/elements.css",
 	"css/main.css",
 	"/favicon.png",

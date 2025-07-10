@@ -97,6 +97,21 @@ ui-tab-item.drop-highlight {
 
 
 
+.holder-overlay {
+    position: absolute;
+    top: var(--tabHeight);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10;
+    visibility: hidden;
+}
+
+.drag-over > .holder-overlay {
+    visibility: visible;
+}
+
 #leftHolder,
 #rightHolder {
 	opacity:1;
