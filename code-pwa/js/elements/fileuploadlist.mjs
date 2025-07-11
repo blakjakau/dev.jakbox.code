@@ -118,10 +118,10 @@ export class FileUploadList extends ContentFill {
 			}
 		}
 
-		inner.addEventListener("dragleave", dragleave, false)
-		inner.addEventListener("dragenter", dragenter, false)
-		inner.addEventListener("dragover", dragover, false)
-		inner.addEventListener("drop", drop, false)
+		inner.on("dragleave", dragleave, false)
+		inner.on("dragenter", dragenter, false)
+		inner.on("dragover", dragover, false)
+		inner.on("drop", drop, false)
 
 		this._tiles = []
 		this._renderList = () => {

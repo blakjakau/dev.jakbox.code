@@ -10,7 +10,7 @@ export class TabBar extends Block {
 		this._tabs = []
 		this.onEmpty = null;
 		this.splitViewDragEnabled = false;
-		this.addEventListener("mousewheel", (e) => {
+		this.on("mousewheel", (e) => {
 			if (!e.shiftKey) {
 				e.preventDefault()
 				this.scrollLeft += e.deltaY

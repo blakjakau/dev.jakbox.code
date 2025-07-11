@@ -36,7 +36,8 @@ import parserHtml from "https://unpkg.com/prettier@2.4.1/esm/parser-html.mjs"
 import parserCss from "https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs"
 import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
 
-import {uiManager as ui, ActionBar, Block, Button, ContentFill, CounterButton, Element, Effects, Effect, FileItem, FileList, Icon, Inline, Input, Inner, MediaView, Panel, Ripple, TabBar, TabItem, View, Menu, MenuItem, FileUploadList, actionBars, addStylesheet, buildPath, clone, isElement, isFunction, isNotNull, isset, readAndOrderDirectory, readAndOrderDirectoryRecursive, sortOnName } from './ui-main.mjs';
+import ui from './ui-main.mjs';
+import { ActionBar, Block, Button, ContentFill, CounterButton, Element, Effects, Effect, FileItem, FileList, Icon, Inline, Input, Inner, MediaView, Panel, Ripple, TabBar, TabItem, View, Menu, MenuItem, FileUploadList, actionBars, addStylesheet, buildPath, clone, isElement, isFunction, isNotNull, isset, readAndOrderDirectory, readAndOrderDirectoryRecursive, sortOnName } from './elements.mjs';
 import { observeFile, unobserveFile } from "./fileSystemObserver.mjs"
 
 const canPrettify = {
@@ -202,6 +203,7 @@ window.ui.commands = {
 	},
 	bindToDocument() {
 		if (this.boundToDocument) return
+		if (this.boundToDocument) return
 		document.addEventListener(
 			"keydown",
 			(e) => {
@@ -245,8 +247,9 @@ window.ui.commands = {
 			{ capture: true }
 		)
 		this.boundToDocument = true
-	},
+	}
 }
+
 window.ui.commands.bindToDocument()
 
 const saveFile = async (text, handle) => {

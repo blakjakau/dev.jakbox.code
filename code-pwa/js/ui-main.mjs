@@ -1,5 +1,5 @@
-import { ActionBar, Block, Button, ContentFill, CounterButton, Element, Effects, Effect, FileItem, FileList, Icon, Inline, Input, Inner, MediaView, Panel, Ripple, TabBar, TabItem, View, Menu, MenuItem, FileUploadList, actionBars, addStylesheet, buildPath, clone, isElement, isFunction, isNotNull, isset, readAndOrderDirectory, readAndOrderDirectoryRecursive, sortOnName } from './elements.mjs';
-export { ActionBar, Block, Button, ContentFill, CounterButton, Element, Effects, Effect, FileItem, FileList, Icon, Inline, Input, Inner, MediaView, Panel, Ripple, TabBar, TabItem, View, Menu, MenuItem, FileUploadList, actionBars, addStylesheet, buildPath, clone, isElement, isFunction, isNotNull, isset, readAndOrderDirectory, readAndOrderDirectoryRecursive, sortOnName } from './elements.mjs';
+
+import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar } from './elements.mjs';
 
 const defaultSettings = {
 	showGutter: true, //set to true to hide the line numbering
@@ -644,7 +644,7 @@ const uiManager = {
 		const setupHolder = (holder, tabs) => {
 			let dragCounter = 0;
 
-			holder.addEventListener("dragenter", (e) => {
+			holder.on("dragenter", (e) => {
 				if (e.dataTransfer.types.includes("application/x-tab-item")) {
 					e.preventDefault();
 					dragCounter++;
@@ -652,7 +652,7 @@ const uiManager = {
 				}
 			});
 
-			holder.addEventListener("dragleave", (e) => {
+			holder.on("dragleave", (e) => {
 				if (e.dataTransfer.types.includes("application/x-tab-item")) {
 					e.preventDefault();
 					dragCounter--;
@@ -662,13 +662,13 @@ const uiManager = {
 				}
 			});
 
-			holder.addEventListener("dragover", (e) => {
+			holder.on("dragover", (e) => {
 				if (e.dataTransfer.types.includes("application/x-tab-item")) {
 					e.preventDefault();
 				}
 			});
 
-			holder.addEventListener("drop", async (e) => {
+			holder.on("drop", async (e) => {
 				e.preventDefault();
 				dragCounter = 0;
 				leftHolder.classList.remove("drag-over");
@@ -785,7 +785,7 @@ const uiManager = {
 			})
 	
 	
-			editor.on("focus", () => {
+		editor.on("focus", () => {
 				uiManager.currentEditor = editor
 			})
 
@@ -978,7 +978,7 @@ const uiManager = {
 		omni.last = mode
 		omni.modePrefix = omni.input.value.substr(0, 1)
 		setTimeout(() => {
-			omni.input.addEventListener("blur", uiManager.hideOmnibox, { once: true })
+			omni.input.on("blur", uiManager.hideOmnibox, { once: true })
 		})
 	},
 
@@ -1076,4 +1076,4 @@ setTimeout(() => {
 })
 
 uiManager.defaultSettings = defaultSettings
-export { uiManager }
+export default uiManager

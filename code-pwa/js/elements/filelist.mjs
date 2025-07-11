@@ -266,7 +266,7 @@ export class FileList extends ContentFill {
 
 				if (item.locked) {
 					e.icon = "lock"
-					e.addEventListener("click", async () => {
+					e.on("click", async () => {
 						if ("function" == typeof this._unlock) {
 							e.setAttribute("loading", "true")
 							if (await this._unlock(item)) {
@@ -289,20 +289,20 @@ export class FileList extends ContentFill {
 					})
 				} else {
 					if (item.tree && item.open) { 
+					e.icon = "folder_open"
+					e.setAttribute("open-folder", "true")
+					this._render(e.holder, item.tree,depth+1, openPaths)
+				} else if(openPaths.includes(itemPath)) {
+					(async()=>{
+						if (!item.tree) { e.setAttribute("loading", "true"); item.tree = await readAndOrderDirectory(item) }
 						e.icon = "folder_open"
 						e.setAttribute("open-folder", "true")
 						this._render(e.holder, item.tree,depth+1, openPaths)
-					} else if(openPaths.includes(itemPath)) {
-						(async()=>{
-							if (!item.tree) { e.setAttribute("loading", "true"); item.tree = await readAndOrderDirectory(item) }
-							e.icon = "folder_open"
-							e.setAttribute("open-folder", "true")
-							this._render(e.holder, item.tree,depth+1, openPaths)
-							if ("function" == typeof this.expand) { this.expand(e.item) }
-							e.removeAttribute("loading")
-							item.open = true
-						})()
-					}
+						if ("function" == typeof this.expand) { this.expand(e.item) }
+						e.removeAttribute("loading")
+						item.open = true
+					})()
+				}
 					// } else if(depth<this._expandLevels) {
 					// 	(async()=>{
 					// 		if (!item.tree) { e.setAttribute("loading", "true"); item.tree = await readAndOrderDirectory(item) }
@@ -315,7 +315,7 @@ export class FileList extends ContentFill {
 					// 	})()
 					// }
 
-					e.addEventListener("click", async (event) => {
+					e.on("click", async (event) => {
 						item.open = !item.open
 						if (item.open) {
 							e.setAttribute("open-folder", "true")
@@ -333,7 +333,7 @@ export class FileList extends ContentFill {
 						}
 					})
 
-					e.refresh.addEventListener("click", async (event) => {
+					e.refresh.on("click", async (event) => {
 						event.stopPropagation()
 						e.setAttribute("loading", "true")
 						item.tree = await readAndOrderDirectory(item)
@@ -390,7 +390,7 @@ export class FileList extends ContentFill {
 				}
 
 				if (triggerOpen) {
-					e.addEventListener("click", async (event) => {
+					e.on("click", async (event) => {
 						if ("function" == typeof this._open) {
 							e.setAttribute("loading", "true")
 							await this._open(item)
@@ -400,7 +400,7 @@ export class FileList extends ContentFill {
 						}
 					})
 				} else {
-					e.addEventListener("click", async (event) => {
+					e.on("click", async (event) => {
 						e.setAttribute("loading", "true")
 						if ("function" == typeof this._unsupported) {
 							await this._unsupported(item)

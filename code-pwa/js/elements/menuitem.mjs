@@ -7,7 +7,7 @@ export class MenuItem extends Button {
 		super(content)
 		this._icon = new Icon()
 		this._tag = new Inline()
-		this.addEventListener("click", () => {
+		this.on("click", () => {
 			// find first Menu ancestor, max 5 levels to allow for some nesting and dynamism in the menu object
 			let parent = this.parentElement, steps = 0;
 			while(parent.tagName != "UI-MENU" && steps<4) { parent = parent.parentElement; steps++ }

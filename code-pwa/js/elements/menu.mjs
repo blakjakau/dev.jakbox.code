@@ -22,7 +22,7 @@ export class Menu extends Panel {
 		if (attach) {
 			const el = document.querySelector(attach)
 			if (el) {
-				el.addEventListener("click", () => {
+				el.on("click", () => {
 					if (MenuOpen && CurrentMenu == this) return
 					setTimeout(() => {
 						MenuOpen = false
@@ -31,7 +31,7 @@ export class Menu extends Panel {
 				})
 			}
 			if (el) {
-				el.addEventListener("pointerover", () => {
+				el.on("pointerover", () => {
 					if (MenuOpen && CurrentMenu == this) return
 					if (MenuOpen) {
 						el.focus()
@@ -119,8 +119,7 @@ export class Menu extends Panel {
 			let clicked = false
 			MenuOpen = true
 			CurrentMenu = this
-			this.addEventListener(
-				"click",
+			this.on("click",
 				() => {
 					clicked = true
 					MenuOpen = false
@@ -131,8 +130,7 @@ export class Menu extends Panel {
 				},
 				{ once: true }
 			)
-			document.addEventListener(
-				"click",
+			document.on("click",
 				() => {
 					if (!clicked && MenuOpen) {
 						setTimeout(() => {
@@ -144,8 +142,7 @@ export class Menu extends Panel {
 				},
 				{ once: true }
 			)
-			document.addEventListener(
-				"contextmenu",
+			document.on("contextmenu",
 				() => {
 					if (CurrentMenu == this) {
 						CurrentMenu.removeAttribute("active")

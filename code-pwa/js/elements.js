@@ -18,7 +18,7 @@ const clone = (e) => {
 const addStylesheet = (u, id) => {
 	return new Promise((i, n) => {
 		let s = document.createElement("link")
-		s.addEventListener("load", (e) => {
+		s.on("load", (e) => {
 			i(e)
 		})
 		s.rel = "stylesheet"
@@ -320,10 +320,10 @@ class Input extends Element {
 		return console.error("Input can't contain additional elements")
 	}
 	addEventListener(e, f, o) {
-		this._input.addEventListener(e, f, o)
+		this._input.on(e, f, o)
 	}
 	removeEventListener(e, f) {
-		this._input.removeEventListener(e, f)
+		this._input.off(e, f)
 	}
 	set id(v) {
 		this._id = v
@@ -835,8 +835,8 @@ class Panel extends Block {
 				}
 			}
 			const release = (e) =>{
-				document.removeEventListener("pointermove", move)
-				document.removeEventListener("pointerup", release)
+				document.off("pointermove", move)
+				document.off("pointerup", release)
 				document.body.style.cursor = ""
 				this.style.transition = ""
 				this.active = false
@@ -853,8 +853,8 @@ class Panel extends Block {
 				document.body.style.cursor = "ns-resize"
 			}
 			
-			document.addEventListener("pointermove", move)
-			document.addEventListener("pointerup", release)
+			document.on("pointermove", move)
+			document.on("pointerup", release)
 		})
 
 	}
@@ -1068,16 +1068,14 @@ class ActionBar extends Block {
 			this.pnlOverflow.show()
 			let clicked = false
 			setTimeout(() => {
-				this.pnlOverflow.addEventListener(
-					"click",
+				this.pnlOverflow.on("click",
 					() => {
 						clicked = true
 						setTimeout(this.hideOverflow, 333)
 					},
 					{ once: true }
 				)
-				document.addEventListener(
-					"click",
+				document.on("click",
 					() => {
 						if (!clicked) setTimeout(this.hideOverflow, 1)
 					},
@@ -1241,7 +1239,7 @@ class TabBar extends Block {
 		this._tabs = []
 		this.onEmpty = null;
 		this.splitViewDragEnabled = false;
-		this.addEventListener("mousewheel", (e) => {
+		this.on("mousewheel", (e) => {
 			if (!e.shiftKey) {
 				e.preventDefault()
 				this.scrollLeft += e.deltaY
@@ -2382,10 +2380,10 @@ class FileUploadList extends ContentFill {
 			}
 		}
 
-		inner.addEventListener("dragleave", dragleave, false)
-		inner.addEventListener("dragenter", dragenter, false)
-		inner.addEventListener("dragover", dragover, false)
-		inner.addEventListener("drop", drop, false)
+		inner.on("dragleave", dragleave, false)
+		inner.on("dragenter", dragenter, false)
+		inner.on("dragover", dragover, false)
+		inner.on("drop", drop, false)
 
 		this._tiles = []
 		this._renderList = () => {
@@ -2525,7 +2523,7 @@ class Menu extends Panel {
 		if (attach) {
 			const el = document.querySelector(attach)
 			if (el) {
-				el.addEventListener("click", () => {
+				el.on("click", () => {
 					if (MenuOpen && CurrentMenu == this) return
 					setTimeout(() => {
 						MenuOpen = false
@@ -2534,7 +2532,7 @@ class Menu extends Panel {
 				})
 			}
 			if (el) {
-				el.addEventListener("pointerover", () => {
+				el.on("pointerover", () => {
 					if (MenuOpen && CurrentMenu == this) return
 					if (MenuOpen) {
 						el.focus()
@@ -2634,8 +2632,7 @@ class Menu extends Panel {
 				},
 				{ once: true }
 			)
-			document.addEventListener(
-				"click",
+			document.on("click",
 				() => {
 					if (!clicked && MenuOpen) {
 						setTimeout(() => {
@@ -2647,8 +2644,7 @@ class Menu extends Panel {
 				},
 				{ once: true }
 			)
-			document.addEventListener(
-				"contextmenu",
+			document.on("contextmenu",
 				() => {
 					if (CurrentMenu == this) {
 						CurrentMenu.removeAttribute("active")
@@ -2674,7 +2670,7 @@ class MenuItem extends Button {
 		super(content)
 		this._icon = new Icon()
 		this._tag = new Inline()
-		this.addEventListener("click", () => {
+		this.on("click", () => {
 			// find first Menu ancestor, max 5 levels to allow for some nesting and dynamism in the menu object
 			let parent = this.parentElement, steps = 0;
 			while(parent.tagName != "UI-MENU" && steps<4) { parent = parent.parentElement; steps++ }

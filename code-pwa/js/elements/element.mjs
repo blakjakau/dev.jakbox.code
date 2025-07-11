@@ -1,19 +1,64 @@
 import { isset } from './utils.mjs';
 
 export class Element extends HTMLElement {
+	#handlers
+	#domEvents = [
+			'click', 'dblclick', 'mousedown', 'mouseup', 'mouseover', 'mousemove', 'mouseout',
+			'keydown', 'keypress', 'keyup', 'load', 'unload', 'abort', 'error', 'resize',
+			'scroll', 'select', 'change', 'submit', 'reset', 'focus', 'blur', 'input',
+			'contextmenu', 'dragstart', 'drag', 'dragenter', 'dragleave', 'dragover', 'drop', 'dragend',
+			'copy', 'cut', 'paste', 'beforecopy', 'beforecut', 'beforepaste', 'wheel',
+			'pointerdown', 'pointerup', 'pointermove', 'pointerover', 'pointerout', 'pointerenter', 'pointerleave'
+	];
 	constructor(content) {
 		super()
 		this._initialContent = content;
 		// It's generally safer to set innerHTML in connectedCallback or after the element is appended to the DOM
 		// However, given the existing structure, we'll keep it here for now, but be aware of potential future issues.
 		// If this continues to cause problems, we might need to defer setting innerHTML.
-		this.on = this.addEventListener
-		this.off = this.removeEventListener
+		this.#handlers = new Map();
 		this._displayType = "inline-block"
 	}
 	setHook(v) {
 		this.hook = v
 		return this
+	}
+
+	on(eventName, func) {
+		if (this.#domEvents.includes(eventName)) {
+			this.addEventListener(eventName, func);
+		} else {
+			if (!this.#handlers.has(eventName)) {
+				this.#handlers.set(eventName, []);
+			}
+			this.#handlers.get(eventName).push(func);
+		}
+	}
+
+	off(eventName, func) {
+		if (this.#domEvents.includes(eventName)) {
+			this.removeEventListener(eventName, func);
+		} else {
+			if (this.#handlers.has(eventName)) {
+				const handlers = this.#handlers.get(eventName);
+				const index = handlers.indexOf(func);
+				if (index > -1) {
+					handlers.splice(index, 1);
+				}
+			}
+		}
+	}
+
+	trigger(eventName, data = {}) {
+		if (this.#domEvents.includes(eventName)) {
+			const event = new CustomEvent(eventName, { detail: data, bubbles: true, cancelable: true });
+			this.dispatchEvent(event);
+		}
+		if (this.#handlers.has(eventName)) {
+			this.#handlers.get(eventName).forEach(handler => {
+				handler({ detail: data }); // Pass data as a detail property of a synthetic event object
+			});
+		}
 	}
 	set hook(v) {
 		// this.removeClass("float-right", "float-left");
