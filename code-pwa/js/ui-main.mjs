@@ -1,5 +1,5 @@
 
-import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar } from './elements.mjs';
+import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder } from './elements.mjs';
 
 const defaultSettings = {
 	showGutter: true, //set to true to hide the line numbering
@@ -18,8 +18,8 @@ const defaultSettings = {
 
 // these become the actual editor elements
 var mainContent
-var leftEdit, leftElement, leftHolder, leftMedia, leftTabs
-var rightEdit, rightElement, rightHolder, rightMedia, rightTabs
+var leftEdit, leftHolder, leftTabs
+var rightEdit, rightHolder, rightTabs
 
 var menu
 var omni, modal, installer
@@ -67,7 +67,6 @@ const uiManager = {
 			
 			l = Math.max(0.25, Math.min(0.75, l))
 			r = 1 - l
-			// r = Math.max(0.25, Math.min(0.75, r))
 			
 			leftHolder.style.width = ((l)*100)+"%"
 			rightHolder.style.width = ((r)*100)+"%"
@@ -186,57 +185,17 @@ const uiManager = {
 		darkmodeSelect = document.querySelector("#darkmode_select");
 		darkmodeMenu = document.querySelector("#darkmode_menu");
 
-		leftHolder = new Panel()
+		leftHolder = new EditorHolder()
 		leftHolder.setAttribute("id", "leftHolder")
 		leftHolder.classList.add("current")
 		
-		leftElement = document.createElement("div")
-		leftElement.classList.add("loading")
-		leftElement.setAttribute("id", "leftEdit")
-
-		leftHolder.appendChild(leftElement)
-		leftMedia = new MediaView()
-		leftMedia.setAttribute("id", "leftMedia")
-		leftHolder.appendChild(leftMedia)
-		
-		
-
-		rightHolder = new Panel()
+		rightHolder = new EditorHolder()
 		rightHolder.setAttribute("id", "rightHolder")
 		rightHolder.style.width = "0px"
 		rightHolder.style.right = "0px"
 		rightHolder.resizable = "left"
 		rightHolder.minSize = 0
 		rightHolder.maxSize = 2440
-
-		;([leftHolder, rightHolder]).forEach(holder=>{
-			const overlay = document.createElement("div");
-			overlay.classList.add("holder-overlay");
-			holder.appendChild(overlay);
-		});
-
-		;([leftHolder, ]).forEach(holder=>{
-			const backgroundElement = document.createElement("div");
-			backgroundElement.classList.add("background-element");
-			const image = document.createElement("img");
-			image.src = "/images/code-192.png";
-			const caption = document.createElement("div");
-			caption.classList.add("caption");
-			caption.innerHTML = "CTRL+O to open a file <br/> CTRL+N to create a new file";
-			backgroundElement.appendChild(image);
-			backgroundElement.appendChild(caption);
-			holder.appendChild(backgroundElement);
-		})
-
-		rightElement = document.createElement("div")
-		
-		rightElement.classList.add("loading")
-		rightElement.setAttribute("id", "rightEdit")
-		rightHolder.appendChild(rightElement)
-
-		rightMedia = new MediaView()
-		rightMedia.setAttribute("id", "rightMedia")
-		rightHolder.appendChild(rightMedia)
 		
 		sidebar.resizeListener((width)=>{
 			sidebarWidth = width
@@ -633,88 +592,13 @@ const uiManager = {
 			})
 		}
 
-		leftHolder.appendChild(leftTabs)
-		rightHolder.appendChild(rightTabs)
+		leftHolder.tabs = leftTabs
+		rightHolder.tabs = rightTabs
 
 		leftTabs.on("click", () => { uiManager.currentEditor = leftEdit })
 		rightTabs.on("click", () => { uiManager.currentEditor = rightEdit })
 		leftHolder.on("click", () => { uiManager.currentEditor = leftEdit })
 		rightHolder.on("click", () => { uiManager.currentEditor = rightEdit })
-
-		const setupHolder = (holder, tabs) => {
-			let dragCounter = 0;
-
-			holder.on("dragenter", (e) => {
-				if (e.dataTransfer.types.includes("application/x-tab-item")) {
-					e.preventDefault();
-					dragCounter++;
-					holder.classList.add("drag-over");
-				}
-			});
-
-			holder.on("dragleave", (e) => {
-				if (e.dataTransfer.types.includes("application/x-tab-item")) {
-					e.preventDefault();
-					dragCounter--;
-					if (dragCounter === 0) {
-						holder.classList.remove("drag-over");
-					}
-				}
-			});
-
-			holder.on("dragover", (e) => {
-				if (e.dataTransfer.types.includes("application/x-tab-item")) {
-					e.preventDefault();
-				}
-			});
-
-			holder.on("drop", async (e) => {
-				e.preventDefault();
-				dragCounter = 0;
-				leftHolder.classList.remove("drag-over");
-				rightHolder.classList.remove("drag-over");
-				const tabId = e.dataTransfer.getData("application/x-tab-item");
-				const tab = document.getElementById(tabId);
-
-				if (tab && tab.parentElement !== tabs) {
-					const sourceTabBar = tab.parentElement;
-
-					// Remove from source tab bar's internal array
-					if (sourceTabBar && sourceTabBar.tagName === 'UI-TABBAR') {
-						const index = sourceTabBar._tabs.indexOf(tab);
-						if (index > -1) {
-							const wasActive = tab.hasAttribute("active");
-							sourceTabBar._tabs.splice(index, 1);
-
-							if (wasActive && sourceTabBar._tabs.length > 0) {
-								// Activate the next or previous tab in the source bar
-								const nextActiveTab = sourceTabBar._tabs[index] || sourceTabBar._tabs[index - 1];
-								if (nextActiveTab) {
-									nextActiveTab.click();
-								}
-							} else if (sourceTabBar._tabs.length === 0) {
-								// Handle empty source tab bar
-								if (typeof sourceTabBar.onEmpty === 'function') {
-									sourceTabBar.onEmpty();
-								}
-							}
-						}
-					}
-
-					// Add to the new tab bar
-					tabs.append(tab); // This moves the DOM element
-					tabs._tabs.push(tab); // Update internal array
-					tab.tabBar = tabs; // Update tab's reference to its parent bar
-					tab.config.side = (tabs.id === 'leftTabs' ? 'left' : 'right');
-
-					// Make the moved tab active in its new home
-					tab.click();
-				}
-			});
-		};
-
-		setupHolder(leftHolder, leftTabs);
-		setupHolder(rightHolder, rightTabs);
 
 		document.body.addEventListener('tabdroppedonbar', () => {
 			leftHolder.classList.remove("drag-over");
@@ -727,27 +611,7 @@ const uiManager = {
 		
 		
 		mainContent.appendChild(leftHolder)
-		        mainContent.appendChild(rightHolder)
-
-        // Add the left file modified notice bar
-        const leftFileModifiedNotice = document.createElement("div");
-        leftFileModifiedNotice.setAttribute("id", "leftFileModifiedNotice");
-        leftFileModifiedNotice.classList.add("notice-bar");
-        leftFileModifiedNotice.style.display = "none"; // Hidden by default
-        leftFileModifiedNotice.innerHTML = `
-            <span>This file has been modified outside the editor.</span>
-            <button rel="reload">Reload</button> <button rel="dismiss">X</button> `;
-        leftHolder.appendChild(leftFileModifiedNotice); // Append to leftHolder
-
-        // Add the right file modified notice bar
-        const rightFileModifiedNotice = document.createElement("div");
-        rightFileModifiedNotice.setAttribute("id", "rightFileModifiedNotice");
-        rightFileModifiedNotice.classList.add("notice-bar");
-        rightFileModifiedNotice.style.display = "none"; // Hidden by default
-        rightFileModifiedNotice.innerHTML = `
-            <span>This file has been modified outside the editor.</span>
-            <button rel="reload">Reload</button> <button rel="dismiss">X</button> `;
-        rightHolder.appendChild(rightFileModifiedNotice); // Append to rightHolder
+		mainContent.appendChild(rightHolder)
 		
 		document.body.appendChild(sidebar)
 		document.body.appendChild(drawer)
@@ -757,8 +621,11 @@ const uiManager = {
 		cursorpos.setAttribute("id", "cursor_pos")
 		statusbar.append(cursorpos)
 
-		window.leftEdit = leftEdit = ace.edit(leftElement)
-		window.rightEdit = rightEdit = ace.edit(rightElement)
+		window.leftEdit = leftEdit = ace.edit(leftHolder.editorElement)
+		window.rightEdit = rightEdit = ace.edit(rightHolder.editorElement)
+		
+		leftHolder.editor = leftEdit
+		rightHolder.editor = rightEdit
 		
 		window.editors = [leftEdit, rightEdit]
 		leftEdit.tabs = leftTabs
@@ -1005,13 +872,12 @@ const uiManager = {
 	get darkmodeMenu() { return darkmodeMenu },
 
 	get leftEdit() { return leftEdit },
-	get leftElement() { return leftElement },
-	get leftMedia() { return leftMedia },
+	get leftHolder() { return leftHolder },
+	get leftMedia() { return leftHolder.mediaView },
 
 	get rightEdit() { return rightEdit },
-	get rightElement() { return rightElement },
 	get rightHolder() { return rightHolder },
-	get rightMedia() { return rightMedia },
+	get rightMedia() { return rightHolder.mediaView },
 	get rightTabs() { return rightTabs },
 	
 	set currentEditor(v) {

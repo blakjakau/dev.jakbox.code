@@ -1523,7 +1523,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 })
 
 setTimeout(async () => {
-	ui.leftElement.classList.remove("loading")
+	ui.leftHolder.editorElement.classList.remove("loading")
 
 	window.filesReceiver.addEventListener("message", (e) => {
 		if (e.data?.open && window.activeFileReceiver) {
@@ -1617,4 +1617,3 @@ setTimeout(async () => {
 		}
 	})
 })
-

@@ -17,6 +17,7 @@ export { FileList } from './elements/filelist.mjs';
 export { Menu } from './elements/menu.mjs';
 export { MenuItem } from './elements/menuitem.mjs';
 export { FileUploadList } from './elements/fileuploadlist.mjs';
+export { EditorHolder } from './elements/editorholder.mjs';
 export { isset, isNotNull, isFunction, isElement, clone, addStylesheet, sortOnName, readAndOrderDirectory, readAndOrderDirectoryRecursive, buildPath } from './elements/utils.mjs';
 
 import { Element } from './elements/element.mjs';
@@ -43,6 +44,7 @@ import { Input } from './elements/input.mjs';
 import { Effects } from './elements/effect.mjs';
 import { Effect } from './elements/effect.mjs';
 import { Ripple } from './elements/ripple.mjs';
+import { EditorHolder } from './elements/editorholder.mjs';
 
 
 
