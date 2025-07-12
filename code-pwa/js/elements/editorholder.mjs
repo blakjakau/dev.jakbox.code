@@ -89,6 +89,7 @@ export class EditorHolder extends Panel {
     set tabs(tabBarInstance) {
         this._tabs = tabBarInstance;
         this.appendChild(tabBarInstance);
+        
     }
 
     get tabs() {
@@ -113,6 +114,8 @@ export class EditorHolder extends Panel {
         return this._side;
     }
 
+    
+
     connectedCallback() {
         super.connectedCallback();
         // Add background element for empty state
@@ -126,6 +129,7 @@ export class EditorHolder extends Panel {
         backgroundElement.appendChild(image);
         backgroundElement.appendChild(caption);
         this.appendChild(backgroundElement);
+        this._backgroundElement = backgroundElement; // Store reference
 
         // Add overlay for drag-over effect
         const overlay = document.createElement("div");

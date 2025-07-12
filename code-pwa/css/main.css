@@ -191,6 +191,11 @@ ui-menu::-webkit-scrollbar-thumb,
 
 .ace_editor {
 	top: calc( var(--menuHeight) + 6px);
+    bottom: 0px;
+    right: 4px;
+    left: 0px;
+    z-index:1;
+    position: absolute;
 }
 
 #leftHolder.loading {
@@ -597,6 +602,20 @@ ui-tabbar.show-split-view-indicator::after {
     align-items: center;
     text-align: center;
     overflow: hidden;
+}
+
+#leftMedia,
+#rightMedia {
+	top: var(--tabHeight);
+    left:0px;
+    right:4px;
+    bottom:0px;
+}
+
+#leftMedia,
+#rightMedia,
+.ace_editor {
+    z-index: 1;
 }
 
 .background-element img {

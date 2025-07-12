@@ -516,15 +516,9 @@ export class TabBar extends Block {
             window.ui.hideFileModifiedNotice(this.id === 'leftTabs' ? 'left' : 'right');
         }
 
-        if (sourceTabBar.tabs.length === 0) {
-            sourceTabBar.defaultTab();
-            // Hide notice bar for the source tab bar if it becomes empty
-            window.ui.hideFileModifiedNotice(sourceTabBar.id === 'leftTabs' ? 'left' : 'right');
-        } else if (sourceTabBar.activeTab && sourceTabBar.activeTab.config.fileModified) {
-            window.ui.showFileModifiedNotice(sourceTabBar.activeTab, sourceTabBar.activeTab.config.side);
-        } else {
-            window.ui.hideFileModifiedNotice(sourceTabBar.id === 'leftTabs' ? 'left' : 'right');
-        }
+        this.dispatch('tabs-updated', { isEmpty: this._tabs.length === 0 });
+		console.debug(`TabBar ${this.id}: Dispatched tabs-updated (remove). isEmpty: ${this._tabs.length === 0}`);
+        sourceTabBar.dispatch('tabs-updated', { isEmpty: sourceTabBar.tabs.length === 0 });
     }
 }
 

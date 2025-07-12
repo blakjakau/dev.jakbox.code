@@ -318,7 +318,6 @@ const onFileModified = (fileHandle) => {
 let workspaceUnloading = false
 const saveWorkspace = async () => {
 	if (workspaceUnloading) return
-	console.debug("saveWorkspace: Saving workspace.", workspace);
 	set(`workspace_${workspace.id}`, workspace);
 }
 
@@ -1589,7 +1588,10 @@ setTimeout(async () => {
 		leftTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, leftEdit);
 		rightTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, rightEdit);
 		leftTabs.defaultTab = () => defaultTab(leftTabs);
-		rightTabs.defaultTab = () => defaultTab(rightTabs);
+		rightTabs.defaultTab = () => {
+	console.debug("rightTabs.defaultTab: Creating default tab for right tab bar.");
+	return defaultTab(rightTabs);
+};
 
 		leftTabs.onEmpty = () => {
 			leftEdit.setSession(ace.createEditSession(""));

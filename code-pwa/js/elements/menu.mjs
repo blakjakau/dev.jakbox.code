@@ -130,7 +130,7 @@ export class Menu extends Panel {
 				},
 				{ once: true }
 			)
-			document.on("click",
+			document.addEventListener("click",
 				() => {
 					if (!clicked && MenuOpen) {
 						setTimeout(() => {

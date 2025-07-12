@@ -188,10 +188,12 @@ const uiManager = {
 		leftHolder = new EditorHolder()
 		leftHolder.setAttribute("id", "leftHolder")
 		leftHolder.classList.add("current")
+		leftHolder.mediaView.id = "leftMedia"
 		
 		
 		
 		rightHolder = new EditorHolder()
+		rightHolder.mediaView.id = "rightMedia"
 		
 		window.rightHolder = rightHolder
 		
