@@ -372,6 +372,7 @@ export class TabBar extends Block {
 				this._close(event)
 			}
 		}
+		this.dispatch('tabs-updated', { isEmpty: this._tabs.length === 0 });
 		return tab
 	}
 
@@ -433,10 +434,15 @@ export class TabBar extends Block {
                 tab.setAttribute("data-original-parent", mark);
             }
 			otherTabBar.append(tab);
+            tab.tabBar = otherTabBar; // Explicitly update the tabBar reference
+            tab.config.side = otherTabBar.id === 'leftTabs' ? 'left' : 'right';
 		});
 
 		this._tabs = [];
 		otherTabBar._tabs = Array.from(otherTabBar.children).filter(child => child instanceof TabItem);
+
+		console.debug(`TabBar ${this.id}: _tabs after move:`, this._tabs);
+		console.debug(`TabBar ${otherTabBar.id}: _tabs after move:`, otherTabBar._tabs);
 
 		if (activeTabInSource) {
 			activeTabInSource.click();
@@ -452,12 +458,8 @@ export class TabBar extends Block {
         }
 
         if (this.tabs.length === 0) {
-            if (suppressDefaultTab) {
-                if (typeof this.onEmpty === 'function') {
-                    this.onEmpty();
-                }
-            } else {
-                this.defaultTab();
+            if (typeof this.onEmpty === 'function') {
+                this.onEmpty();
             }
             // Hide notice bar for the source tab bar if it becomes empty
             window.ui.hideFileModifiedNotice(this.id === 'leftTabs' ? 'left' : 'right');

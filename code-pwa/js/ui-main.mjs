@@ -796,25 +796,26 @@ const uiManager = {
 	
 	toggleSplitView: (forceOpen=false)=>{
 		const targetWidth = (window.innerWidth - leftHolder.offsetLeft)/2
-		if (toggleBodyClass("showSplitView")) {
-			toggleSplitViewBtn.icon = "view_column"
-			toggleSplitViewBtn.setAttribute("title", "Hide split view")
-			leftHolder.style.width = "50%"
-			rightHolder.style.width = "50%"
-			rightTabs.reclaimTabs(leftTabs, "rightTabs");
-			uiManager.currentEditor = rightEdit;
-		} else {
-			toggleSplitViewBtn.icon = "vertical_split"
-			toggleSplitViewBtn.setAttribute("title", "Show split view")
-			leftHolder.style.width = "100%"
-			rightHolder.style.width = "0%"
-			rightTabs.moveAllTabsTo(leftTabs, "rightTabs", true);
-			uiManager.currentEditor = leftEdit;
-		}
+			if (toggleBodyClass("showSplitView")) {
+				toggleSplitViewBtn.icon = "view_column"
+				toggleSplitViewBtn.setAttribute("title", "Hide split view")
+				leftHolder.style.width = "50%"
+				rightHolder.style.width = "50%"
+				rightTabs.reclaimTabs(leftTabs, "rightTabs");
+				// if (rightTabs.tabs.length === 0) {
+				// 	rightTabs.onEmpty();
+				// }
+			} else {
+				toggleSplitViewBtn.icon = "vertical_split"
+				toggleSplitViewBtn.setAttribute("title", "Show split view")
+				leftHolder.style.width = "100%"
+				rightHolder.style.width = "0%"
+				rightTabs.moveAllTabsTo(leftTabs, "rightTabs", true);
+			}
 
-		setTimeout(()=>{
-			constrainHolders()
-		},animRate)
+			setTimeout(()=>{
+				constrainHolders()
+			},animRate)
 	},
 
 	omnibox: (mode) => {
@@ -888,16 +889,22 @@ const uiManager = {
 	get rightMedia() { return rightHolder.mediaView },
 	get rightTabs() { return rightTabs },
 	
-	set currentEditor(v) {
+		set currentEditor(v) {
 		currentEditor = v;
 		if (v === leftEdit) {
 			leftHolder.classList.add("current");
 			rightHolder.classList.remove("current");
 			currentTabs = leftTabs;
+			// currentTabs?.activeTab?.click()
+			// leftHolder._updateContentVisibility(false);
+			// rightHolder._updateContentVisibility(true);
 		} else {
 			leftHolder.classList.remove("current");
 			rightHolder.classList.add("current");
 			currentTabs = rightTabs;
+			// currentTabs?.activeTab?.click()
+			// rightHolder._updateContentVisibility(false);
+			// leftHolder._updateContentVisibility(true);
 		}
 	},
 	set currentTabs(v) { currentTabs = v },

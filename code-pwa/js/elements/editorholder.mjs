@@ -8,7 +8,9 @@ export class EditorHolder extends Panel {
         super();
         this.editorElement = document.createElement("div");
         this.editorElement.classList.add("loading");
+        this.editorElement.style.display = "block";
         this.mediaView = new MediaView();
+        this.mediaView.style.display = "block";
         this.appendChild(this.editorElement);
         this.appendChild(this.mediaView);
 
@@ -87,9 +89,14 @@ export class EditorHolder extends Panel {
     }
 
     set tabs(tabBarInstance) {
+        if (this._tabs) {
+            this._tabs.off('tabs-updated', this._tabsUpdatedHandler);
+        }
         this._tabs = tabBarInstance;
         this.appendChild(tabBarInstance);
-        
+        this._tabsUpdatedHandler = (e) => this._updateContentVisibility(e.detail.isEmpty);
+        this._tabs.on('tabs-updated', this._tabsUpdatedHandler);
+        this._updateContentVisibility(this._tabs.tabs.length === 0);
     }
 
     get tabs() {
@@ -115,6 +122,30 @@ export class EditorHolder extends Panel {
     }
 
     
+
+    _updateContentVisibility(isEmpty) {
+    	return
+        console.debug(`EditorHolder ${this.id}: _updateContentVisibility called with isEmpty: ${isEmpty}`);
+        if (isEmpty) {
+            this.editorElement.style.display = 'none';
+            this.mediaView.style.display = 'none';
+            if (this._backgroundElement) {
+                this._backgroundElement.style.display = 'flex';
+            }
+        } else {
+            const activeTab = this._tabs.activeTab;
+            if (activeTab && activeTab.config && activeTab.config.mode === "media") {
+                this.editorElement.style.display = 'none';
+                this.mediaView.style.display = 'block';
+            } else {
+                this.editorElement.style.display = 'block';
+                this.mediaView.style.display = 'none';
+            }
+            if (this._backgroundElement) {
+                this._backgroundElement.style.display = 'none';
+            }
+        }
+    }
 
     connectedCallback() {
         super.connectedCallback();
