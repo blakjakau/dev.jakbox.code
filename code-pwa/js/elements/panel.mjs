@@ -101,8 +101,8 @@ export class Panel extends Block {
 				}
 			}
 			const release = (e) =>{
-				document.off("pointermove", move)
-				document.off("pointerup", release)
+				document.removeEventListener("pointermove", move)
+				document.removeEventListener("pointerup", release)
 				document.body.style.cursor = ""
 				this.style.transition = ""
 				this.active = false
@@ -119,8 +119,8 @@ export class Panel extends Block {
 				document.body.style.cursor = "ns-resize"
 			}
 			
-			document.on("pointermove", move)
-			document.on("pointerup", release)
+			document.addEventListener("pointermove", move)
+			document.addEventListener("pointerup", release)
 		})
 
 	}

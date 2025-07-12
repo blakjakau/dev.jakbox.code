@@ -142,7 +142,7 @@ export class Menu extends Panel {
 				},
 				{ once: true }
 			)
-			document.on("contextmenu",
+			document.addEventListener("contextmenu",
 				() => {
 					if (CurrentMenu == this) {
 						CurrentMenu.removeAttribute("active")

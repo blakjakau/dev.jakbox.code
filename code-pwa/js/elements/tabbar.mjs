@@ -407,8 +407,12 @@ export class TabBar extends Block {
 		for (let i = 0, l = sibs.length; i < l; i++) {
 			const sib = sibs[i]
 			if (sib instanceof TabItem) {
-				sib.style.marginLeft = ""
-				sib.style.marginRight = ""
+				sib.style.transition = "none";
+				sib.style.marginLeft = "";
+				sib.style.marginRight = "";
+				// Force reflow
+				void sib.offsetHeight;
+				sib.style.transition = "";
 			}
 		}
 	}

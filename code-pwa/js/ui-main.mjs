@@ -189,8 +189,14 @@ const uiManager = {
 		leftHolder.setAttribute("id", "leftHolder")
 		leftHolder.classList.add("current")
 		
+		
+		
 		rightHolder = new EditorHolder()
+		
+		window.rightHolder = rightHolder
+		
 		rightHolder.setAttribute("id", "rightHolder")
+		// rightHolder.querySelector(".notice-bar").setAttribute("id", "rightFileModifiedNotice")
 		rightHolder.style.width = "0px"
 		rightHolder.style.right = "0px"
 		rightHolder.resizable = "left"
@@ -928,7 +934,7 @@ const uiManager = {
     },
 
     hideFileModifiedNotice: (side) => {
-        const noticeBarId = (side === 'left') ? "leftFileModifiedNotice" : "rightFileModifiedNotice";
+        const noticeBarId = (side === 'left') ? "leftHolderFileModifiedNotice" : "rightHolderFileModifiedNotice";
         const noticeBar = document.getElementById(noticeBarId);
         noticeBar.style.display = "none"; // Hide the notice bar
         noticeBar.currentTab = null; // Clear the tab reference
