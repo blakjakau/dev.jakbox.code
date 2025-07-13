@@ -236,7 +236,7 @@ export class FileList extends ContentFill {
 			base.empty()
 		}
 		
-		tree.forEach((item) => {
+		tree?.forEach((item) => {
 		    
 		    for(const hidden of hideMask) {
 		        if(item.name.indexOf(hidden)>-1)
@@ -290,6 +290,8 @@ export class FileList extends ContentFill {
 				} else {
 					if (this._openFolders.has(itemPath)) { 
 					e.icon = "folder_open"
+					item.open = true
+					e.open = true
 					e.setAttribute("open-folder", "true")
 					this._render(e.holder, item.tree,depth+1)
 				}
