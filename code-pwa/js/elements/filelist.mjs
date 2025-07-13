@@ -21,6 +21,7 @@ export class FileList extends ContentFill {
 		this._active = [] // maintain a list of the active files
 		this.tabGroup = tabIndexGroup++
 		this._contextElement = null
+        this._openFolders = new Set(); // New: To store paths of expanded folders
 		this.on("contextmenu", (e) => {
 			e.preventDefault() && e.stopPropagation()
 		})
@@ -206,10 +207,8 @@ export class FileList extends ContentFill {
 		return open
 	}
 
-	_render(base, tree, depth=0, openPaths=null) {
+	_render(base, tree, depth=0) {
 		// trigger an index generation (if not already done)
-		
-		if(!openPaths) openPaths = this.openPaths()
 		
 		const fileTypes = {
 		    "javascript": "js mjs jsm".split(" "),
@@ -274,6 +273,7 @@ export class FileList extends ContentFill {
 								item.tree = await readAndOrderDirectory(item)
 								item.open = true
 								e.setAttribute("open-folder", "true")
+								this._openFolders.add(itemPath);
 								this._render(base, tree,depth+1)
 								this.generateIndex(this._tree)
 							}
@@ -288,20 +288,10 @@ export class FileList extends ContentFill {
 						}
 					})
 				} else {
-					if (item.tree && item.open) { 
+					if (this._openFolders.has(itemPath)) { 
 					e.icon = "folder_open"
 					e.setAttribute("open-folder", "true")
-					this._render(e.holder, item.tree,depth+1, openPaths)
-				} else if(openPaths.includes(itemPath)) {
-					(async()=>{
-						if (!item.tree) { e.setAttribute("loading", "true"); item.tree = await readAndOrderDirectory(item) }
-						e.icon = "folder_open"
-						e.setAttribute("open-folder", "true")
-						this._render(e.holder, item.tree,depth+1, openPaths)
-						if ("function" == typeof this.expand) { this.expand(e.item) }
-						e.removeAttribute("loading")
-						item.open = true
-					})()
+					this._render(e.holder, item.tree,depth+1)
 				}
 					// } else if(depth<this._expandLevels) {
 					// 	(async()=>{
@@ -319,6 +309,7 @@ export class FileList extends ContentFill {
 						item.open = !item.open
 						if (item.open) {
 							e.setAttribute("open-folder", "true")
+							this._openFolders.add(itemPath); // Add to set when opened
 							if (!item.tree) { e.setAttribute("loading", "true"); item.tree = await readAndOrderDirectory(item) }
 							e.icon = "folder_open"
 							this._render(e.holder, item.tree,depth+1)
@@ -327,6 +318,7 @@ export class FileList extends ContentFill {
 
 						} else {
 							e.removeAttribute("open-folder")
+							this._openFolders.delete(itemPath); // Remove from set when closed
 							e.icon = "folder"
 							e.showRefresh = false
 							e.holder.empty()
@@ -485,6 +477,16 @@ export class FileList extends ContentFill {
 		this._tree = tree
 		this._render(this._inner, tree)
 		this.generateIndex(this._tree)
+	}
+
+	get openFolders() {
+		return Array.from(this._openFolders);
+	}
+
+	set openFolders(paths) {
+		this._openFolders.clear();
+		paths.forEach(path => this._openFolders.add(path));
+		this._render(this._inner, this._tree); // Re-render to apply the new open states
 	}
 	
 	find(match) {

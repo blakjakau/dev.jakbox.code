@@ -318,6 +318,7 @@ const onFileModified = (fileHandle) => {
 let workspaceUnloading = false
 const saveWorkspace = async () => {
 	if (workspaceUnloading) return
+	workspace.openFolders = fileList.openFolders;
 	set(`workspace_${workspace.id}`, workspace);
 }
 
@@ -391,6 +392,7 @@ const openWorkspace = (() => {
 			workspace.name = load.name || "default"
 			workspace.folders = load.folders || []
 			workspace.files = load.files || []
+			workspace.openFolders = load.openFolders || [];
 			workspace.id = load.id || safeString(workspace.name)
 
 			fileActions.append(fileAccess)
@@ -422,6 +424,7 @@ const openWorkspace = (() => {
 
 			saveAppConfig()
 			ui.showFolders()
+			fileList.openFolders = workspace.openFolders || [];
 			updateWorkspaceSelectors()
 		} else {
 			if (name === "default") {
@@ -1433,6 +1436,7 @@ const keyBinds = [
 				workspace.id = id
 				workspace.folders = []
 				workspace.files = []
+				workspace.openFolders = [];
 
 				// clear the leftTabs
 				while (leftTabs.tabs.length > 1) {

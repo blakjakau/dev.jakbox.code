@@ -16,7 +16,7 @@ export class EditorHolder extends Panel {
 
         this.dragCounter = 0;
         this.dragLogging = (event)=>{
-        	console.log(this.id, event.type, this.dragCounter, event)
+			// console.log(this.id, event.type, this.dragCounter, event)
         }
 
         this.on("dragenter", (e) => {

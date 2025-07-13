@@ -678,7 +678,7 @@ const uiManager = {
 				let displayText = cursor.row + 1 + ":" + (cursor.column + 1)
 				if (editor.tabs && editor.tabs.activeTab) {
 					const tabTitle = editor.tabs.activeTab.title;
-					const fileName = tabTitle && tabTitle !== "" ? tabTitle : editor.tabs.activeTab.config.name;
+					const fileName = tabTitle && tabTitle !== "" ? tabTitle.replace(/\//g, " > ") : editor.tabs.activeTab.config.name;
 					if (fileName) {
 						displayText = displayText + " - " + fileName;
 					}
