@@ -15,9 +15,13 @@ export class EditorHolder extends Panel {
         this.appendChild(this.mediaView);
 
         this.dragCounter = 0;
+        this.dragLogging = (event)=>{
+        	console.log(this.id, event.type, this.dragCounter, event)
+        }
 
         this.on("dragenter", (e) => {
             if (e.dataTransfer.types.includes("application/x-tab-item")) {
+            	this.dragLogging(e)
                 e.preventDefault();
                 this.dragCounter++;
                 this.classList.add("drag-over");
@@ -26,6 +30,7 @@ export class EditorHolder extends Panel {
 
         this.on("dragleave", (e) => {
             if (e.dataTransfer.types.includes("application/x-tab-item")) {
+        		this.dragLogging(e)
                 e.preventDefault();
                 this.dragCounter--;
                 if (this.dragCounter === 0) {
@@ -36,13 +41,16 @@ export class EditorHolder extends Panel {
 
         this.on("dragover", (e) => {
             if (e.dataTransfer.types.includes("application/x-tab-item")) {
+        		this.dragLogging(e)
                 e.preventDefault();
+                this.classList.add("drag-over");
             }
         });
 
         this.on("drop", async (e) => {
             e.preventDefault();
             this.dragCounter = 0;
+            this.dragLogging(event)
             this.classList.remove("drag-over");
 
             const tabId = e.dataTransfer.getData("application/x-tab-item");
@@ -124,14 +132,13 @@ export class EditorHolder extends Panel {
     
 
     _updateContentVisibility(isEmpty) {
-    	return
         console.debug(`EditorHolder ${this.id}: _updateContentVisibility called with isEmpty: ${isEmpty}`);
+    	this.classList.remove("drag-over")
+    	this.dragCounter = 0
         if (isEmpty) {
+        	this.dispatch('empty');
             this.editorElement.style.display = 'none';
             this.mediaView.style.display = 'none';
-            if (this._backgroundElement) {
-                this._backgroundElement.style.display = 'flex';
-            }
         } else {
             const activeTab = this._tabs.activeTab;
             if (activeTab && activeTab.config && activeTab.config.mode === "media") {
@@ -140,9 +147,6 @@ export class EditorHolder extends Panel {
             } else {
                 this.editorElement.style.display = 'block';
                 this.mediaView.style.display = 'none';
-            }
-            if (this._backgroundElement) {
-                this._backgroundElement.style.display = 'none';
             }
         }
     }
@@ -163,7 +167,7 @@ export class EditorHolder extends Panel {
         this._backgroundElement = backgroundElement; // Store reference
 
         // Add overlay for drag-over effect
-        const overlay = document.createElement("div");
+        const overlay = this.holderOverlay = document.createElement("div");
         overlay.classList.add("holder-overlay");
         this.appendChild(overlay);
 

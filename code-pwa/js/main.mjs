@@ -1589,8 +1589,8 @@ setTimeout(async () => {
 		rightTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, rightEdit);
 		leftTabs.defaultTab = () => defaultTab(leftTabs);
 		rightTabs.defaultTab = () => {
-	console.debug("rightTabs.defaultTab: Creating default tab for right tab bar.");
-	return defaultTab(rightTabs);
+		console.debug("rightTabs.defaultTab: Creating default tab for right tab bar.");
+		return defaultTab(rightTabs);
 };
 
 		leftTabs.onEmpty = () => {
@@ -1605,7 +1605,7 @@ setTimeout(async () => {
 			rightEdit.container.style.display = 'none';
 			rightMedia.style.display = 'none';
 		    window.ui.hideFileModifiedNotice('right'); // Hide notice bar when empty
-			ui.toggleSplitView();
+			ui.toggleSplitView({targetState: "closed"});
 		};
 
 		if ("launchQueue" in window) {

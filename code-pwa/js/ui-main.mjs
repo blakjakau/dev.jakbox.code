@@ -192,6 +192,7 @@ const uiManager = {
 		
 		
 		
+		
 		rightHolder = new EditorHolder()
 		rightHolder.mediaView.id = "rightMedia"
 		
@@ -608,6 +609,13 @@ const uiManager = {
 		leftHolder.on("click", () => { uiManager.currentEditor = leftEdit })
 		rightHolder.on("click", () => { uiManager.currentEditor = rightEdit })
 
+		leftHolder.on("empty", () => { 
+			leftEdit.setSession(ace.createEditSession("", ""))
+		})
+		rightHolder.on("empty", () => { 
+			rightEdit.setSession(ace.createEditSession("", ""))
+		})
+
 		document.body.addEventListener('tabdroppedonbar', () => {
 			leftHolder.classList.remove("drag-over");
 			rightHolder.classList.remove("drag-over");
@@ -668,8 +676,12 @@ const uiManager = {
 				const selection = editor.getSelection()
 				var cursor = selection.getCursor()
 				let displayText = cursor.row + 1 + ":" + (cursor.column + 1)
-				if (editor.tabs && editor.tabs.activeTab && editor.tabs.activeTab.config && editor.tabs.activeTab.config.name) {
-					displayText = displayText + " - " + editor.tabs.activeTab.config.name
+				if (editor.tabs && editor.tabs.activeTab) {
+					const tabTitle = editor.tabs.activeTab.title;
+					const fileName = tabTitle && tabTitle !== "" ? tabTitle : editor.tabs.activeTab.config.name;
+					if (fileName) {
+						displayText = displayText + " - " + fileName;
+					}
 				}
 				cursorpos.innerHTML = displayText
 			})
@@ -794,28 +806,31 @@ const uiManager = {
 		return openDir.click()
 	},
 	
-	toggleSplitView: (forceOpen=false)=>{
-		const targetWidth = (window.innerWidth - leftHolder.offsetLeft)/2
-			if (toggleBodyClass("showSplitView")) {
-				toggleSplitViewBtn.icon = "view_column"
-				toggleSplitViewBtn.setAttribute("title", "Hide split view")
-				leftHolder.style.width = "50%"
-				rightHolder.style.width = "50%"
-				rightTabs.reclaimTabs(leftTabs, "rightTabs");
-				// if (rightTabs.tabs.length === 0) {
-				// 	rightTabs.onEmpty();
-				// }
-			} else {
-				toggleSplitViewBtn.icon = "vertical_split"
-				toggleSplitViewBtn.setAttribute("title", "Show split view")
-				leftHolder.style.width = "100%"
-				rightHolder.style.width = "0%"
-				rightTabs.moveAllTabsTo(leftTabs, "rightTabs", true);
+	toggleSplitView: (ext = {})=>{
+		if(ext?.targetState == "closed") {
+			if(!document.body.classList.contains("showSplitView")) {
+				uiManager.currentEditor = leftEdit
+				return
 			}
+		}
+		const targetWidth = (window.innerWidth - leftHolder.offsetLeft)/2
+		if (toggleBodyClass("showSplitView")) {
+			toggleSplitViewBtn.icon = "view_column"
+			toggleSplitViewBtn.setAttribute("title", "Hide split view")
+			leftHolder.style.width = "50%"
+			rightHolder.style.width = "50%"
+			rightTabs.reclaimTabs(leftTabs, "rightTabs");
+		} else {
+			toggleSplitViewBtn.icon = "vertical_split"
+			toggleSplitViewBtn.setAttribute("title", "Show split view")
+			leftHolder.style.width = "100%"
+			rightHolder.style.width = "0%"
+			rightTabs.moveAllTabsTo(leftTabs, "rightTabs", true);
+		}
 
-			setTimeout(()=>{
-				constrainHolders()
-			},animRate)
+		setTimeout(()=>{
+			constrainHolders()
+		},animRate)
 	},
 
 	omnibox: (mode) => {
@@ -889,7 +904,7 @@ const uiManager = {
 	get rightMedia() { return rightHolder.mediaView },
 	get rightTabs() { return rightTabs },
 	
-		set currentEditor(v) {
+	set currentEditor(v) {
 		currentEditor = v;
 		if (v === leftEdit) {
 			leftHolder.classList.add("current");

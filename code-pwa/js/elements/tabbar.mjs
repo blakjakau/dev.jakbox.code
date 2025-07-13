@@ -22,7 +22,7 @@ export class TabBar extends Block {
 			e.dataTransfer.dropEffect = "move";
 
 			// Reset dropPosition and remove split view indicator at the beginning of every dragover event
-			this.dropPosition = null;
+			if(this.dropPosition == "split") this.dropPosition = null;
 			this.classList.remove('show-split-view-indicator');
 
 			// If split view is active, disable the split view drag functionality
@@ -258,9 +258,15 @@ export class TabBar extends Block {
 				this.resetMargins();
 				this.movingItem.click()
 			}
+
+			// Dispatch custom event after tab is dropped and handled
+			this.dispatch('tabs-updated', { isEmpty: this._tabs.length === 0 });
+			let oldTabBar = movingTab.parentElement
+			if(oldTabBar !== this) {
+				oldTabBar.dispatch('tabs-changed', { isEmpty: oldTabBar._tabs.length === 0 });
+			}
 		}
-		// Dispatch custom event after tab is dropped and handled
-		this.dispatchEvent(new CustomEvent('tabdroppedonbar', { bubbles: true }));
+
 	}
 
 	get tabs() {
@@ -335,6 +341,7 @@ export class TabBar extends Block {
 			if ("function" == typeof tabBar._click) {
 				event.tab = tab
 				tabBar._click(event)
+				this.dispatch('tabs-updated', { isEmpty: this._tabs.length === 0 });
 			}
 		}
 
@@ -400,6 +407,8 @@ export class TabBar extends Block {
 		}
 
 		this.resetMargins();
+		
+		this.dispatch('tabs-updated', { isEmpty: this._tabs.length === 0 });
 	}
 
 	resetMargins() {
@@ -464,16 +473,19 @@ export class TabBar extends Block {
             // Hide notice bar for the source tab bar if it becomes empty
             window.ui.hideFileModifiedNotice(this.id === 'leftTabs' ? 'left' : 'right');
         }
+        
+        this.dispatch('tabs-updated', { isEmpty: this._tabs.length === 0 });
+        otherTabBar.dispatch('tabs-updated', { isEmpty: otherTabBar._tabs.length === 0 });
 	}
 
-    reclaimTabs(sourceTabBar, mark) {
-        if (!(sourceTabBar instanceof TabBar)) {
+    reclaimTabs(otherTabBar, mark) {
+        if (!(otherTabBar instanceof TabBar)) {
             console.error("Source is not a TabBar");
             return;
         }
 
         const tabsToMove = [];
-        sourceTabBar.tabs.forEach(tab => {
+        otherTabBar.tabs.forEach(tab => {
             if (tab.getAttribute("data-original-parent") === mark) {
                 tabsToMove.push(tab);
             }
@@ -481,7 +493,7 @@ export class TabBar extends Block {
 
         if (tabsToMove.length === 0) return;
 
-        const sourceActiveTab = sourceTabBar.activeTab;
+        const sourceActiveTab = otherTabBar.activeTab;
         let activeTabIsMoving = tabsToMove.includes(sourceActiveTab);
 
         tabsToMove.forEach(tab => {
@@ -492,18 +504,18 @@ export class TabBar extends Block {
 
         // Update tab arrays for both tab bars
         this._tabs = Array.from(this.children).filter(child => child instanceof TabItem);
-        sourceTabBar._tabs = Array.from(sourceTabBar.children).filter(child => child instanceof TabItem);
+        otherTabBar._tabs = Array.from(otherTabBar.children).filter(child => child instanceof TabItem);
 
         // Handle active tab
         if (activeTabIsMoving) {
             sourceActiveTab.click(); // click it in its new home
-            if (sourceTabBar.tabs.length > 0) {
-                sourceTabBar.tabs[0].click();
+            if (otherTabBar.tabs.length > 0) {
+                otherTabBar.tabs[0].click();
             }
         } else {
             // if source has no active tab, but still has tabs, activate one
-            if (sourceTabBar.tabs.length > 0 && !sourceTabBar.activeTab) {
-                sourceTabBar.tabs[0].click();
+            if (otherTabBar.tabs.length > 0 && !otherTabBar.activeTab) {
+                otherTabBar.tabs[0].click();
             }
             // if this tab bar has no active tab, but now has tabs, activate one
             if (this.tabs.length > 0 && !this.activeTab) {
@@ -519,8 +531,7 @@ export class TabBar extends Block {
         }
 
         this.dispatch('tabs-updated', { isEmpty: this._tabs.length === 0 });
-		console.debug(`TabBar ${this.id}: Dispatched tabs-updated (remove). isEmpty: ${this._tabs.length === 0}`);
-        sourceTabBar.dispatch('tabs-updated', { isEmpty: sourceTabBar.tabs.length === 0 });
+        otherTabBar.dispatch('tabs-updated', { isEmpty: otherTabBar.tabs.length === 0 });
     }
 }
 
