@@ -622,10 +622,11 @@ ui-menu ui-menu-item:hover {
 }
 
 ui-menu ui-menu-item ui-icon {
-	margin-left: -8px;
+	float: left;
 	width: 24px;
+	margin-left: -8px;
 	min-height: 36px;
-	line-height: 32px;
+	line-height: 40px;
 	font-size: 20px;
 	vertical-align: middle;
 	color: var(--ui-sec-bg);
