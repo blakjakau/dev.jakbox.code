@@ -1,4 +1,5 @@
-// import elements from "../elements/elements.mjs"
+
+import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder } from './elements.mjs';
 
 const defaultSettings = {
 	showGutter: true, //set to true to hide the line numbering
@@ -17,12 +18,12 @@ const defaultSettings = {
 
 // these become the actual editor elements
 var mainContent
-var leftEdit, leftElement, leftHolder, leftMedia, leftTabs
-var rightEdit, rightElement, rightHolder, rightMedia, rightTabs
+var leftEdit, leftHolder, leftTabs
+var rightEdit, rightHolder, rightTabs
 
 var menu
 var omni, modal, installer
-var files, fileActions, fileList
+var sidebar, fileActions, fileList
 var drawer, statusbar, statusTheme, statusMode, statusWorkspace
 var themeMenu, modeMenu, workspaceMenu
 var darkmodeMenu, darkmodeSelect
@@ -40,11 +41,12 @@ const toggleBodyClass = (className) => {
 	}
 }
 
+var animRate = 250, constrainHolders
+
 const uiManager = {
 	
 	create: (options = {}) => {
 
-		const animRate = 250
 		document.documentElement.style.setProperty('--animRate', `${animRate}ms`);
 		
 		const defaults = {
@@ -53,7 +55,7 @@ const uiManager = {
 			keyboard: "ace/keyboard/sublime",
 		}
 
-		const constrainHolders = ()=>{
+		constrainHolders = ()=>{
 			if(!document.body.classList.contains("showSplitView")) {
 				leftEdit.resize()
 				rightEdit.resize()
@@ -65,7 +67,6 @@ const uiManager = {
 			
 			l = Math.max(0.25, Math.min(0.75, l))
 			r = 1 - l
-			// r = Math.max(0.25, Math.min(0.75, r))
 			
 			leftHolder.style.width = ((l)*100)+"%"
 			rightHolder.style.width = ((r)*100)+"%"
@@ -80,29 +81,29 @@ const uiManager = {
 
 		mainContent = document.querySelector("#mainContent")
 
-		fileActions = new elements.ActionBar()
+		fileActions = new ActionBar()
 		fileActions.setAttribute("id", "fileActions")
 		fileActions.setAttribute("slim", "true")
 
-		fileList = new elements.FileList()
+		fileList = new FileList()
 
-		files = new elements.Panel()
-		files.setAttribute("id", "files")
-		files.append(fileActions)
-		files.append(fileList)
-		files.resizable = "right"
-		files.minSize = 200
+		sidebar = new Panel()
+		sidebar.setAttribute("id", "sidebar")
+		sidebar.append(fileActions)
+		sidebar.append(fileList)
+		sidebar.resizable = "right"
+		sidebar.minSize = 200
 		let sidebarWidth = 258
 
 		menu = document.querySelector("#menu")
 		if (menu == null) {
-			menu = new elements.ActionBar()
+			menu = new ActionBar()
 			menu.setAttribute("id", "menu")
 			menu.addClass("slim")
-			menu.append(new elements.Inline('<img src="images/code-192.png"/> Code'))
+			menu.append(new Inline('<img src="images/code-192.png"/> Code'))
 		}
 
-		openDir = new elements.Button()
+		openDir = new Button()
 		openDir.icon = "menu_open"
 		openDir.setAttribute("title", "hide file list")
 
@@ -117,55 +118,36 @@ const uiManager = {
 				mainContent.style.left = ""
 			}
 			setTimeout(()=>{
-				drawer.style.left = (files.offsetLeft+sidebarWidth)+"px"
+				drawer.style.left = (sidebar.offsetLeft+sidebarWidth)+"px"
 				constrainHolders()
 			},animRate)
 		})
 
-		toggleSplitViewBtn = new elements.Button()
+		toggleSplitViewBtn = new Button()
 		toggleSplitViewBtn.icon = "vertical_split"
 		toggleSplitViewBtn.setAttribute("title", "Toggle split view")
 		toggleSplitViewBtn.setAttribute("id", "toggleSplitView")
 		toggleSplitViewBtn.on("click", () => {
-			const targetWidth = (window.innerWidth - leftHolder.offsetLeft)/2
-			if (toggleBodyClass("showSplitView")) {
-				toggleSplitViewBtn.icon = "view_column"
-				toggleSplitViewBtn.setAttribute("title", "Hide split view")
-				leftHolder.style.width = "50%"
-				rightHolder.style.width = "50%"
-				rightTabs.reclaimTabs(leftTabs, "rightTabs");
-				if (rightTabs.tabs.length === 0) {
-					rightTabs.onEmpty();
-				}
-			} else {
-				toggleSplitViewBtn.icon = "vertical_split"
-				toggleSplitViewBtn.setAttribute("title", "Show split view")
-				leftHolder.style.width = "100%"
-				rightHolder.style.width = "0%"
-				rightTabs.moveAllTabsTo(leftTabs, "rightTabs", true);
-			}
-
-			setTimeout(()=>{
-				constrainHolders()
-			},animRate)
+			uiManager.toggleSplitView()
 		})
 
-		leftTabs = new elements.TabBar()
+		leftTabs = new TabBar()
 		leftTabs.type = "tabs"
 		leftTabs.setAttribute("id", "leftTabs")
 		leftTabs.setAttribute("slim", "true")
+		leftTabs.splitViewDragEnabled = true;
 		
 		leftTabs.append(openDir)
 		leftTabs.append(toggleSplitViewBtn)
 		
-		rightTabs = new elements.TabBar()
+		rightTabs = new TabBar()
 		rightTabs.type = "tabs"
 		rightTabs.setAttribute("id", "rightTabs")
 		rightTabs.setAttribute("slim", "true")
 
 		statusbar = document.querySelector("#statusbar")
 		if (statusbar == null) {
-			statusbar = new elements.ActionBar()
+			statusbar = new ActionBar()
 			statusbar.setAttribute("id", "statusbar")
 			statusbar.setAttribute("slim", "true")
 			statusbar.hook = "top"
@@ -178,6 +160,10 @@ const uiManager = {
 
 		themeMenu = document.querySelector("#theme_menu")
 		modeMenu = document.querySelector("#mode_menu")
+
+		// Query darkmode elements directly within the function
+		darkmodeSelect = document.querySelector("#darkmode_select");
+		darkmodeMenu = document.querySelector("#darkmode_menu");
 
 		themeMenu.on( "show", (e) => {
 			e.stopPropagation()
@@ -199,59 +185,35 @@ const uiManager = {
 		darkmodeSelect = document.querySelector("#darkmode_select");
 		darkmodeMenu = document.querySelector("#darkmode_menu");
 
-		leftHolder = new elements.Panel()
+		leftHolder = new EditorHolder()
 		leftHolder.setAttribute("id", "leftHolder")
-		
-		leftElement = document.createElement("div")
-		leftElement.classList.add("loading")
-		leftElement.setAttribute("id", "leftEdit")
-
-		leftHolder.appendChild(leftElement)
-		leftMedia = new elements.MediaView()
-		leftMedia.setAttribute("id", "leftMedia")
-		leftHolder.appendChild(leftMedia)
+		leftHolder.classList.add("current")
+		leftHolder.mediaView.id = "leftMedia"
 		
 		
-
-		rightHolder = new elements.Panel()
+		
+		
+		rightHolder = new EditorHolder()
+		rightHolder.mediaView.id = "rightMedia"
+		
+		window.rightHolder = rightHolder
+		
 		rightHolder.setAttribute("id", "rightHolder")
+		// rightHolder.querySelector(".notice-bar").setAttribute("id", "rightFileModifiedNotice")
 		rightHolder.style.width = "0px"
 		rightHolder.style.right = "0px"
 		rightHolder.resizable = "left"
 		rightHolder.minSize = 0
 		rightHolder.maxSize = 2440
-
-		;([leftHolder, ]).forEach(holder=>{
-			const backgroundElement = document.createElement("div");
-			backgroundElement.classList.add("background-element");
-			const image = document.createElement("img");
-			image.src = "/images/code-192.png";
-			const caption = document.createElement("div");
-			caption.classList.add("caption");
-			caption.innerHTML = "CTRL+O to open a file <br/> CTRL+N to create a new file";
-			backgroundElement.appendChild(image);
-			backgroundElement.appendChild(caption);
-			holder.appendChild(backgroundElement);
-		})
-
-		rightElement = document.createElement("div")
 		
-		rightElement.classList.add("loading")
-		rightElement.setAttribute("id", "rightEdit")
-		rightHolder.appendChild(rightElement)
-
-		rightMedia = new elements.MediaView()
-		rightMedia.setAttribute("id", "rightMedia")
-		rightHolder.appendChild(rightMedia)
-		
-		files.resizeListener((width)=>{
+		sidebar.resizeListener((width)=>{
 			sidebarWidth = width
 			mainContent.style.transition = "none"
 			mainContent.style.left = width + "px"
-			drawer.style.left = (files.offsetLeft+sidebarWidth)+"px"
+			drawer.style.left = (sidebar.offsetLeft+sidebarWidth)+"px"
 		})
 		
-		files.resizeEndListener(()=>{
+		sidebar.resizeEndListener(()=>{
 			mainContent.style.transition = ""
 			constrainHolders()
 		})
@@ -268,7 +230,7 @@ const uiManager = {
 			constrainHolders()
 		})
 
-		drawer = new elements.Panel()
+		drawer = new Panel()
 		drawer.setAttribute("id", "drawer")
 		drawer.resizable = "top"
 		let drawerHeight = 34
@@ -279,7 +241,7 @@ const uiManager = {
 		drawer.resizeListener((height)=>{
 			mainContent.style.transition = "none"
 			mainContent.style.bottom = height + "px"
-			// drawer.style.left = files.offsetWidth
+			// drawer.style.left = sidebar.offsetWidth
 		})
 
 		drawer.resizeEndListener(()=>{
@@ -287,22 +249,22 @@ const uiManager = {
 			constrainHolders()
 		})
 
-		installer = new elements.Panel()
+		installer = new Panel()
 		installer.setAttribute("type", "modal")
 		document.body.append(installer)
 		installer.classList.add("slideUp")
 		installer.style.cssText = `left:auto; top:auto; right:32px; bottom:64px; width:auto; height:105px; text-align:center;`
 		installer.innerHTML = `<p><img src="images/code-192.png" height='32px' style="vertical-align:middle; margin-top:-4px;">&nbsp;&nbsp;<b>Add 'Code' as an app?</b></p>`
 
-		installer.confirm = new elements.Button("Yes please!")
+		installer.confirm = new Button("Yes please!")
 		installer.confirm.classList.add("themed")
 		installer.confirm.icon = "done"
 
-		installer.later = new elements.Button("Later")
+		installer.later = new Button("Later")
 		installer.later.classList.add("themed")
 		installer.later.icon = "watch_later"
 
-		installer.deny = new elements.Button("No thanks")
+		installer.deny = new Button("No thanks")
 		installer.deny.classList.add("cancel")
 		// installer.deny.icon = "close"
 
@@ -320,7 +282,7 @@ const uiManager = {
 			}, 333)
 		}
 
-		installer.clear = new elements.Button("")
+		installer.clear = new Button("")
 		installer.clear.icon = "close"
 		installer.clear.style.cssText = `
         position:absolute;
@@ -341,8 +303,8 @@ const uiManager = {
 
 		installer.hide()
 
-		omni = new elements.Panel()
-		omni.results = new elements.Panel()
+		omni = new Panel()
+		omni.results = new Panel()
 		omni.results.classList.add("results")
 		omni.results.next = (step = 1) => {
 			omni.resultItemIndex += step
@@ -381,8 +343,8 @@ const uiManager = {
 
 		omni.appendChild(omni.results)
 
-		omni.titleElement = new elements.Block("omni box")
-		omni.input = new elements.Input()
+		omni.titleElement = new Block("omni box")
+		omni.input = new Input()
 		omni.input.value = ""
 		omni.stack = []
 		omni.perform = (e, next = false, prev = false) => {
@@ -451,7 +413,7 @@ const uiManager = {
 							let counter = 0
 							for (let item of matches) {
 								// if(counter>10) continue
-								const result = new elements.Block()
+								const result = new Block()
 								if (counter === 0) result.classList.add("active")
 								result.itemIndex = counter
 								result.addEventListener("click", () => {
@@ -613,7 +575,7 @@ const uiManager = {
 		omni.prepend(omni.titleElement)
 		omni.append(omni.input)
 		omni.append(
-			new elements.Block(
+			new Block(
 				`
 				&nbsp;&nbsp; <acronym title='Ctrl-G'>:Goto</acronym> 
 				&nbsp;&nbsp; <acronym title='Ctrl-F'>/Find</acronym> 
@@ -639,8 +601,25 @@ const uiManager = {
 			})
 		}
 
-		leftHolder.appendChild(leftTabs)
-		rightHolder.appendChild(rightTabs)
+		leftHolder.tabs = leftTabs
+		rightHolder.tabs = rightTabs
+
+		leftTabs.on("click", () => { uiManager.currentEditor = leftEdit })
+		rightTabs.on("click", () => { uiManager.currentEditor = rightEdit })
+		leftHolder.on("click", () => { uiManager.currentEditor = leftEdit })
+		rightHolder.on("click", () => { uiManager.currentEditor = rightEdit })
+
+		leftHolder.on("empty", () => { 
+			leftEdit.setSession(ace.createEditSession("", ""))
+		})
+		rightHolder.on("empty", () => { 
+			rightEdit.setSession(ace.createEditSession("", ""))
+		})
+
+		document.body.addEventListener('tabdroppedonbar', () => {
+			leftHolder.classList.remove("drag-over");
+			rightHolder.classList.remove("drag-over");
+		});
 
 		document.body.appendChild(menu)
 		document.body.appendChild(statusbar)
@@ -648,43 +627,27 @@ const uiManager = {
 		
 		
 		mainContent.appendChild(leftHolder)
-		        mainContent.appendChild(rightHolder)
-
-        // Add the left file modified notice bar
-        const leftFileModifiedNotice = document.createElement("div");
-        leftFileModifiedNotice.setAttribute("id", "leftFileModifiedNotice");
-        leftFileModifiedNotice.classList.add("notice-bar");
-        leftFileModifiedNotice.style.display = "none"; // Hidden by default
-        leftFileModifiedNotice.innerHTML = `
-            <span>This file has been modified outside the editor.</span>
-            <button rel="reload">Reload</button> <button rel="dismiss">X</button> `;
-        leftHolder.appendChild(leftFileModifiedNotice); // Append to leftHolder
-
-        // Add the right file modified notice bar
-        const rightFileModifiedNotice = document.createElement("div");
-        rightFileModifiedNotice.setAttribute("id", "rightFileModifiedNotice");
-        rightFileModifiedNotice.classList.add("notice-bar");
-        rightFileModifiedNotice.style.display = "none"; // Hidden by default
-        rightFileModifiedNotice.innerHTML = `
-            <span>This file has been modified outside the editor.</span>
-            <button rel="reload">Reload</button> <button rel="dismiss">X</button> `;
-        rightHolder.appendChild(rightFileModifiedNotice); // Append to rightHolder
+		mainContent.appendChild(rightHolder)
 		
-		document.body.appendChild(files)
+		document.body.appendChild(sidebar)
 		document.body.appendChild(drawer)
 		document.body.appendChild(omni)
 
-		let cursorpos = new elements.Inline()
+		let cursorpos = new Inline()
 		cursorpos.setAttribute("id", "cursor_pos")
 		statusbar.append(cursorpos)
 
-		window.leftEdit = leftEdit = ace.edit(leftElement)
-		window.rightEdit = rightEdit = ace.edit(rightElement)
+		window.leftEdit = leftEdit = ace.edit(leftHolder.editorElement)
+		window.rightEdit = rightEdit = ace.edit(rightHolder.editorElement)
+		
+		leftHolder.editor = leftEdit
+		rightHolder.editor = rightEdit
 		
 		window.editors = [leftEdit, rightEdit]
 		leftEdit.tabs = leftTabs
 		rightEdit.tabs = rightTabs
 		
+		uiManager.currentEditor = leftEdit;
 		window.omni = omni
 		ace.require("ace/keyboard/sublime")
 		ace.require("ace/etc/keybindings_menu")
@@ -705,12 +668,20 @@ const uiManager = {
 			})
 	
 	
+		editor.on("focus", () => {
+				uiManager.currentEditor = editor
+			})
+
 			editor.on("changeSelection", () => {
 				const selection = editor.getSelection()
 				var cursor = selection.getCursor()
 				let displayText = cursor.row + 1 + ":" + (cursor.column + 1)
-				if (editor.tabs && editor.tabs.activeTab && editor.tabs.activeTab.config && editor.tabs.activeTab.config.name) {
-					displayText = displayText + " - " + editor.tabs.activeTab.config.name
+				if (editor.tabs && editor.tabs.activeTab) {
+					const tabTitle = editor.tabs.activeTab.title;
+					const fileName = tabTitle && tabTitle !== "" ? tabTitle.replace(/\//g, " > ") : editor.tabs.activeTab.config.name;
+					if (fileName) {
+						displayText = displayText + " - " + fileName;
+					}
 				}
 				cursorpos.innerHTML = displayText
 			})
@@ -758,7 +729,7 @@ const uiManager = {
 			if (themeMenu.children.length == 0) {
 				for (const n in ace_themes) {
 					const theme = ace_themes[n]
-					const item = new elements.MenuItem(theme.caption)
+					const item = new MenuItem(theme.caption)
 					item.setAttribute("rel-data", ace_themes[n].theme)
 					item.setAttribute("command", `app:setTheme:${ace_themes[n].theme}`)
 					themeMenu.append(item)
@@ -782,7 +753,7 @@ const uiManager = {
 			if (modeMenu.children.length == 0) {
 				for (const n in ace_modes) {
 					const mode = ace_modes[n]
-					const item = new elements.MenuItem(mode.caption)
+					const item = new MenuItem(mode.caption)
 					item.setAttribute("rel-data", ace_modes[n].mode)
 					item.setAttribute("command", `app:setMode:${ace_modes[n].mode}`)
 					modeMenu.append(item)
@@ -831,12 +802,35 @@ const uiManager = {
 		fileList.files = workspace.folders
 	},
 
-	toggleFiles: () => {
+	toggleSidebar: () => {
 		return openDir.click()
 	},
 	
-	toggleSplitView: (forceOpen=false)=>{
-		return toggleSplitViewBtn.click(forceOpen)
+	toggleSplitView: (ext = {})=>{
+		if(ext?.targetState == "closed") {
+			if(!document.body.classList.contains("showSplitView")) {
+				uiManager.currentEditor = leftEdit
+				return
+			}
+		}
+		const targetWidth = (window.innerWidth - leftHolder.offsetLeft)/2
+		if (toggleBodyClass("showSplitView")) {
+			toggleSplitViewBtn.icon = "view_column"
+			toggleSplitViewBtn.setAttribute("title", "Hide split view")
+			leftHolder.style.width = "50%"
+			rightHolder.style.width = "50%"
+			rightTabs.reclaimTabs(leftTabs, "rightTabs");
+		} else {
+			toggleSplitViewBtn.icon = "vertical_split"
+			toggleSplitViewBtn.setAttribute("title", "Show split view")
+			leftHolder.style.width = "100%"
+			rightHolder.style.width = "0%"
+			rightTabs.moveAllTabsTo(leftTabs, "rightTabs", true);
+		}
+
+		setTimeout(()=>{
+			constrainHolders()
+		},animRate)
 	},
 
 	omnibox: (mode) => {
@@ -875,7 +869,7 @@ const uiManager = {
 		omni.last = mode
 		omni.modePrefix = omni.input.value.substr(0, 1)
 		setTimeout(() => {
-			omni.input.addEventListener("blur", uiManager.hideOmnibox, { once: true })
+			omni.input.on("blur", uiManager.hideOmnibox, { once: true })
 		})
 	},
 
@@ -895,24 +889,44 @@ const uiManager = {
 	get installer() { return installer },
 	
 	get fileActions() { return fileActions },
-	get files() { return files },
+	get sidebar() { return sidebar },
 	get fileList() { return fileList },
 	get leftTabs() { return leftTabs },
 	get darkmodeSelect() { return darkmodeSelect },
 	get darkmodeMenu() { return darkmodeMenu },
 
 	get leftEdit() { return leftEdit },
-	get leftElement() { return leftElement },
-	get leftMedia() { return leftMedia },
+	get leftHolder() { return leftHolder },
+	get leftMedia() { return leftHolder.mediaView },
 
 	get rightEdit() { return rightEdit },
-	get rightElement() { return rightElement },
 	get rightHolder() { return rightHolder },
-	get rightMedia() { return rightMedia },
+	get rightMedia() { return rightHolder.mediaView },
 	get rightTabs() { return rightTabs },
 	
-	set currentEditor(v) { currentEditor = v },
+	set currentEditor(v) {
+		currentEditor = v;
+		if (v === leftEdit) {
+			leftHolder.classList.add("current");
+			rightHolder.classList.remove("current");
+			currentTabs = leftTabs;
+			// currentTabs?.activeTab?.click()
+			// leftHolder._updateContentVisibility(false);
+			// rightHolder._updateContentVisibility(true);
+		} else {
+			leftHolder.classList.remove("current");
+			rightHolder.classList.add("current");
+			currentTabs = rightTabs;
+			// currentTabs?.activeTab?.click()
+			// rightHolder._updateContentVisibility(false);
+			// leftHolder._updateContentVisibility(true);
+		}
+	},
 	set currentTabs(v) { currentTabs = v },
+	get currentEditor() { return currentEditor },
+	get currentTabs() { return currentTabs },
+	get currentMediaView() { return currentMediaView },
+
 	set currentMediaView(v) { currentMediaView = v },
 
 	set reloadFile(v) {
@@ -944,7 +958,7 @@ const uiManager = {
     },
 
     hideFileModifiedNotice: (side) => {
-        const noticeBarId = (side === 'left') ? "leftFileModifiedNotice" : "rightFileModifiedNotice";
+        const noticeBarId = (side === 'left') ? "leftHolderFileModifiedNotice" : "rightHolderFileModifiedNotice";
         const noticeBar = document.getElementById(noticeBarId);
         noticeBar.style.display = "none"; // Hide the notice bar
         noticeBar.currentTab = null; // Clear the tab reference

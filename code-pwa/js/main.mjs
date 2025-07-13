@@ -36,7 +36,8 @@ import parserHtml from "https://unpkg.com/prettier@2.4.1/esm/parser-html.mjs"
 import parserCss from "https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs"
 import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
 
-import ui from "./ui-main.mjs"
+import ui from './ui-main.mjs';
+import { ActionBar, Block, Button, ContentFill, CounterButton, Element, Effects, Effect, FileItem, FileList, Icon, Inline, Input, Inner, MediaView, Panel, Ripple, TabBar, TabItem, View, Menu, MenuItem, FileUploadList, actionBars, addStylesheet, buildPath, clone, isElement, isFunction, isNotNull, isset, readAndOrderDirectory, readAndOrderDirectoryRecursive, sortOnName } from './elements.mjs';
 import { observeFile, unobserveFile } from "./fileSystemObserver.mjs"
 
 const canPrettify = {
@@ -123,8 +124,8 @@ const workspace = {
 window.app = app
 window.workspace = workspace
 
-const fileOpen = new elements.Button("Add Folder to Workspace")
-const fileAccess = new elements.Button("Restore")
+const fileOpen = new Button("Add Folder to Workspace")
+const fileAccess = new Button("Restore")
 const menuRestoreFolders = document.querySelector("#menu_restore_folders")
 
 
@@ -202,6 +203,7 @@ window.ui.commands = {
 	},
 	bindToDocument() {
 		if (this.boundToDocument) return
+		if (this.boundToDocument) return
 		document.addEventListener(
 			"keydown",
 			(e) => {
@@ -245,8 +247,9 @@ window.ui.commands = {
 			{ capture: true }
 		)
 		this.boundToDocument = true
-	},
+	}
 }
+
 window.ui.commands.bindToDocument()
 
 const saveFile = async (text, handle) => {
@@ -315,7 +318,7 @@ const onFileModified = (fileHandle) => {
 let workspaceUnloading = false
 const saveWorkspace = async () => {
 	if (workspaceUnloading) return
-	console.debug("saveWorkspace: Saving workspace.", workspace);
+	workspace.openFolders = fileList.openFolders;
 	set(`workspace_${workspace.id}`, workspace);
 }
 
@@ -389,6 +392,7 @@ const openWorkspace = (() => {
 			workspace.name = load.name || "default"
 			workspace.folders = load.folders || []
 			workspace.files = load.files || []
+			workspace.openFolders = load.openFolders || [];
 			workspace.id = load.id || safeString(workspace.name)
 
 			fileActions.append(fileAccess)
@@ -420,6 +424,7 @@ const openWorkspace = (() => {
 
 			saveAppConfig()
 			ui.showFolders()
+			fileList.openFolders = workspace.openFolders || [];
 			updateWorkspaceSelectors()
 		} else {
 			if (name === "default") {
@@ -488,25 +493,25 @@ const updateThemeAndMode = (doSave = false) => {
 }
 
 const execCommandPrettify = () => {
-	let text = leftEdit.getValue()
-	const mode = leftEdit.getOption("mode")
+	let text = currentEditor.getValue()
+	const mode = currentEditor.getOption("mode")
 	if (!(mode in canPrettify)) return
 
 	const parser = canPrettify[mode]
-	const activeRow = leftEdit.getCursorPosition().row + 1
+	const activeRow = currentEditor.getCursorPosition().row + 1
 
 	try {
 		text = prettier.format(text, {
 			parser: parser.name,
 			plugins: parser.plugins,
-			printWidth: leftEdit.getOption("printMargin") || 120,
-			tabWidth: leftEdit.getOption("tabSize") || 4,
-			useTabs: !leftEdit.getOption("useSoftTabs") || false,
+			printWidth: currentEditor.getOption("printMargin") || 120,
+			tabWidth: currentEditor.getOption("tabSize") || 4,
+			useTabs: !currentEditor.getOption("useSoftTabs") || false,
 			semi: false,
 		})
-		leftEdit.setValue(text)
-		leftEdit.clearSelection()
-		leftEdit.gotoLine(activeRow)
+		currentEditor.setValue(text)
+		currentEditor.clearSelection()
+		currentEditor.gotoLine(activeRow)
 	} catch (e) {
 		console.warn("Unable to prettify", e)
 		const m = e.message
@@ -514,7 +519,7 @@ const execCommandPrettify = () => {
 			let match = m.match(/\>\s(\d*) \|/g)
 			if (match.length > 0) {
 				let l = parseInt(match[0].replace(/[\>\|\s]/g, "")) - 1
-				leftEdit.getSession().setAnnotations([
+				currentEditor.getSession().setAnnotations([
 					{
 						row: l,
 						column: 0,
@@ -522,7 +527,7 @@ const execCommandPrettify = () => {
 						type: "error", // also "warning" and "information"
 					},
 				])
-				leftEdit.execCommand("goToNextError")
+				currentEditor.execCommand("goToNextError")
 			}
 		} catch (er) {
 			console.error("Unable to prettify", e, er)
@@ -569,7 +574,7 @@ const execCommandAddFolder = () => {
 	fileOpen.click()
 }
 const execCommandToggleFolders = () => {
-	ui.toggleFiles()
+	ui.toggleSidebar()
 }
 
 const execCommandSplitView = () => {
@@ -659,16 +664,13 @@ const execCommandOpen = async () => {
 }
 
 const execCommandNewFile = async () => {
-	const srcTab = leftTabs.activeTab || rightTabs.activeTab;
+	const srcTab = ui.currentTabs.activeTab
 	const mode = srcTab?.config?.mode?.mode || "";
 	const folder = srcTab?.config?.folder || undefined;
 	const newSession = ace.createEditSession("", mode);
 	newSession.baseValue = "";
 
-	let targetTabs = leftTabs;
-	if (rightTabs.activeTab) {
-		targetTabs = rightTabs;
-	}
+	let targetTabs = ui.currentTabs
 
 	const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder, side: (targetTabs === leftTabs) ? "left" : "right" });
 
@@ -712,14 +714,14 @@ const reloadFile = async (tab) => {
 // Expose it globally for ui-main.mjs to call
 window.ui.reloadFile = reloadFile;
 
-const buildPath = (f) => {
-	if (!(f instanceof FileSystemFileHandle || f instanceof FileSystemDirectoryHandle)) {
-		return ""
-	}
-	let n = f.name
-	if (f.container) n = buildPath(f.container) + "/" + n
-	return n
-}
+// 	const buildPath = (f) => {
+// 	if (!(f instanceof FileSystemFileHandle || f instanceof FileSystemDirectoryHandle)) {
+// 		return ""
+// 	}
+// 	let n = f.name
+// 	if (f.container) n = buildPath(f.container) + "/" + n
+// 	return n
+// }
 
 let currentEditor = leftEdit;
 let currentTabs = leftEdit;
@@ -927,7 +929,7 @@ folderMenu.click = topfolderMenu.click = (action) => {
 fileList.context = (e) => {
 	let menu = folderMenu
 
-	if (e.srcElement.parentElement.parentElement instanceof elements.FileList) {
+	if (e.srcElement.parentElement.parentElement instanceof FileList) {
 		menu = topfolderMenu
 	} else {
 		if (e.srcElement?.item?.kind == "file") {
@@ -1046,9 +1048,8 @@ rightTabs.close = (event) => {
 };
 
 const defaultTab = (targetTabs) => {
-	if (!targetTabs || !(targetTabs instanceof elements.TabBar)) {
-		console.error("No valid target tab bar provided for default tab.");
-		return;
+	if(!targetTabs) {
+		targetTabs = ui.currentTabs
 	}
 	const defaultSession = ace.createEditSession("", "")
 	const tab = targetTabs.add({ name: "untitled", mode: { mode: "" }, session: defaultSession })
@@ -1435,6 +1436,7 @@ const keyBinds = [
 				workspace.id = id
 				workspace.folders = []
 				workspace.files = []
+				workspace.openFolders = [];
 
 				// clear the leftTabs
 				while (leftTabs.tabs.length > 1) {
@@ -1524,7 +1526,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 })
 
 setTimeout(async () => {
-	ui.leftElement.classList.remove("loading")
+	ui.leftHolder.editorElement.classList.remove("loading")
 
 	window.filesReceiver.addEventListener("message", (e) => {
 		if (e.data?.open && window.activeFileReceiver) {
@@ -1581,14 +1583,19 @@ setTimeout(async () => {
 		if (workspace.folders.length > 0) {
 			ui.showFolders()
 		}
-		ui.toggleFiles()
-		defaultTab(leftTabs)
+		ui.toggleSidebar()
+		ui.currentTabs = ui.leftTabs
+		
+		defaultTab()
 		ui.fileList.open = openFileHandle;
 		fileList.unsupported = openFileHandle;
 		leftTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, leftEdit);
 		rightTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, rightEdit);
 		leftTabs.defaultTab = () => defaultTab(leftTabs);
-		rightTabs.defaultTab = () => defaultTab(rightTabs);
+		rightTabs.defaultTab = () => {
+		console.debug("rightTabs.defaultTab: Creating default tab for right tab bar.");
+		return defaultTab(rightTabs);
+};
 
 		leftTabs.onEmpty = () => {
 			leftEdit.setSession(ace.createEditSession(""));
@@ -1602,6 +1609,7 @@ setTimeout(async () => {
 			rightEdit.container.style.display = 'none';
 			rightMedia.style.display = 'none';
 		    window.ui.hideFileModifiedNotice('right'); // Hide notice bar when empty
+			ui.toggleSplitView({targetState: "closed"});
 		};
 
 		if ("launchQueue" in window) {
@@ -1615,4 +1623,3 @@ setTimeout(async () => {
 		}
 	})
 })
-

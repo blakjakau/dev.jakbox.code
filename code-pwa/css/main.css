@@ -27,8 +27,8 @@ a:visited {
 	bottom: var(--menuHeight);
 	box-shadow:none;
 	width: 400px;
-
 }
+
 tr.ace_optionsMenuEntry { line-height:1.5em; font-size:14px; }
 
 button { border:0; }
@@ -61,7 +61,9 @@ ui-tabbar[slim]>ui-tab-item {
 	border-radius: 4px 4px 0 0; background:none; 
 	color: inherit;
 	border: 0px; transition: background 150ms ease-in-out, margin 100ms ease-in-out; }
-ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme);  border:0px; color: var(--light)}
+ui-tabbar[slim]>ui-tab-item[active] {  background: var(--themeDark);  border:0px; color: var(--light)}
+.current ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme); }
+
 /*ui-tabbar[slim]>ui-tab-item:hover+ui-tab-item { background: var(--dark);  }*/
 ui-tabbar[slim]>ui-tab-item:not([active]):hover {
 	background: var(--high);
@@ -95,6 +97,21 @@ ui-tab-item.drop-highlight {
 
 
 
+.holder-overlay {
+    position: absolute;
+    top: var(--tabHeight);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10;
+    visibility: hidden;
+}
+
+.drag-over > .holder-overlay {
+    visibility: visible;
+}
+
 #leftHolder,
 #rightHolder {
 	opacity:1;
@@ -117,6 +134,9 @@ ui-tab-item.drop-highlight {
 
 #rightHolder {
     width: 0;
+}
+body:not(.showSplitView) #rightHolder {
+	pointer-events:none;
 }
 
 #leftEdit,
@@ -171,6 +191,11 @@ ui-menu::-webkit-scrollbar-thumb,
 
 .ace_editor {
 	top: calc( var(--menuHeight) + 6px);
+    bottom: 0px;
+    right: 4px;
+    left: 0px;
+    z-index:1;
+    position: absolute;
 }
 
 #leftHolder.loading {
@@ -341,10 +366,27 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	display:flex;
 	overflow-x: auto;
     box-sizing: border-box;
+    border-bottom:2px solid var(--themeDark);
+}
+
+ui-tabbar.show-split-view-indicator::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 100px; /* This is the 100px region */
+    background: rgba(0, 255, 0, 0.1); /* Light green overlay */
+    pointer-events: none; /* Ensure it doesn't interfere with drag events */
+    display: block;
+}
+
+.current #leftTabs,
+.current #rightTabs {
     border-bottom:2px solid var(--theme);
 }
 
-#files {
+#sidebar {
 	z-index:5;
 	opacity:0;
 	background:var(--light);
@@ -357,7 +399,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	pointer-events:none;
 }
 
-#mainContent, #files, #statusbar, ui-actionbar, ui-file-list {
+#mainContent, #sidebar, #statusbar, ui-actionbar, ui-file-list {
 	transition:left var(--animRate), right var(--animRate), opacity var(--animRate), background var(--animRate), color var(--animRate);
 }
 
@@ -408,7 +450,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 .darkmode ui-menu,
 .darkmode #leftTabs,
 .darkmode #rightTabs,
-.darkmode #files,
+.darkmode #sidebar,
 .darkmode #statusbar,
 .darkmode #ace_settingsmenu,
 .darkmode #kbshortcutmenu,
@@ -441,7 +483,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 }
 
 
-.showFiles #files {
+.showFiles #sidebar {
 	opacity:1;
 	left: 0;
 	pointer-events:auto;
@@ -549,7 +591,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 
 .background-element {
     position: absolute;
-    top: 0;
+    top: var(--tabHeight);
     left: 0;
     width: 100%;
     height: 100%;
@@ -559,6 +601,21 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
     justify-content: center;
     align-items: center;
     text-align: center;
+    overflow: hidden;
+}
+
+#leftMedia,
+#rightMedia {
+	top: var(--tabHeight);
+    left:0px;
+    right:4px;
+    bottom:0px;
+}
+
+#leftMedia,
+#rightMedia,
+.ace_editor {
+    z-index: 1;
 }
 
 .background-element img {
