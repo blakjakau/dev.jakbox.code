@@ -141,13 +141,13 @@ export class EditorHolder extends Panel {
             this.mediaView.style.display = 'none';
         } else {
             const activeTab = this._tabs.activeTab;
-            if (activeTab && activeTab.config && activeTab.config.mode === "media") {
-                this.editorElement.style.display = 'none';
-                this.mediaView.style.display = 'block';
-            } else {
-                this.editorElement.style.display = 'block';
-                this.mediaView.style.display = 'none';
-            }
+            // if (activeTab && activeTab.config && activeTab.config.mode === "media") {
+            //     this.editorElement.style.display = 'none';
+            //     this.mediaView.style.display = 'block';
+            // } else {
+            //     this.editorElement.style.display = 'block';
+            //     this.mediaView.style.display = 'none';
+            // }
         }
     }
 

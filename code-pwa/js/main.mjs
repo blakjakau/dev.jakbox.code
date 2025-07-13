@@ -799,21 +799,23 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 	}
 
 	if (fileMode.mode == "") {
-		if(file.name.startsWith(".")) {
-			fileMode.mode = "ace/mode/sh"
-		} else {
-			// specific filter files for now... images!
-			// there are others, but these ones we def CAN display
-			const images = "png|jpg|jpeg|bmp|tiff|gif|webp|ico".split("|")
-			for(const i of images) {
-				if(file.name.endsWith(i)) {
-					console.warn("branch for image handling?!", file.name)
-					//TODO build in an image preview layer to handle here
-					fileMode.mode = "media"
-				}
+		// specific filter files for now... images!
+		// there are others, but these ones we def CAN display
+		const images = "png|jpg|jpeg|bmp|tiff|gif|webp|ico".split("|")
+		for(const i of images) {
+			if(file.name.endsWith(i)) {
+				console.warn("branch for image handling?!", file.name)
+				//TODO build in an image preview layer to handle here
+				fileMode.mode = "media"
 			}
-			if (fileMode.mode == "") {
-				fileMode.mode = "ace/mode/text"
+		}
+		if(fileMode.mode == "") {
+			if(file.name.startsWith(".")) {
+				fileMode.mode = "ace/mode/sh"
+			} else {
+				if (fileMode.mode == "") {
+					fileMode.mode = "ace/mode/text"
+				}
 			}
 		}
 	}
@@ -839,7 +841,7 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 	const removeEmptyUntitledTab = (tabGroup) => {
 		if (tabGroup.tabs.length === 1) {
 			const tab = tabGroup.tabs[0];
-			            if (tab.config.name === "untitled" && tab.config.session.getValue() === "") {
+            if (tab.config.name === "untitled" && tab.config.session.getValue() === "") {
 				tabGroup.remove(tab, true); // Pass true to suppress defaultTab creation
 			}
 		}
@@ -968,7 +970,7 @@ const updateEditorUI = async (targetEditor, targetMediaView, tab) => {
         targetEditor.setSession(tab.config.session);
         targetEditor.focus();
     }
-    setCurrentEditor(targetEditor);
+    // setCurrentEditor(targetEditor);
     fileList.active = tab.config.handle;
     tab.scrollIntoViewIfNeeded();
     tab.parentElement.scrollTop = 0;
@@ -981,7 +983,7 @@ const updateEditorUI = async (targetEditor, targetMediaView, tab) => {
 leftTabs.click = async (event) => {
     const tab = event.tab;
     setCurrentEditor(leftEdit);
-    updateEditorUI(leftEdit, ui.leftMedia, tab);
+    await updateEditorUI(leftEdit, ui.leftMedia, tab);
     // Check if the file has been modified externally and show notice
     if (tab.config.fileModified) {
         ui.showFileModifiedNotice(tab, 'left');
@@ -993,7 +995,7 @@ leftTabs.click = async (event) => {
 rightTabs.click = async (event) => {
     const tab = event.tab;
     setCurrentEditor(rightEdit);
-    updateEditorUI(rightEdit, ui.rightMedia, tab);
+    await updateEditorUI(rightEdit, ui.rightMedia, tab);
     // Check if the file has been modified externally and show notice
     if (tab.config.fileModified) {
         ui.showFileModifiedNotice(tab, 'right');
