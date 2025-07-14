@@ -263,7 +263,7 @@ export class TabBar extends Block {
 			this.dispatch('tabs-updated', { isEmpty: this._tabs.length === 0 });
 			let oldTabBar = movingTab.parentElement
 			if(oldTabBar !== this) {
-				oldTabBar.dispatch('tabs-changed', { isEmpty: oldTabBar._tabs.length === 0 });
+				oldTabBar.dispatch('tabs-updated', { isEmpty: oldTabBar._tabs.length === 0 });
 			}
 		}
 

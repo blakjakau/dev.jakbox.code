@@ -18,6 +18,9 @@ export { Menu } from './elements/menu.mjs';
 export { MenuItem } from './elements/menuitem.mjs';
 export { FileUploadList } from './elements/fileuploadlist.mjs';
 export { EditorHolder } from './elements/editorholder.mjs';
+export { IconTabBar } from './elements/icon-tabbar.mjs';
+export { IconTab } from './elements/icon-tab.mjs';
+export { SidebarPanel } from './elements/sidebar-panel.mjs';
 export { isset, isNotNull, isFunction, isElement, clone, addStylesheet, sortOnName, readAndOrderDirectory, readAndOrderDirectoryRecursive, buildPath } from './elements/utils.mjs';
 
 import { Element } from './elements/element.mjs';
