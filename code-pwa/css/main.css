@@ -271,6 +271,7 @@ ui-actionbar#menu ui-panel ui-button {
 
 ui-button ui-icon {
     color: var(--theme);
+    font-family: "Material Symbols Outlined";
 }
 ui-button {
     margin:0 2px;
@@ -661,6 +662,10 @@ ui-tabbar.show-split-view-indicator::after {
     border-radius: 5px;
     cursor: pointer;
     font-size: 0.9em;
+}
+
+ui-sidebar-panel:not([active]) {
+	display: none;
 }
 
 .notice-bar button:hover {

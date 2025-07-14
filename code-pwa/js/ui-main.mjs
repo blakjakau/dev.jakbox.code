@@ -1,5 +1,4 @@
-
-import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder } from './elements.mjs';
+import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder, IconTabBar, IconTab, SidebarPanel } from './elements.mjs';
 
 const defaultSettings = {
 	showGutter: true, //set to true to hide the line numbering
@@ -27,7 +26,7 @@ var sidebar, fileActions, fileList
 var drawer, statusbar, statusTheme, statusMode, statusWorkspace
 var themeMenu, modeMenu, workspaceMenu
 var darkmodeMenu, darkmodeSelect
-var openDir, themeModeToggle, toggleSplitViewBtn
+var openDir, themeModeToggle, toggleSplitViewBtn, scratchEditor, iconTabBar;
 
 var currentEditor, currentTabs, currentMediaView
 
@@ -84,20 +83,64 @@ const uiManager = {
 		fileActions = new ActionBar()
 		fileActions.setAttribute("id", "fileActions")
 		fileActions.setAttribute("slim", "true")
+		fileActions
 
 		fileList = new FileList()
 
+		iconTabBar = new IconTabBar();
+
+		const filesTab = new IconTab('folder');
+		const aiTab = new IconTab('developer_board');
+		const scratchTab = new IconTab('edit_note');
+		iconTabBar.addTab(filesTab);
+		// iconTabBar.addTab(aiTab);
+		// iconTabBar.addTab(scratchTab);
+
+		const filesPanel = new SidebarPanel();
+		filesPanel.append(fileActions);
+		filesPanel.append(fileList);
+
+		const aiPanel = new SidebarPanel();
+
+		const scratchPanel = new SidebarPanel();
+		const scratchEditorElement = new Block();
+		scratchEditorElement.setAttribute("id", "scratchpad-editor");
+		scratchEditorElement.style.height = "100%";
+		scratchPanel.append(scratchEditorElement);
+
+		const sidebarPanelsContainer = new Block();
+		sidebarPanelsContainer.setAttribute("id", "sidebar-panels-container");
+		sidebarPanelsContainer.append(filesPanel);
+		sidebarPanelsContainer.append(aiPanel);
+		sidebarPanelsContainer.append(scratchPanel);
+
 		sidebar = new Panel()
 		sidebar.setAttribute("id", "sidebar")
-		sidebar.append(fileActions)
-		sidebar.append(fileList)
+		sidebar.append(iconTabBar);
+		sidebar.append(sidebarPanelsContainer);
+
+		iconTabBar.on('tabs-updated', ({ detail }) => {
+			const tab = detail.tab;
+			const panels = sidebar.querySelectorAll('ui-sidebar-panel');
+			panels.forEach(panel => panel.active = false);
+
+			if (tab === filesTab) {
+				filesPanel.active = true;
+			} else if (tab === aiTab) {
+				aiPanel.active = true;
+			} else if (tab === scratchTab) {
+				scratchPanel.active = true;
+			}
+		});
+
+		iconTabBar.activeTab = filesTab;
 		sidebar.resizable = "right"
 		sidebar.minSize = 200
 		let sidebarWidth = 258
 
 		menu = document.querySelector("#menu")
 		if (menu == null) {
-			menu = new ActionBar()
+						menu = new ActionBar()
 			menu.setAttribute("id", "menu")
 			menu.addClass("slim")
 			menu.append(new Inline('<img src="images/code-192.png"/> Code'))
@@ -652,6 +695,9 @@ const uiManager = {
 		ace.require("ace/keyboard/sublime")
 		ace.require("ace/etc/keybindings_menu")
 
+		scratchEditor = ace.edit(scratchEditorElement);
+		window.editors.push(scratchEditor);
+
 		for(const editor of editors) {
 			const thisTabs = editor.tabs
 			editor.setKeyboardHandler(options.keyboard)
@@ -668,11 +714,13 @@ const uiManager = {
 			})
 	
 	
-		editor.on("focus", () => {
+			editor.on("focus", () => {
+				// if (editor === scratchEditor) return;
 				uiManager.currentEditor = editor
 			})
 
 			editor.on("changeSelection", () => {
+				if (editor === scratchEditor) return;
 				const selection = editor.getSelection()
 				var cursor = selection.getCursor()
 				let displayText = cursor.row + 1 + ":" + (cursor.column + 1)
@@ -688,6 +736,7 @@ const uiManager = {
 	
 			// // copy text to the thumbnail strip
 			editor.on("change", () => {
+				if (editor === scratchEditor) return;
 				const pos = editor.getCursorPosition
 				cursorpos.innerHTML = `${pos.col}:${pos.row}`
 				if (!editor.session.getUndoManager().isClean()) {
@@ -903,6 +952,10 @@ const uiManager = {
 	get rightHolder() { return rightHolder },
 	get rightMedia() { return rightHolder.mediaView },
 	get rightTabs() { return rightTabs },
+	get scratchEditor() { return scratchEditor },
+	get iconTabBar() { return iconTabBar },
+	
+	constrainHolders: constrainHolders,
 	
 	set currentEditor(v) {
 		currentEditor = v;
@@ -926,7 +979,6 @@ const uiManager = {
 	get currentEditor() { return currentEditor },
 	get currentTabs() { return currentTabs },
 	get currentMediaView() { return currentMediaView },
-
 	set currentMediaView(v) { currentMediaView = v },
 
 	set reloadFile(v) {

@@ -169,6 +169,11 @@ export class Panel extends Block {
 		return this.resize
 	}
 	
+	set width(value) {
+		this.style.width = `${value}px`;
+		this.resizeListeners.forEach(f => f(value));
+	}
+
 	connectedCallback() {
 		super.connectedCallback.apply(this)
 		if (this.hasAttribute("blank")) {

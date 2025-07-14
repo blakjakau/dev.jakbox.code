@@ -487,8 +487,12 @@ export class FileList extends ContentFill {
 
 	set openFolders(paths) {
 		this._openFolders.clear();
-		paths.forEach(path => this._openFolders.add(path));
-		this._render(this._inner, this._tree); // Re-render to apply the new open states
+		if (paths) {
+			paths.forEach(path => this._openFolders.add(path));
+		}
+		if (this._tree) {
+			this._render(this._inner, this._tree);
+		}
 	}
 	
 	find(match) {

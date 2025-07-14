@@ -100,6 +100,7 @@ const rightMedia = ui.rightMedia
 const installer = ui.installer
 const fileActions = ui.fileActions
 const fileList = ui.fileList
+const filesPanel = ui.files
 const leftTabs = ui.leftTabs
 const rightTabs = ui.rightTabs
 const prettify = document.querySelector("#prettier")
@@ -118,6 +119,7 @@ const workspace = {
 	name: "default",
 	folders: [],
 	files: [],
+	scratchpad: '',
 }
 
 // window.showSettings = ui.showSettings
@@ -319,6 +321,8 @@ let workspaceUnloading = false
 const saveWorkspace = async () => {
 	if (workspaceUnloading) return
 	workspace.openFolders = fileList.openFolders;
+	workspace.sidebarWidth = ui.sidebar.offsetWidth;
+	workspace.activeSidebarTab = ui.iconTabBar?.activeTab?.iconId;
 	set(`workspace_${workspace.id}`, workspace);
 }
 
@@ -393,6 +397,10 @@ const openWorkspace = (() => {
 			workspace.folders = load.folders || []
 			workspace.files = load.files || []
 			workspace.openFolders = load.openFolders || [];
+			workspace.scratchpad = load.scratchpad || '';
+			ui.scratchEditor.setValue(workspace.scratchpad || '');
+			workspace.sidebarWidth = load.sidebarWidth || null;
+			workspace.activeSidebarTab = load.activeSidebarTab || null;
 			workspace.id = load.id || safeString(workspace.name)
 
 			fileActions.append(fileAccess)
@@ -426,6 +434,20 @@ const openWorkspace = (() => {
 			ui.showFolders()
 			fileList.openFolders = workspace.openFolders || [];
 			updateWorkspaceSelectors()
+
+			
+			console.log("openWorkspace: workspace.activeSidebarTab =", workspace.activeSidebarTab);
+			console.log("openWorkspace: ui.iconTabBar =", ui.iconTabBar);
+			if (ui.iconTabBar) {
+				console.log("openWorkspace: ui.iconTabBar._tabs =", ui.iconTabBar._tabs);
+				ui.iconTabBar._tabs.forEach(tab => console.log("  Tab iconId:", tab.iconId));
+			}
+			if (workspace.activeSidebarTab && ui.iconTabBar) {
+				ui.iconTabBar.activeTabById = workspace.activeSidebarTab;
+			}
+			if (workspace.sidebarWidth) {
+				ui.sidebar.width = workspace.sidebarWidth;
+			}
 		} else {
 			if (name === "default") {
 				workspace.name = "default"
@@ -536,25 +558,22 @@ const execCommandPrettify = () => {
 }
 
 const execCommandEditorOptions = () => {
-	if (app.sessionOptions) {
-		leftEdit.session.setOptions(app.sessionOptions);
-		rightEdit.session.setOptions(app.sessionOptions);
-	}
-	if (app.rendererOptions) {
-		leftEdit.renderer.setOptions(app.rendererOptions);
-		rightEdit.renderer.setOptions(app.rendererOptions);
-	}
-	if (app.enableLiveAutocompletion) {
-		leftEdit.$enableLiveAutocompletion = app.enableLiveAutocompletion;
-		rightEdit.$enableLiveAutocompletion = app.enableLiveAutocompletion;
-	}
+	for (const editor of window.editors) {
+		if (app.sessionOptions) {
+			editor.session.setOptions(app.sessionOptions);
+		}
+		if (app.rendererOptions) {
+			editor.renderer.setOptions(app.rendererOptions);
+		}
+		if (app.enableLiveAutocompletion) {
+			editor.$enableLiveAutocompletion = app.enableLiveAutocompletion;
+		}
 
-	if (leftEdit.getOption("mode") === "ace/mode/javascript") {
-		leftEdit.setOption("useWorker", false);
-		rightEdit.setOption("useWorker", false);
-	} else {
-		leftEdit.setOption("useWorker", true);
-		rightEdit.setOption("useWorker", true);
+		if (editor.getOption("mode") === "ace/mode/javascript") {
+			editor.setOption("useWorker", false);
+		} else {
+			editor.setOption("useWorker", true);
+		}
 	}
 }
 
@@ -1598,6 +1617,14 @@ setTimeout(async () => {
 		console.debug("rightTabs.defaultTab: Creating default tab for right tab bar.");
 		return defaultTab(rightTabs);
 };
+
+		const scratchpad = ui.scratchEditor;
+		scratchpad.on('change', () => {
+			workspace.scratchpad = scratchpad.getValue();
+			// Debounced save
+			clearTimeout(scratchpad.saveTimeout);
+			scratchpad.saveTimeout = setTimeout(saveWorkspace, 500);
+		});
 
 		leftTabs.onEmpty = () => {
 			leftEdit.setSession(ace.createEditSession(""));
