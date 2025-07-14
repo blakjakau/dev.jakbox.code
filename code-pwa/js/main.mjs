@@ -402,6 +402,13 @@ const openWorkspace = (() => {
 			workspace.sidebarWidth = load.sidebarWidth || null;
 			workspace.activeSidebarTab = load.activeSidebarTab || null;
 			workspace.id = load.id || safeString(workspace.name)
+			
+			setTimeout(()=>{
+				ui.scratchEditor.session.setOption("wrap", "free")
+				ui.scratchEditor.session.setOption("indentedSoftWrap", false)
+				ui.scratchEditor.session.setMode("ace/mode/markdown")
+			})
+
 
 			fileActions.append(fileAccess)
 			fileOpen.text = "Add Folder"
@@ -559,7 +566,7 @@ const execCommandPrettify = () => {
 
 const execCommandEditorOptions = () => {
 	for (const editor of window.editors) {
-		if (app.sessionOptions) {
+		if (app.sessionOptions && editor.id !== "editor3") {
 			editor.session.setOptions(app.sessionOptions);
 		}
 		if (app.rendererOptions) {
@@ -1558,6 +1565,12 @@ setTimeout(async () => {
 
     leftEdit.on("focus", () => setCurrentEditor(leftEdit));
     rightEdit.on("focus", () => setCurrentEditor(rightEdit));
+    
+    ui.iconTabBar.on("tabs-updated", ()=>{ saveWorkspace() })
+    ui.sidebar.resizeListener(()=>{
+		clearTimeout(ui.sidebar.saveTimeout);
+		ui.sidebar.saveTimeout = setTimeout(saveWorkspace, 500);
+    })
 
 	leftEdit.on("ready", async () => {
 		// preload stored file and folder handles

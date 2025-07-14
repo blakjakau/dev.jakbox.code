@@ -20,6 +20,7 @@ var mainContent
 var leftEdit, leftHolder, leftTabs
 var rightEdit, rightHolder, rightTabs
 
+
 var menu
 var omni, modal, installer
 var sidebar, fileActions, fileList
@@ -93,8 +94,8 @@ const uiManager = {
 		const aiTab = new IconTab('developer_board');
 		const scratchTab = new IconTab('edit_note');
 		iconTabBar.addTab(filesTab);
-		// iconTabBar.addTab(aiTab);
-		// iconTabBar.addTab(scratchTab);
+		iconTabBar.addTab(aiTab);
+		iconTabBar.addTab(scratchTab);
 
 		const filesPanel = new SidebarPanel();
 		filesPanel.append(fileActions);
@@ -233,9 +234,6 @@ const uiManager = {
 		leftHolder.classList.add("current")
 		leftHolder.mediaView.id = "leftMedia"
 		
-		
-		
-		
 		rightHolder = new EditorHolder()
 		rightHolder.mediaView.id = "rightMedia"
 		
@@ -254,6 +252,7 @@ const uiManager = {
 			mainContent.style.transition = "none"
 			mainContent.style.left = width + "px"
 			drawer.style.left = (sidebar.offsetLeft+sidebarWidth)+"px"
+			scratchEditor.resize()
 		})
 		
 		sidebar.resizeEndListener(()=>{
@@ -696,6 +695,7 @@ const uiManager = {
 		ace.require("ace/etc/keybindings_menu")
 
 		scratchEditor = ace.edit(scratchEditorElement);
+		
 		window.editors.push(scratchEditor);
 
 		for(const editor of editors) {
@@ -988,7 +988,8 @@ const uiManager = {
 	},
 
     showFileModifiedNotice: (tab, side) => {
-        const noticeBarId = (side === 'left') ? "leftFileModifiedNotice" : "rightFileModifiedNotice";
+    	
+        const noticeBarId = (side === 'left') ? "leftHolderFileModifiedNotice" : "rightHolderFileModifiedNotice";
         const noticeBar = document.getElementById(noticeBarId);
         const reloadBtn = noticeBar.querySelector("button[rel=reload]");
         const dismissBtn = noticeBar.querySelector("button[rel=dismiss]");

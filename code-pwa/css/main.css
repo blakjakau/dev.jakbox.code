@@ -198,6 +198,11 @@ ui-menu::-webkit-scrollbar-thumb,
     position: absolute;
 }
 
+
+/*#scratchpad-editor.ace_editor {
+	top: 0px;
+}*/
+
 #leftHolder.loading {
 	opacity:0;
 }

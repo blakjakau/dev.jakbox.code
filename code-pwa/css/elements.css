@@ -14,9 +14,6 @@
 	--buttonBarHeight: 64px;
 }
 
-/*ui-view * {*/
-/*	overflow-anchor: none;*/
-/*}*/
 
 ui-element {
 	display: inline-block;
@@ -351,12 +348,12 @@ ui-icon-tab {
 
 ui-icon-tab[active] {
 	background: var(--theme);
-	color: var(--ui-highlight-fg);
+	color: var(--ui-highlight-bg);
 }
 
 ui-icon-tab:hover {
-	background: var(--themeDark);
-	color: var(--ui-highlight-fg);
+	background: var(--ui-sec-fg);
+	color: var(--ui-sec-bg);
 }
 
 ui-icon-tab ui-icon {

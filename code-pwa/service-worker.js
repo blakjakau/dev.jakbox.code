@@ -1,4 +1,4 @@
-const APP_VERSION = "0.3.6"
+const APP_VERSION = "0.3.8"
 const CACHE_PRELOAD = "preload_resources"
 const CACHE_OFFLINE = "offline_access"
 
