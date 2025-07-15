@@ -449,11 +449,11 @@ const openWorkspace = (() => {
 				console.log("openWorkspace: ui.iconTabBar._tabs =", ui.iconTabBar._tabs);
 				ui.iconTabBar._tabs.forEach(tab => console.log("  Tab iconId:", tab.iconId));
 			}
-			if (workspace.activeSidebarTab && ui.iconTabBar) {
-				ui.iconTabBar.activeTabById = workspace.activeSidebarTab;
-			}
 			if (workspace.sidebarWidth) {
 				ui.sidebar.width = workspace.sidebarWidth;
+			}
+			if (workspace.activeSidebarTab && ui.iconTabBar) {
+				ui.iconTabBar.activeTabById = workspace.activeSidebarTab;
 			}
 		} else {
 			if (name === "default") {

@@ -157,7 +157,7 @@ const uiManager = {
 			if (toggleBodyClass("showFiles")) {
 				openDir.icon = "menu_open"
 				openDir.setAttribute("title", "hide file list")
-				mainContent.style.left = sidebarWidth + "px"
+				mainContent.style.left = ui.sidebar.offsetWidth + "px"
 			} else {
 				openDir.icon = "menu"
 				openDir.setAttribute("title", "show file list")
