@@ -1,3 +1,4 @@
+// Styles for this module are located in css/ai-panel.css
 import { Block, Button } from "./elements.mjs"
 
 class Ollama {
@@ -43,10 +44,17 @@ class Ollama {
 		promptContainer.classList.add("prompt-container")
 
 		this.promptArea = this._createPromptArea()
-		this.submitButton = this._createSubmitButton()
+		const buttonContainer = new Block();
+		buttonContainer.classList.add("button-container");
 
-		promptContainer.append(this.promptArea)
-		promptContainer.append(this.submitButton)
+		this.submitButton = this._createSubmitButton();
+		this.clearButton = this._createClearButton();
+
+		buttonContainer.append(this.clearButton);
+		buttonContainer.append(this.submitButton);
+
+		promptContainer.append(this.promptArea);
+		promptContainer.append(buttonContainer);
 
 		return promptContainer
 	}
@@ -54,11 +62,16 @@ class Ollama {
 	_createPromptArea() {
 		const promptArea = document.createElement("textarea")
 		promptArea.classList.add("prompt-area")
+		promptArea.placeholder = "Enter your prompt here..."
 		promptArea.addEventListener('keydown', (e) => {
 			if (e.ctrlKey && e.key === 'Enter') {
 				e.preventDefault();
 				this.generate();
 			}
+		});
+		promptArea.addEventListener('input', () => {
+			promptArea.style.height = 'auto';
+			promptArea.style.height = promptArea.scrollHeight + 'px';
 		});
 		return promptArea
 	}
@@ -68,6 +81,16 @@ class Ollama {
 		submitButton.classList.add("submit-button")
 		submitButton.on("click", () => this.generate())
 		return submitButton
+	}
+
+	_createClearButton() {
+		const clearButton = new Button("Clear")
+		clearButton.classList.add("clear-button")
+		clearButton.on("click", () => {
+			this.conversationArea.innerHTML = ""; // Clear all response blocks
+			this.prompts = []; // Clear stored prompts
+		})
+		return clearButton
 	}
 
 	async generate() {
