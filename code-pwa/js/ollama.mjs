@@ -7,10 +7,10 @@ class Ollama {
 		// TODO: make the endpoint and model(s) configurable on workspace or app settings
 		this.config = {
 			endpoint: "http://localhost:11434/api/generate",
-			model: "codegemma:latest", // default model
+			model: "codegemma:7b-code", // default model
 			useOpenBuffers: false,
 			useSmartContext: true,
-			useConversationalContext: false
+			useConversationalContext: true
 		}
 		this.prompts = []
 		this.promptIndex = -1 // -1 indicates no prompt from history is currently displayed
@@ -20,6 +20,7 @@ class Ollama {
 		this.submitButton = null
 		this.md = window.markdownit();
 		this.editor = null; // To hold the current ACE editor instance
+		this.context = null; // To hold the conversational context
 	}
 
 	init(panel) {
@@ -81,8 +82,18 @@ class Ollama {
 		buttonContainer.append(this.clearButton);
 		buttonContainer.append(this.submitButton);
 
+		const checkboxContainer = new Block();
+		checkboxContainer.classList.add("checkbox-container");
+
+		this.smartContextCheckbox = this._createSmartContextCheckbox();
+		this.conversationalContextCheckbox = this._createConversationalContextCheckbox();
+
+		checkboxContainer.append(this.smartContextCheckbox);
+		checkboxContainer.append(this.conversationalContextCheckbox);
+
 		promptContainer.append(this.promptArea);
 		promptContainer.append(buttonContainer);
+		promptContainer.append(checkboxContainer);
 
 		return promptContainer
 	}
@@ -133,8 +144,37 @@ class Ollama {
 		clearButton.on("click", () => {
 			this.conversationArea.innerHTML = ""; // Clear all response blocks
 			this.prompts = []; // Clear stored prompts
+			this.context = null; // Clear the context
 		})
 		return clearButton
+	}
+
+	_createSmartContextCheckbox() {
+		const label = document.createElement("label");
+		const checkbox = document.createElement("input");
+		checkbox.type = "checkbox";
+		checkbox.id = "useSmartContext";
+		checkbox.checked = this.config.useSmartContext;
+		checkbox.addEventListener('change', (e) => {
+			this.config.useSmartContext = e.target.checked;
+		});
+		label.append(checkbox);
+		label.append(document.createTextNode(" Use Smart Context"));
+		return label;
+	}
+
+	_createConversationalContextCheckbox() {
+		const label = document.createElement("label");
+		const checkbox = document.createElement("input");
+		checkbox.type = "checkbox";
+		checkbox.id = "useConversationalContext";
+		checkbox.checked = this.config.useConversationalContext;
+		checkbox.addEventListener('change', (e) => {
+			this.config.useConversationalContext = e.target.checked;
+		});
+		label.append(checkbox);
+		label.append(document.createTextNode(" Use Conversational Context"));
+		return label;
 	}
 
 	async generate() {
@@ -148,7 +188,7 @@ class Ollama {
 			const selection = this.editor.getSelectionRange();
 			const selectedText = this.editor.session.getTextRange(selection);
 			const fileContext = selectedText || this.editor.getValue();
-			fullPrompt += `\n\n // File:\n${fileContext}`;
+			fullPrompt += `\n\nFile context:\n${fileContext}`;
 		}
 
 		this.prompts.push(userPrompt);
@@ -167,19 +207,22 @@ class Ollama {
 		let fullResponse = ''
 
 		try {
+			const requestBody = {
+				model: this.config.model,
+				prompt: fullPrompt,
+				system: "Engage warmly, respond concisely, occasionally flirty.",
+				stream: true
+			};
+
+			if (this.config.useConversationalContext && this.context) {
+				requestBody.context = this.context;
+			}
+
 			const response = await fetch(this.config.endpoint, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ 
-					model: this.config.model, 
-					prompt: fullPrompt, 
-					stream: true,
-			})
-
-			if (!response.ok) {
-				const errorText = await response.text()
-				throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
-			}
+				body: JSON.stringify(requestBody)
+			});
 
 			const reader = response.body.getReader()
 			const decoder = new TextDecoder()
@@ -202,6 +245,9 @@ class Ollama {
 						console.log(jsonObject)
 						try {
 							const parsed = JSON.parse(jsonObject)
+							if (parsed.context) {
+								this.context = parsed.context;
+							}
 							fullResponse += parsed.response
 							responseBlock.innerHTML = this.md.render(fullResponse)
 							this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
