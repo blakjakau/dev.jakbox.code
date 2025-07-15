@@ -2,6 +2,8 @@ import { Block, Button } from "./elements.mjs"
 
 class Ollama {
 	constructor() {
+		
+		// TODO: make the endpoint and model(s) configurable on workspace or app settings
 		this.endpoint = "http://localhost:11434/api/generate"
 		this.model = "codegemma:latest" // default model
 		this.prompts = []
@@ -19,7 +21,8 @@ class Ollama {
 	}
 
 	_setupPanel() {
-		this.panel.style.display = "flex"
+		//this.panel.style.display = "flex"
+		this.panel.setAttribute("id", "ai-panel")
 		this.panel.style.flexDirection = "column"
 		this.panel.style.position = "relative"
 		this.panel.style.height = "100%"
@@ -49,7 +52,7 @@ class Ollama {
 		promptContainer.style.right = "0"
 		promptContainer.style.padding = "8px"
 		promptContainer.style.backgroundColor = "var(--background-color)"
-		promptContainer.style.borderTop = "1px solid var(--border-color)"
+		promptContainer.style.borderTop = "1px solid var(--themeDark)"
 		promptContainer.style.display = "flex"
 		promptContainer.style.flexDirection = "column"
 

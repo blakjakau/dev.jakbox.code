@@ -669,9 +669,6 @@ ui-tabbar.show-split-view-indicator::after {
     font-size: 0.9em;
 }
 
-ui-sidebar-panel:not([active]) {
-	display: none;
-}
 
 .notice-bar button:hover {
     background-color: var(--themeDark); /* Darker blue on hover */
@@ -689,11 +686,11 @@ ui-sidebar-panel {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	overflow-y: auto;
+	/*overflow: hidden;*/
 }
 
-ui-sidebar-panel:not([active]) {
-	display: none;
+ui-sidebar-panel#ai-panel[active] {
+	display: flex;
 }
 
 ui-sidebar-panel .conversation-area::-webkit-scrollbar {
