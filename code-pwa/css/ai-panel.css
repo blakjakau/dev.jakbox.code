@@ -78,8 +78,46 @@
     margin-bottom: 16px;
     background: rgba(0, 0, 0, 0.125);
     border-radius: 16px;
-    padding:0px 16px;
+    padding: 0px 16px;
     border: 1px solid var(--themeDark);
+    position: relative; /* Added for button positioning */
+}
+
+.response-block pre {
+    position: relative; /* Added for button positioning */
+    padding-top: 24px; /* Make space for buttons */
+}
+
+.code-buttons {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    gap: 4px;
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.2s ease-in-out;
+}
+
+.response-block pre:hover .code-buttons {
+    opacity: 1; /* Show on hover */
+}
+
+.code-button {
+    background-color: rgba(120 120, 120, 0.5);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0px 4px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.code-button:hover {
+    background-color: rgba(120, 120, 120, 0.7);
 }
 
 .prompt-pill {

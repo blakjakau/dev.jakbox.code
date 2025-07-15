@@ -1,5 +1,5 @@
 // Styles for this module are located in css/ai-panel.css
-import { Block, Button } from "./elements.mjs"
+import { Block, Button, Icon } from "./elements.mjs"
 
 class Ollama {
 	constructor() {
@@ -160,11 +160,13 @@ class Ollama {
 				for (let i = 0; i < jsonObjects.length - 1; i++) {
 					const jsonObject = jsonObjects[i]
 					if (jsonObject) {
+						console.log(jsonObject)
 						try {
 							const parsed = JSON.parse(jsonObject)
 							fullResponse += parsed.response
 							responseBlock.innerHTML = this.md.render(fullResponse)
 							this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+							this._addCodeBlockButtons(responseBlock);
 						} catch (e) {
 							console.error('Error parsing JSON chunk:', e, jsonObject)
 						}
@@ -179,6 +181,43 @@ class Ollama {
 			responseBlock.innerHTML = `Error: ${error.message}`
 			console.error('Error calling Ollama API:', error)
 		}
+	}
+
+	_addCodeBlockButtons(responseBlock) {
+		const preElements = responseBlock.querySelectorAll('pre');
+		preElements.forEach(pre => {
+			const buttonContainer = new Block();
+			buttonContainer.classList.add('code-buttons');
+
+			const copyButton = new Button();
+			copyButton.classList.add('code-button');
+			copyButton.icon = 'content_copy';
+			copyButton.title = 'Copy code';
+			copyButton.on('click', () => {
+				const code = pre.querySelector('code').innerText;
+				navigator.clipboard.writeText(code);
+				// Optionally, provide visual feedback
+				copyButton.icon = 'done';
+				setTimeout(() => { copyButton.icon = 'content_copy'; }, 1000);
+			});
+
+			const insertButton = new Button();
+			insertButton.classList.add('code-button');
+			insertButton.icon = 'input';
+			insertButton.title = 'Insert into editor';
+			insertButton.on('click', () => {
+				const code = pre.querySelector('code').innerText;
+				const event = new CustomEvent('insert-snippet', { detail: code });
+				window.dispatchEvent(event);
+				// Optionally, provide visual feedback
+				insertButton.icon = 'done';
+				setTimeout(() => { insertButton.icon = 'input'; }, 1000);
+			});
+
+			buttonContainer.append(copyButton);
+			buttonContainer.append(insertButton);
+			pre.prepend(buttonContainer); // Prepend to place it at the top-right
+		});
 	}
 }
 

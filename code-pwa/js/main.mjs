@@ -1687,5 +1687,13 @@ setTimeout(async () => {
 				}
 			})
 		}
+
+		// Listen for custom event to insert code snippets from AI panel
+		window.addEventListener('insert-snippet', (event) => {
+			if (currentEditor) {
+				currentEditor.insert(event.detail);
+				currentEditor.focus();
+			}
+		});
 	})
 })
