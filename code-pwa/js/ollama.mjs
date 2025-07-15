@@ -23,9 +23,6 @@ class Ollama {
 	_setupPanel() {
 		//this.panel.style.display = "flex"
 		this.panel.setAttribute("id", "ai-panel")
-		this.panel.style.flexDirection = "column"
-		this.panel.style.position = "relative"
-		this.panel.style.height = "100%"
 	}
 
 	_createUI() {
@@ -37,24 +34,13 @@ class Ollama {
 
 	_createConversationArea() {
 		const conversationArea = new Block()
-		conversationArea.addClass('conversation-area');
-		conversationArea.style.flex = "1"
-		conversationArea.style.overflowY = "auto"
-		conversationArea.style.padding = "8px"
+		conversationArea.classList.add('conversation-area');
 		return conversationArea
 	}
 
 	_createPromptContainer() {
 		const promptContainer = new Block()
-		promptContainer.style.position = "sticky"
-		promptContainer.style.bottom = "0"
-		promptContainer.style.left = "0"
-		promptContainer.style.right = "0"
-		promptContainer.style.padding = "8px"
-		promptContainer.style.backgroundColor = "var(--background-color)"
-		promptContainer.style.borderTop = "1px solid var(--themeDark)"
-		promptContainer.style.display = "flex"
-		promptContainer.style.flexDirection = "column"
+		promptContainer.classList.add("prompt-container")
 
 		this.promptArea = this._createPromptArea()
 		this.submitButton = this._createSubmitButton()
@@ -67,16 +53,7 @@ class Ollama {
 
 	_createPromptArea() {
 		const promptArea = document.createElement("textarea")
-		promptArea.placeholder = "Enter your prompt here..."
-		promptArea.style.flex = "1"
-		promptArea.style.marginBottom = "8px"
-		promptArea.style.boxSizing = "border-box"
-		promptArea.style.width = "100%"
-		promptArea.style.border = "1px solid var(--border-color)"
-		promptArea.style.borderRadius = "var(--border-radius)"
-		promptArea.style.backgroundColor = "var(--background-color)"
-		promptArea.style.color = "var(--text-color)"
-		promptArea.style.fontFamily = "var(--font-family)"
+		promptArea.classList.add("prompt-area")
 		promptArea.addEventListener('keydown', (e) => {
 			if (e.ctrlKey && e.key === 'Enter') {
 				e.preventDefault();
@@ -88,7 +65,7 @@ class Ollama {
 
 	_createSubmitButton() {
 		const submitButton = new Button("Send")
-		submitButton.style.alignSelf = "flex-end"
+		submitButton.classList.add("submit-button")
 		submitButton.on("click", () => this.generate())
 		return submitButton
 	}
@@ -102,7 +79,7 @@ class Ollama {
 		this.promptArea.value = '';
 
 		const responseBlock = new Block();
-		responseBlock.style.marginBottom = '16px';
+		responseBlock.classList.add('response-block');
 		this.conversationArea.append(responseBlock);
 
 		let fullResponse = ''

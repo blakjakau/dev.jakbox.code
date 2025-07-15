@@ -133,6 +133,12 @@ self.addEventListener("fetch", function (event) {
 		return
 	}
 
+	// Do not cache Ollama API requests
+	if (url.pathname.startsWith("/api/")) {
+		event.respondWith(fetch(event.request));
+		return;
+	}
+
 	
 	if (event.request.mode === "navigate") {
 		event.respondWith(
