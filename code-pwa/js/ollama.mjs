@@ -8,6 +8,7 @@ class Ollama {
 		this.endpoint = "http://localhost:11434/api/generate"
 		this.model = "codegemma:latest" // default model
 		this.prompts = []
+		this.promptIndex = -1 // -1 indicates no prompt from history is currently displayed
 		this.panel = null
 		this.promptArea = null
 		this.conversationArea = null
@@ -67,6 +68,22 @@ class Ollama {
 			if (e.ctrlKey && e.key === 'Enter') {
 				e.preventDefault();
 				this.generate();
+			} else if (e.ctrlKey && e.key === 'ArrowUp') {
+				e.preventDefault();
+				if (this.prompts.length > 0) {
+					this.promptIndex = Math.max(0, this.promptIndex - 1);
+					this.promptArea.value = this.prompts[this.promptIndex];
+					this.promptArea.style.height = 'auto'; // Reset height to recalculate
+					this.promptArea.style.height = this.promptArea.scrollHeight + 'px';
+				}
+			} else if (e.ctrlKey && e.key === 'ArrowDown') {
+				e.preventDefault();
+				if (this.prompts.length > 0) {
+					this.promptIndex = Math.min(this.prompts.length - 1, this.promptIndex + 1);
+					this.promptArea.value = this.prompts[this.promptIndex];
+					this.promptArea.style.height = 'auto'; // Reset height to recalculate
+					this.promptArea.style.height = this.promptArea.scrollHeight + 'px';
+				}
 			}
 		});
 		promptArea.addEventListener('input', () => {
@@ -100,6 +117,7 @@ class Ollama {
 		}
 		this.prompts.push(prompt);
 		this.promptArea.value = '';
+		this.promptIndex = this.prompts.length; // Reset index to the end of the array
 
 		const promptPill = new Block();
 		promptPill.classList.add('prompt-pill');

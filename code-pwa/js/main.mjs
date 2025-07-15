@@ -1333,13 +1333,29 @@ const keyBinds = [
 		target: "app",
 		name: "toggleFolders",
 		bindKey: { win: "Alt+F", mac: "Option+F" },
+		exec: () => {
+			ui.iconTabBar.activeTabById = 'folder';
+		},
+	},
+	{
+		target: "app",
+		name: "toggleFoldersSidebar",
+		bindKey: { win: "Alt+Shift+S", mac: "Option+Shift+S" },
 		exec: execCommandToggleFolders,
 	},
 	{
 		target: "app",
 		name: "toggleSplitView",
-		bindKey: { win: "Alt+S", mac: "Option+S" },
+		bindKey: { win: "Alt+Shift+E", mac: "Option+Shift+E" },
 		exec: execCommandSplitView,
+	},
+	{
+		target: "app",
+		name: "show-scratchpad",
+		bindKey: { win: "Alt+S", mac: "Option+S" },
+		exec: () => {
+			ui.iconTabBar.activeTabById = 'edit_note';
+		},
 	},
 	{
 		target: "app",
@@ -1489,6 +1505,14 @@ const keyBinds = [
 		name: "setDarkMode",
 		exec: (mode) => {
 			execCommandSetDarkMode(mode);
+		},
+	},
+	{
+		target: "app",
+		name: "show-ai",
+		bindKey: { win: "Alt+A", mac: "Option+A" },
+		exec: () => {
+			ui.iconTabBar.activeTabById = 'developer_board';
 		},
 	},
 ]
