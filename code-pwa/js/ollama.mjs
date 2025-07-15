@@ -8,6 +8,7 @@ class Ollama {
 		this.promptArea = null
 		this.responseArea = null
 		this.submitButton = null
+		this.md = window.markdownit();
 	}
 	init(panel) {
 		this.panel = panel
@@ -82,6 +83,8 @@ class Ollama {
 		this.prompts.push(prompt);
 		this.promptArea.value = '';
 		this.responseArea.innerHTML = ''
+		let fullResponse = ''
+
 		try {
 			const response = await fetch(this.endpoint, {
 				method: 'POST',
@@ -114,7 +117,8 @@ class Ollama {
 					if (jsonObject) {
 						try {
 							const parsed = JSON.parse(jsonObject)
-							this.responseArea.innerHTML += parsed.response
+							fullResponse += parsed.response
+							this.responseArea.innerHTML = this.md.render(fullResponse)
 						} catch (e) {
 							console.error('Error parsing JSON chunk:', e, jsonObject)
 						}
