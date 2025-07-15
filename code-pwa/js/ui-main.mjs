@@ -1,4 +1,5 @@
 import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder, IconTabBar, IconTab, SidebarPanel } from './elements.mjs';
+import ollama from './ollama.mjs';
 
 const defaultSettings = {
 	showGutter: true, //set to true to hide the line numbering
@@ -102,6 +103,7 @@ const uiManager = {
 		filesPanel.append(fileList);
 
 		const aiPanel = new SidebarPanel();
+		ollama.init(aiPanel);
 
 		const scratchPanel = new SidebarPanel();
 		const scratchEditorElement = new Block();
