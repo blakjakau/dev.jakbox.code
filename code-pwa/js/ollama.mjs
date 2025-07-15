@@ -34,6 +34,7 @@ class Ollama {
 
 	_createConversationArea() {
 		const conversationArea = new Block()
+		conversationArea.addClass('conversation-area');
 		conversationArea.style.flex = "1"
 		conversationArea.style.overflowY = "auto"
 		conversationArea.style.padding = "8px"
