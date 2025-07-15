@@ -771,6 +771,7 @@ const setCurrentEditor = (editor)=>{
 	ui.currentEditor = currentEditor = editor
 	ui.currentTabs = currentTabs = (editor === leftEdit ? ui.leftTabs : ui.rightTabs)
 	ui.currentMediaView = currentMediaView = (editor === leftEdit ? ui.leftMedia : ui.rightMedia)
+	ui.ollama.editor = editor;
 	
 	const tab = editor?.tabs?.activeTab
 	if(tab) {

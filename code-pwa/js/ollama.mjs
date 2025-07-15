@@ -5,8 +5,13 @@ class Ollama {
 	constructor() {
 		
 		// TODO: make the endpoint and model(s) configurable on workspace or app settings
-		this.endpoint = "http://localhost:11434/api/generate"
-		this.model = "codegemma:latest" // default model
+		this.config = {
+			endpoint: "http://localhost:11434/api/generate",
+			model: "codegemma:latest", // default model
+			useOpenBuffers: false,
+			useSmartContext: true,
+			useConversationalContext: false
+		}
 		this.prompts = []
 		this.promptIndex = -1 // -1 indicates no prompt from history is currently displayed
 		this.panel = null
@@ -14,12 +19,30 @@ class Ollama {
 		this.conversationArea = null
 		this.submitButton = null
 		this.md = window.markdownit();
+		this.editor = null; // To hold the current ACE editor instance
 	}
 
 	init(panel) {
 		this.panel = panel
 		this._setupPanel()
 		this._createUI()
+	}
+
+	set editor(editor) {
+		this._editor = editor;
+	}
+
+	get editor() {
+		return this._editor;
+	}
+
+	get settings() {
+		return this.config;
+	}
+
+	set settings(newConfig) {
+		this.config = { ...this.config, ...newConfig };
+		// Potentially save to localStorage or trigger a UI update here in the future
 	}
 
 	focus() {
@@ -115,17 +138,26 @@ class Ollama {
 	}
 
 	async generate() {
-		const prompt = this.promptArea.value
-		if (!prompt) {
-			return
+		const userPrompt = this.promptArea.value;
+		if (!userPrompt) {
+			return;
 		}
-		this.prompts.push(prompt);
+
+		let fullPrompt = userPrompt;
+		if (this.config.useSmartContext && this.editor) {
+			const selection = this.editor.getSelectionRange();
+			const selectedText = this.editor.session.getTextRange(selection);
+			const fileContext = selectedText || this.editor.getValue();
+			fullPrompt += `\n\n // File:\n${fileContext}`;
+		}
+
+		this.prompts.push(userPrompt);
 		this.promptArea.value = '';
 		this.promptIndex = this.prompts.length; // Reset index to the end of the array
 
 		const promptPill = new Block();
 		promptPill.classList.add('prompt-pill');
-		promptPill.innerHTML = prompt;
+		promptPill.innerHTML = userPrompt;
 		this.conversationArea.append(promptPill);
 
 		const responseBlock = new Block();
@@ -135,10 +167,13 @@ class Ollama {
 		let fullResponse = ''
 
 		try {
-			const response = await fetch(this.endpoint, {
+			const response = await fetch(this.config.endpoint, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ model: this.model, prompt: prompt, stream: true }),
+				body: JSON.stringify({ 
+					model: this.config.model, 
+					prompt: fullPrompt, 
+					stream: true,
 			})
 
 			if (!response.ok) {
