@@ -101,6 +101,11 @@ class Ollama {
 		this.prompts.push(prompt);
 		this.promptArea.value = '';
 
+		const promptPill = new Block();
+		promptPill.classList.add('prompt-pill');
+		promptPill.innerHTML = prompt;
+		this.conversationArea.append(promptPill);
+
 		const responseBlock = new Block();
 		responseBlock.classList.add('response-block');
 		this.conversationArea.append(responseBlock);
