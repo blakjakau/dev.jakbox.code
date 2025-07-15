@@ -154,13 +154,13 @@ const uiManager = {
 		openDir.setAttribute("title", "hide file list")
 
 		openDir.on("click", () => {
-			if (toggleBodyClass("showFiles")) {
+			if (toggleBodyClass("showSidebar")) {
 				openDir.icon = "menu_open"
-				openDir.setAttribute("title", "hide file list")
+				openDir.setAttribute("title", "hide sidebar")
 				mainContent.style.left = ui.sidebar.offsetWidth + "px"
 			} else {
 				openDir.icon = "menu"
-				openDir.setAttribute("title", "show file list")
+				openDir.setAttribute("title", "show sidebar")
 				mainContent.style.left = ""
 			}
 			setTimeout(()=>{
@@ -848,7 +848,7 @@ const uiManager = {
 		});
 	},
 
-	showFolders: async (expandLevels=1) => {
+	showSidebar: async (expandLevels=1) => {
 		fileList.autoExpand = expandLevels
 		fileList.files = workspace.folders
 	},
@@ -956,6 +956,8 @@ const uiManager = {
 	get rightTabs() { return rightTabs },
 	get scratchEditor() { return scratchEditor },
 	get iconTabBar() { return iconTabBar },
+	
+	get ollama() { return ollama },
 	
 	constrainHolders: constrainHolders,
 	

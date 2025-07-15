@@ -438,7 +438,7 @@ const openWorkspace = (() => {
 			}
 
 			saveAppConfig()
-			ui.showFolders()
+			ui.showSidebar()
 			fileList.openFolders = workspace.openFolders || [];
 			updateWorkspaceSelectors()
 
@@ -607,6 +607,20 @@ const execCommandSplitView = () => {
 	ui.toggleSplitView()
 }
 
+const execCommandToggleSidebarPanel = (panelId) => {
+	const isSidebarVisible = document.body.classList.contains("showSidebar")
+	const currentPanel = ui.iconTabBar.activeTab?.iconId;
+
+	if (isSidebarVisible && currentPanel === panelId) {
+		ui.toggleSidebar(); // Close the sidebar
+	} else if (!isSidebarVisible) {
+		ui.toggleSidebar(); // Open the sidebar
+		ui.iconTabBar.activeTabById = panelId;
+	} else {
+		ui.iconTabBar.activeTabById = panelId; // Switch to the new panel
+	}
+};
+
 const execCommandRemoveAllFolders = () => {
 	setTimeout(async () => {
 		const l = workspace.folders.length
@@ -617,7 +631,7 @@ const execCommandRemoveAllFolders = () => {
 				while (workspace.folders.length > 0) {
 					workspace.folders.pop()
 				}
-				ui.showFolders()
+				ui.showSidebar()
 				// saveAppConfig()
 				saveWorkspace()
 			}
@@ -1150,9 +1164,9 @@ fileAccess.on("click", async () => {
 				fileList.active = file.handle
 			}
 		}
-		ui.showFolders(1)
+		ui.showSidebar(1)
 	} else {
-		ui.showFolders()
+		ui.showSidebar()
 	}
 })
 
@@ -1181,7 +1195,7 @@ fileOpen.on("click", async () => {
 	if (addToFolders) workspace.folders.push(folderHandle)
 	// 	saveAppConfig()
 	saveWorkspace()
-	ui.showFolders()
+	ui.showSidebar()
 })
 
 const keyBinds = [
@@ -1334,7 +1348,7 @@ const keyBinds = [
 		name: "toggleFolders",
 		bindKey: { win: "Alt+F", mac: "Option+F" },
 		exec: () => {
-			ui.iconTabBar.activeTabById = 'folder';
+			execCommandToggleSidebarPanel('folder');
 		},
 	},
 	{
@@ -1354,7 +1368,7 @@ const keyBinds = [
 		name: "show-scratchpad",
 		bindKey: { win: "Alt+S", mac: "Option+S" },
 		exec: () => {
-			ui.iconTabBar.activeTabById = 'edit_note';
+			execCommandToggleSidebarPanel('edit_note');
 		},
 	},
 	{
@@ -1512,7 +1526,7 @@ const keyBinds = [
 		name: "show-ai",
 		bindKey: { win: "Alt+A", mac: "Option+A" },
 		exec: () => {
-			ui.iconTabBar.activeTabById = 'developer_board';
+			execCommandToggleSidebarPanel('developer_board');
 		},
 	},
 ]
@@ -1590,7 +1604,12 @@ setTimeout(async () => {
     leftEdit.on("focus", () => setCurrentEditor(leftEdit));
     rightEdit.on("focus", () => setCurrentEditor(rightEdit));
     
-    ui.iconTabBar.on("tabs-updated", ()=>{ saveWorkspace() })
+    ui.iconTabBar.on("tabs-updated", (e)=>{ 
+    	saveWorkspace() 
+    	if(e.detail?.tab?._iconId == "developer_board") {
+    		ui.ollama.focus()
+    	}
+    })
     ui.sidebar.resizeListener(()=>{
 		clearTimeout(ui.sidebar.saveTimeout);
 		ui.sidebar.saveTimeout = setTimeout(saveWorkspace, 500);
@@ -1635,11 +1654,11 @@ setTimeout(async () => {
 		})
 
 		Promise.all(all).then(() => {
-			ui.showFolders()
+			ui.showSidebar()
 		})
 
 		if (workspace.folders.length > 0) {
-			ui.showFolders()
+			ui.showSidebar()
 		}
 		ui.toggleSidebar()
 		ui.currentTabs = ui.leftTabs

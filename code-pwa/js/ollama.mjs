@@ -22,6 +22,10 @@ class Ollama {
 		this._createUI()
 	}
 
+	focus() {
+		this.promptArea.focus()
+	}
+
 	_setupPanel() {
 		//this.panel.style.display = "flex"
 		this.panel.setAttribute("id", "ai-panel")
