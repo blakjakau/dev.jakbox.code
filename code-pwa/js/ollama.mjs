@@ -1,4 +1,5 @@
 import { Block, Button } from "./elements.mjs"
+
 class Ollama {
 	constructor() {
 		this.endpoint = "http://localhost:11434/api/generate"
@@ -6,39 +7,60 @@ class Ollama {
 		this.prompts = []
 		this.panel = null
 		this.promptArea = null
-		this.responseArea = null
+		this.conversationArea = null
 		this.submitButton = null
 		this.md = window.markdownit();
 	}
+
 	init(panel) {
 		this.panel = panel
 		this._setupPanel()
 		this._createUI()
 	}
+
 	_setupPanel() {
 		this.panel.style.display = "flex"
 		this.panel.style.flexDirection = "column"
-		this.panel.style.padding = "8px"
-		this.panel.style.boxSizing = "border-box"
+		this.panel.style.position = "relative"
+		this.panel.style.height = "100%"
 	}
+
 	_createUI() {
+		this.conversationArea = this._createConversationArea()
 		const promptContainer = this._createPromptContainer()
-		this.responseArea = this._createResponseArea()
+		this.panel.append(this.conversationArea)
 		this.panel.append(promptContainer)
-		this.panel.append(this.responseArea)
 	}
+
+	_createConversationArea() {
+		const conversationArea = new Block()
+		conversationArea.style.flex = "1"
+		conversationArea.style.overflowY = "auto"
+		conversationArea.style.padding = "8px"
+		return conversationArea
+	}
+
 	_createPromptContainer() {
 		const promptContainer = new Block()
+		promptContainer.style.position = "sticky"
+		promptContainer.style.bottom = "0"
+		promptContainer.style.left = "0"
+		promptContainer.style.right = "0"
+		promptContainer.style.padding = "8px"
+		promptContainer.style.backgroundColor = "var(--background-color)"
+		promptContainer.style.borderTop = "1px solid var(--border-color)"
 		promptContainer.style.display = "flex"
 		promptContainer.style.flexDirection = "column"
-		promptContainer.style.height = "30%"
-		promptContainer.style.minHeight = "100px"
+
 		this.promptArea = this._createPromptArea()
 		this.submitButton = this._createSubmitButton()
+
 		promptContainer.append(this.promptArea)
 		promptContainer.append(this.submitButton)
+
 		return promptContainer
 	}
+
 	_createPromptArea() {
 		const promptArea = document.createElement("textarea")
 		promptArea.placeholder = "Enter your prompt here..."
@@ -59,22 +81,14 @@ class Ollama {
 		});
 		return promptArea
 	}
+
 	_createSubmitButton() {
 		const submitButton = new Button("Send")
 		submitButton.style.alignSelf = "flex-end"
 		submitButton.on("click", () => this.generate())
 		return submitButton
 	}
-	_createResponseArea() {
-		const responseArea = new Block()
-		responseArea.style.flex = "1"
-		responseArea.style.overflowY = "auto"
-		responseArea.style.border = "1px solid var(--border-color)"
-		responseArea.style.padding = "8px"
-		responseArea.style.marginTop = "8px"
-		responseArea.style.borderRadius = "var(--border-radius)"
-		return responseArea
-	}
+
 	async generate() {
 		const prompt = this.promptArea.value
 		if (!prompt) {
@@ -82,7 +96,11 @@ class Ollama {
 		}
 		this.prompts.push(prompt);
 		this.promptArea.value = '';
-		this.responseArea.innerHTML = ''
+
+		const responseBlock = new Block();
+		responseBlock.style.marginBottom = '16px';
+		this.conversationArea.append(responseBlock);
+
 		let fullResponse = ''
 
 		try {
@@ -118,7 +136,8 @@ class Ollama {
 						try {
 							const parsed = JSON.parse(jsonObject)
 							fullResponse += parsed.response
-							this.responseArea.innerHTML = this.md.render(fullResponse)
+							responseBlock.innerHTML = this.md.render(fullResponse)
+							this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
 						} catch (e) {
 							console.error('Error parsing JSON chunk:', e, jsonObject)
 						}
@@ -130,9 +149,10 @@ class Ollama {
 
 
 		} catch (error) {
-			this.responseArea.innerHTML = `Error: ${error.message}`
+			responseBlock.innerHTML = `Error: ${error.message}`
 			console.error('Error calling Ollama API:', error)
 		}
 	}
 }
+
 export default new Ollama()
