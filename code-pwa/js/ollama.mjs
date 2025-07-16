@@ -1,13 +1,26 @@
 // Styles for this module are located in css/ai-panel.css
 import { Block, Button, Icon } from "./elements.mjs"
 
+const availableModels = {
+	"codegemma:7b-code",
+	"codegemma:7b-instruct",
+	"codegemma:code",
+	"codegemma:latest",
+	"codegemma:7b",
+	"gemma3:1b-it-qat",
+	"gemma3:4b-it-qat",
+}
+
 class Ollama {
 	constructor() {
 		
 		// TODO: make the endpoint and model(s) configurable on workspace or app settings
 		this.config = {
 			endpoint: "http://localhost:11434/api/generate",
-			model: "codegemma:7b-code", // default model
+			model: "gemma3:4b-it-qat", // default model
+			system: "",
+			role: "",
+			options: "",
 			useOpenBuffers: false,
 			useSmartContext: true,
 			useConversationalContext: true
@@ -27,6 +40,7 @@ class Ollama {
 		this.panel = panel
 		this._setupPanel()
 		this._createUI()
+		this._setupGlobalShortcuts()
 	}
 
 	set editor(editor) {
@@ -94,6 +108,10 @@ class Ollama {
 		promptContainer.append(this.promptArea);
 		promptContainer.append(buttonContainer);
 		promptContainer.append(checkboxContainer);
+
+		const settingsButton = new Button('Settings');
+		settingsButton.on('click', () => this.toggleSettingsPanel());
+		buttonContainer.append(settingsButton);
 
 		return promptContainer
 	}
@@ -176,6 +194,13 @@ class Ollama {
 		label.append(document.createTextNode(" Use Conversational Context"));
 		return label;
 	}
+	
+	// In the Ollama class
+	toggleSettingsPanel() {
+	  this.panel.classList.toggle('settings-open');
+	  this.conversationArea.classList.toggle('hidden');
+	}
+
 
 	async generate() {
 		const userPrompt = this.promptArea.value;
@@ -187,12 +212,16 @@ class Ollama {
 		if (this.config.useSmartContext && this.editor) {
 			const selection = this.editor.getSelectionRange();
 			const selectedText = this.editor.session.getTextRange(selection);
-			const fileContext = selectedText || this.editor.getValue();
-			fullPrompt += `\n\nFile context:\n${fileContext}`;
+			const fileContent = selectedText || this.editor.getValue();
+			const mode = this.editor.getOption("mode"); // e.g., "ace/mode/javascript"
+			const language = mode.split('/').pop(); // e.g., "javascript"
+			const fileContext = `${language}:\n${fileContent}`;
+			fullPrompt += `\n\n--- File:\n${fileContext}`;
 		}
 
 		this.prompts.push(userPrompt);
 		this.promptArea.value = '';
+		this.panel.dispatchEvent(new CustomEvent('new-prompt', { detail: this.prompts }));
 		this.promptIndex = this.prompts.length; // Reset index to the end of the array
 
 		const promptPill = new Block();
@@ -209,8 +238,9 @@ class Ollama {
 		try {
 			const requestBody = {
 				model: this.config.model,
+				system: this.config.system,
+				role: this.config.role,
 				prompt: fullPrompt,
-				system: "Engage warmly, respond concisely, occasionally flirty.",
 				stream: true
 			};
 
@@ -303,6 +333,36 @@ class Ollama {
 			buttonContainer.append(insertButton);
 			pre.prepend(buttonContainer); // Prepend to place it at the top-right
 		});
+	}
+
+	_setupGlobalShortcuts() {
+		document.addEventListener('keydown', (e) => {
+			
+			if (e.altKey && e.key === 'Z') {
+			  e.preventDefault();
+			  this.toggleSettingsPanel();
+			}
+
+			// Alt + Shift + S to toggle Smart Context
+			if (e.altKey && e.shiftKey && e.key === 'S') {
+				e.preventDefault();
+				this.smartContextCheckbox.checked = !this.smartContextCheckbox.checked;
+				this.config.useSmartContext = this.smartContextCheckbox.checked;
+			}
+			// Alt + Shift + C to toggle Conversational Context
+			if (e.altKey && e.shiftKey && e.key === 'C') {
+				e.preventDefault();
+				this.conversationalContextCheckbox.checked = !this.conversationalContextCheckbox.checked;
+				this.config.useConversationalContext = this.conversationalContextCheckbox.checked;
+			}
+		});
+	}
+	set promptHistory(history) {
+		this.prompts = history;
+	}
+
+	get promptHistory() {
+		return this.prompts;
 	}
 }
 

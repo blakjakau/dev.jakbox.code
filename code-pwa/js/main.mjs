@@ -120,6 +120,7 @@ const workspace = {
 	folders: [],
 	files: [],
 	scratchpad: '',
+	promptHistory: [],
 }
 
 // window.showSettings = ui.showSettings
@@ -323,6 +324,7 @@ const saveWorkspace = async () => {
 	workspace.openFolders = fileList.openFolders;
 	workspace.sidebarWidth = ui.sidebar.offsetWidth;
 	workspace.activeSidebarTab = ui.iconTabBar?.activeTab?.iconId;
+	workspace.promptHistory = ui.ollama.prompts;
 	set(`workspace_${workspace.id}`, workspace);
 }
 
@@ -402,6 +404,8 @@ const openWorkspace = (() => {
 			workspace.sidebarWidth = load.sidebarWidth || null;
 			workspace.activeSidebarTab = load.activeSidebarTab || null;
 			workspace.id = load.id || safeString(workspace.name)
+			workspace.promptHistory = load.promptHistory || [];
+			ui.ollama.promptHistory = workspace.promptHistory;
 			
 			setTimeout(()=>{
 				ui.scratchEditor.session.setOption("wrap", "free")
@@ -1149,6 +1153,7 @@ fileAccess.on("click", async () => {
 		await fileList.refreshAll()
 
 		if (workspace.files.length > 0) {
+			const missingFiles = [];
 			for (const file of workspace.files) {
 				let newContainers = []
 				let fileContainers = { container: null }
@@ -1161,9 +1166,17 @@ fileAccess.on("click", async () => {
 				}
 				file.containers = newContainers
 				file.handle.container = fileContainers.container
-				openFileHandle(file.handle, file.path, (file.side === "right" ? rightEdit : leftEdit))
-				fileList.active = file.handle
+				try {
+					await openFileHandle(file.handle, file.path, (file.side === "right" ? rightEdit : leftEdit))
+					fileList.active = file.handle
+				} catch (e) {
+					console.warn(`Failed to open file ${file.path}: ${e.message}`)
+					missingFiles.push(file.path)
+				}
 			}
+			// Remove missing files from workspace.files
+			workspace.files = workspace.files.filter(file => !missingFiles.includes(file.path));
+			saveWorkspace(); // Save workspace after removing missing files
 		}
 		ui.showSidebar(1)
 	} else {
@@ -1611,6 +1624,10 @@ setTimeout(async () => {
     		ui.ollama.focus()
     	}
     })
+    ui.ollama.panel.addEventListener('new-prompt', (event) => {
+        workspace.promptHistory = event.detail;
+        saveWorkspace();
+    });
     ui.sidebar.resizeListener(()=>{
 		clearTimeout(ui.sidebar.saveTimeout);
 		ui.sidebar.saveTimeout = setTimeout(saveWorkspace, 500);

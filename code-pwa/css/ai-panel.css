@@ -130,3 +130,34 @@
     max-width: 80%;
     word-wrap: break-word;
 }
+
+.settings-open .conversation-area {
+    display: none;
+}
+
+.settings-open .prompt-container {
+    flex-direction: column;
+}
+
+.settings-panel {
+    display: none;
+    flex: 1;
+    padding: 16px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: var(--text-color);
+    border-radius: var(--border-radius);
+}
+
+.settings-panel.open {
+    display: flex;
+}
+
+.settings-panel label {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.settings-panel input[type="checkbox"] {
+    margin-right: 4px;
+}
+
