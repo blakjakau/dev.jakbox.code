@@ -32,9 +32,7 @@ class Ollama {
 				mirostat_eta: 0.1,
 				num_ctx: 2048,
 			},*/
-			useOpenBuffers: false,
-			useSmartContext: true,
-			useConversationalContext: true
+			useOpenBuffers: false
 		}
 		this.prompts = []
 		this.promptIndex = -1 // -1 indicates no prompt from history is currently displayed
@@ -144,19 +142,17 @@ class Ollama {
 		const checkboxContainer = new Block();
 		checkboxContainer.classList.add("checkbox-container");
 
-		this.smartContextCheckbox = this._createSmartContextCheckbox();
-		this.conversationalContextCheckbox = this._createConversationalContextCheckbox();
+		
 
-		checkboxContainer.append(this.smartContextCheckbox);
-		checkboxContainer.append(this.conversationalContextCheckbox);
+		const settingsButton = new Button();
+		settingsButton.classList.add('settings-button');
+		settingsButton.icon = 'settings';
+		settingsButton.on('click', () => this.toggleSettingsPanel());
+		buttonContainer.prepend(settingsButton);
 
 		promptContainer.append(this.promptArea);
 		promptContainer.append(buttonContainer);
 		promptContainer.append(checkboxContainer);
-
-		const settingsButton = new Button('Settings');
-		settingsButton.on('click', () => this.toggleSettingsPanel());
-		buttonContainer.append(settingsButton);
 
 		return promptContainer
 	}
@@ -196,6 +192,7 @@ class Ollama {
 
 	_createSubmitButton() {
 		const submitButton = new Button("Send")
+		submitButton.icon = "send"
 		submitButton.classList.add("submit-button")
 		submitButton.on("click", () => this.generate())
 		return submitButton
@@ -212,34 +209,6 @@ class Ollama {
 		return clearButton
 	}
 
-	_createSmartContextCheckbox() {
-		const label = document.createElement("label");
-		const checkbox = document.createElement("input");
-		checkbox.type = "checkbox";
-		checkbox.id = "useSmartContext";
-		checkbox.checked = this.config.useSmartContext;
-		checkbox.addEventListener('change', (e) => {
-			this.config.useSmartContext = e.target.checked;
-		});
-		label.append(checkbox);
-		label.append(document.createTextNode(" Use Smart Context"));
-		return label;
-	}
-
-	_createConversationalContextCheckbox() {
-		const label = document.createElement("label");
-		const checkbox = document.createElement("input");
-		checkbox.type = "checkbox";
-		checkbox.id = "useConversationalContext";
-		checkbox.checked = this.config.useConversationalContext;
-		checkbox.addEventListener('change', (e) => {
-			this.config.useConversationalContext = e.target.checked;
-		});
-		label.append(checkbox);
-		label.append(document.createTextNode(" Use Conversational Context"));
-		return label;
-	}
-	
 	// In the Ollama class
 	toggleSettingsPanel() {
 	  this.panel.classList.toggle('settings-open');
@@ -314,7 +283,7 @@ class Ollama {
 		}
 
 		let fullPrompt = userPrompt;
-		if (this.config.useSmartContext && this.editor && userPrompt.match(/\@/i)) {
+		if (this.editor && userPrompt.match(/\@/i)) {
 
 			// let's intelligently interpret the @ tag(s) for @code @FILENAME etc
 			const context = await this.#tagReader(userPrompt)
@@ -468,18 +437,8 @@ class Ollama {
 			  this.toggleSettingsPanel();
 			}
 
-			// Alt + Shift + S to toggle Smart Context
-			if (e.altKey && e.shiftKey && e.key === 'S') {
-				e.preventDefault();
-				this.smartContextCheckbox.checked = !this.smartContextCheckbox.checked;
-				this.config.useSmartContext = this.smartContextCheckbox.checked;
-			}
-			// Alt + Shift + C to toggle Conversational Context
-			if (e.altKey && e.shiftKey && e.key === 'C') {
-				e.preventDefault();
-				this.conversationalContextCheckbox.checked = !this.conversationalContextCheckbox.checked;
-				this.config.useConversationalContext = this.conversationalContextCheckbox.checked;
-			}
+			
+			
 		});
 	}
 	set promptHistory(history) {

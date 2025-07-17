@@ -44,8 +44,13 @@
 
 .button-container {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
     gap: 8px;
+}
+
+
+.settings-button {
+	flex-grow:1;
 }
 
 .submit-button {
