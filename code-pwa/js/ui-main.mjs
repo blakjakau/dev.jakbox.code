@@ -256,7 +256,7 @@ const uiManager = {
 		
 		sidebar.resizeListener((width)=>{
 			const maxWidth = window.innerWidth * 0.5; // 50% of window width
-			sidebar.style.transition = "none";
+			// sidebar.style.transition = "none";
 			sidebarWidth = Math.min(width, maxWidth); // Constrain width
 			mainContent.style.transition = "none";
 			mainContent.style.left = sidebarWidth + "px";

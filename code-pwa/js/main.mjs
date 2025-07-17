@@ -616,6 +616,14 @@ const execCommandToggleSidebarPanel = (panelId) => {
 	const currentPanel = ui.iconTabBar.activeTab?.iconId;
 
 	if (isSidebarVisible && currentPanel === panelId) {
+		if(panelId == 'developer_board') {
+			if(!document.activeElement.classList.contains("prompt-area")) {
+				// just focus the tab
+				ui.iconTabBar.activeTabById = panelId;
+				return
+			}
+		}
+		
 		ui.toggleSidebar(); // Close the sidebar
 	} else if (!isSidebarVisible) {
 		ui.toggleSidebar(); // Open the sidebar

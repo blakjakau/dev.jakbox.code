@@ -1,6 +1,6 @@
 // Styles for this module are located in css/ai-panel.css
 import { Block, Button, Icon } from "./elements.mjs"
-
+import systemPrompt from "./ollamaSystemPrompt.mjs"
 const models = {
 	"7b": "codegemma:7b",
 	"7b-code": "codegemma:7b-code",
@@ -17,8 +17,8 @@ class Ollama {
 		// TODO: make the endpoint and model(s) configurable on workspace or app settings
 		this.config = {
 			endpoint: "http://localhost:11434/api/generate",
-			model: models["4b-it-qat"], // default model
-			system: "You are an AI assistant specialized in JavaScript, HTML, and CSS code changes and refactoring. When asked to review, update, change or modify code, always provide a revised code block as the primary output. Keep explanations minimal.",
+			model: models["7b"], // default model
+			system: systemPrompt, //"You are an AI assistant specialized in JavaScript, HTML, and CSS code changes and refactoring. When asked to review, update, change or modify code, always provide a revised code block as the primary output. Keep explanations minimal.",
 			// template: `<start_of_turn>user\n{{ if .System }}{{ .System }} {{ end }}{{ .Prompt }}<end_of_turn>\n<start_of_turn>model\n{{ .Response }}<end_of_turn>`,
 			/*options: {
 				num_predict: 512,
@@ -203,7 +203,7 @@ class Ollama {
 		clearButton.classList.add("clear-button")
 		clearButton.on("click", () => {
 			this.conversationArea.innerHTML = ""; // Clear all response blocks
-			this.prompts = []; // Clear stored prompts
+			// this.prompts = []; // Clear stored prompts
 			this.context = null; // Clear the context
 		})
 		return clearButton
@@ -291,7 +291,7 @@ class Ollama {
 			if(context.length > 0) {
 				for(const item of context) {
 					const { source, type, language, content } = item
-					fullPrompt += `\n\n// ------ ${type} context: ${language}\n\n${content}\n//------ end of ${type} context`
+					fullPrompt += `\n\n// ${type} context: ${language}\n\n${content}\n// end of ${type} context`
 				}
 			}
 		}
@@ -328,7 +328,7 @@ class Ollama {
 				stream: true,
 			};
 
-			if (this.config.useConversationalContext && this.context) {
+			if (this.context) {
 				requestBody.context = this.context;
 			}
 
