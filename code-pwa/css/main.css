@@ -189,7 +189,7 @@ ui-menu::-webkit-scrollbar-thumb,
 	border-radius:4px;
 }
 
-.ace_editor {
+ui-editor-holder .ace_editor {
 	top: calc( var(--menuHeight) + 6px);
     bottom: 0px;
     right: 4px;
