@@ -60,6 +60,7 @@ const uiManager = {
 			if(!document.body.classList.contains("showSplitView")) {
 				leftEdit.resize()
 				rightEdit.resize()
+				scratchEditor.resize();
 				return
 			}
 			const w = mainContent.offsetWidth
@@ -75,6 +76,7 @@ const uiManager = {
 			setTimeout(()=>{
 				leftEdit.resize()
 				rightEdit.resize()
+				scratchEditor.resize();
 			}, animRate)
 		}
 
@@ -121,6 +123,9 @@ const uiManager = {
 		sidebar.setAttribute("id", "sidebar")
 		sidebar.append(iconTabBar);
 		sidebar.append(sidebarPanelsContainer);
+		sidebar.minSize = 240
+		sidebar.maxSize = 2440
+
 
 		iconTabBar.on('tabs-updated', ({ detail }) => {
 			const tab = detail.tab;
@@ -138,8 +143,8 @@ const uiManager = {
 
 		iconTabBar.activeTab = filesTab;
 		sidebar.resizable = "right"
-		sidebar.minSize = 200
-		let sidebarWidth = 258
+		sidebar.minSize = 40
+		let sidebarWidth = 300
 
 		menu = document.querySelector("#menu")
 		if (menu == null) {
@@ -250,15 +255,29 @@ const uiManager = {
 		rightHolder.maxSize = 2440
 		
 		sidebar.resizeListener((width)=>{
-			sidebarWidth = width
-			mainContent.style.transition = "none"
-			mainContent.style.left = width + "px"
-			drawer.style.left = (sidebar.offsetLeft+sidebarWidth)+"px"
-			scratchEditor.resize()
+			const maxWidth = window.innerWidth * 0.5; // 50% of window width
+			sidebar.style.transition = "none";
+			sidebarWidth = Math.min(width, maxWidth); // Constrain width
+			mainContent.style.transition = "none";
+			mainContent.style.left = sidebarWidth + "px";
+			drawer.style.left = (sidebar.offsetLeft + sidebarWidth) + "px";
 		})
 		
 		sidebar.resizeEndListener(()=>{
+			sidebar.style.transition = ""
 			mainContent.style.transition = ""
+
+			void sidebar.offsetWidth
+			const minWidth = 300
+			const maxWidth = window.innerWidth * 0.5; // 50% of window width
+			if(sidebar.offsetWidth > maxWidth) {
+				sidebar.style.width = maxWidth + "px"
+				mainContent.style.left = maxWidth + "px";
+			} else if(sidebar.offsetWidth < minWidth) {
+				sidebar.style.width = minWidth + "px"
+				mainContent.style.left = minWidth + "px";
+			}
+			
 			constrainHolders()
 		})
 

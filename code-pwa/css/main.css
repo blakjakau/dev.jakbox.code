@@ -409,7 +409,7 @@ ui-tabbar.show-split-view-indicator::after {
 }
 
 #mainContent, #sidebar, #statusbar, ui-actionbar, ui-file-list {
-	transition:left var(--animRate), right var(--animRate), opacity var(--animRate), background var(--animRate), color var(--animRate);
+	transition:left var(--animRate), right var(--animRate), width var(--animRate), opacity var(--animRate), background var(--animRate), color var(--animRate);
 }
 
 #leftHolder, #rightHolder {
