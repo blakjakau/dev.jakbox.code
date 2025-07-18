@@ -112,6 +112,7 @@ const app = {
 	rendererOptions: null,
 	enableLiveAutocompletion: null,
 	darkmode: 'system',
+    ollamaConfig: null,
 }
 
 const workspace = {
@@ -121,6 +122,7 @@ const workspace = {
 	files: [],
 	scratchpad: '',
 	promptHistory: [],
+    ollamaConfig: null,
 }
 
 // window.showSettings = ui.showSettings
@@ -324,7 +326,7 @@ const saveWorkspace = async () => {
 	workspace.openFolders = fileList.openFolders;
 	workspace.sidebarWidth = ui.sidebar.offsetWidth;
 	workspace.activeSidebarTab = ui.iconTabBar?.activeTab?.iconId;
-	workspace.promptHistory = ui.aiManager.prompts;
+		workspace.promptHistory = ui.aiManager.promptHistory;
 	set(`workspace_${workspace.id}`, workspace);
 }
 
@@ -406,6 +408,12 @@ const openWorkspace = (() => {
 			workspace.id = load.id || safeString(workspace.name)
 			workspace.promptHistory = load.promptHistory || [];
 			ui.aiManager.promptHistory = workspace.promptHistory;
+            workspace.ollamaConfig = load.ollamaConfig || null;
+            if (workspace.ollamaConfig) {
+                ui.aiManager.ai.setOptions(workspace.ollamaConfig, null, null, true, 'workspace');
+            } else if (app.ollamaConfig) {
+                ui.aiManager.ai.setOptions(app.ollamaConfig, null, null, false, 'global');
+            }
 			
 			setTimeout(()=>{
 				ui.scratchEditor.session.setOption("wrap", "free")
@@ -1637,6 +1645,20 @@ setTimeout(async () => {
         workspace.promptHistory = event.detail;
         saveWorkspace();
     });
+    window.addEventListener('setting-changed', (event) => {
+        const { settingsName, settings, useWorkspaceSettings } = event.detail;
+        if (settingsName === 'ollamaConfig') {
+            if (useWorkspaceSettings) {
+                workspace.ollamaConfig = { ...settings };
+                app.ollamaConfig = null; // Clear global settings if using workspace specific
+                saveWorkspace();
+            } else {
+                app.ollamaConfig = { ...settings };
+                workspace.ollamaConfig = null; // Clear workspace settings if using global
+                saveAppConfig();
+            }
+        }
+    });
     ui.sidebar.resizeListener(()=>{
 		clearTimeout(ui.sidebar.saveTimeout);
 		ui.sidebar.saveTimeout = setTimeout(saveWorkspace, 500);
@@ -1653,6 +1675,7 @@ setTimeout(async () => {
 
 		app.workspace = stored?.workspace || "default"
 		app.workspaces = stored?.workspaces || [app.workspace]
+        app.ollamaConfig = stored?.ollamaConfig || null;
 
 		if (app.workspace) {
 			openWorkspace(app.workspace)
@@ -1663,6 +1686,10 @@ setTimeout(async () => {
 		execCommandSetDarkMode(app.darkmode); 
 
 		saveAppConfig()
+		
+        if (app.ollamaConfig) {
+            ui.aiManager.ai.setOptions(app.ollamaConfig, null, null, false, 'global');
+        }
 		
 		// set supported files in our FileList control
 		let regs = []

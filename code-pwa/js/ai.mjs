@@ -2,7 +2,9 @@ export default class AI {
 	constructor() {
 		this.editor = null;
 		this.fileReader = null;
-		this.settings = {};
+		this.config = {}; // Internal configuration object
+		this._settingsSchema = {}; // Schema for settings metadata
+        this._settingsSource = 'global'; // 'global' or 'workspace'
 	}
 
 	set editor(editor) {
@@ -13,13 +15,47 @@ export default class AI {
 		return this._editor;
 	}
 
-	get settings() {
-		return this.config;
+	get settingsSource() {
+		return this._settingsSource;
 	}
 
-	set settings(newConfig) {
-		this.config = { ...this.config, ...newConfig };
+	// Public interface for settings
+	getOption(name) {
+		const setting = this._settingsSchema[name];
+		if (!setting) return undefined;
+		return { ...setting, value: this.config[name] };
 	}
+
+	async getOptions() {
+		const options = {};
+		for (const name in this._settingsSchema) {
+			const setting = this._settingsSchema[name];
+			let enumValues = setting.enum;
+			if (setting.lookupCallback) {
+				enumValues = await setting.lookupCallback();
+			}
+			options[name] = { ...setting, value: this.config[name], enum: enumValues };
+		}
+		return options;
+	}
+
+	setOption(name, value) {
+		if (this._settingsSchema[name]) {
+			this.config[name] = value;
+			return true;
+		}
+		return false;
+	}
+
+	setOptions(newConfig) {
+		for (const name in newConfig) {
+			this.setOption(name, newConfig[name]);
+		}
+	}
+
+    saveSettings(newConfig, useWorkspaceSettings, appConfig, workspaceConfig) {
+        throw new Error("saveSettings must be implemented by subclass");
+    }
 
 	set fileReader(fileReader) {
 		// TODO recieve a custom fileReader object

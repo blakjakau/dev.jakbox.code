@@ -13,14 +13,16 @@ class AIPanel {
 		this.submitButton = null
 		this.md = window.markdownit();
         this.runMode = "chat"; // chat or generate
+        this.settingsPanel = null;
+        this.useWorkspaceSettings = false; // New property
 	}
 
 	init(panel, ai) {
 		this.panel = panel;
         this.ai = ai;
         this.ai.init();
-		this._setupPanel()
 		this._createUI()
+		this._setupPanel()
 		this._setupGlobalShortcuts()
 	}
 
@@ -44,7 +46,9 @@ class AIPanel {
 	_createUI() {
 		this.conversationArea = this._createConversationArea()
 		const promptContainer = this._createPromptContainer()
+        this.settingsPanel = this._createSettingsPanel();
 		this.panel.append(this.conversationArea)
+        this.panel.append(this.settingsPanel);
 		this.panel.append(promptContainer)
 	}
 
@@ -170,9 +174,128 @@ class AIPanel {
 		return clearButton
 	}
 
+    _createSettingsPanel() {
+    	
+    	const settingsPanel = new Block();
+    	settingsPanel.classList.add('settings-panel');
+    	
+        const form = document.createElement('form');
+
+        const workspaceSettingsCheckbox = document.createElement('input');
+        workspaceSettingsCheckbox.type = 'checkbox';
+        workspaceSettingsCheckbox.id = 'use-workspace-settings';
+        workspaceSettingsCheckbox.checked = this.useWorkspaceSettings;
+        const workspaceSettingsLabel = document.createElement('label');
+        workspaceSettingsLabel.htmlFor = 'use-workspace-settings';
+        workspaceSettingsLabel.textContent = 'Use workspace-specific settings';
+        workspaceSettingsLabel.prepend(workspaceSettingsCheckbox);
+        form.appendChild(workspaceSettingsLabel);
+
+        const toggleInputs = (disabled) => {
+            const inputs = form.querySelectorAll('input:not(#use-workspace-settings), textarea, select');
+            inputs.forEach(input => {
+                input.disabled = disabled;
+            });
+        };
+
+        workspaceSettingsCheckbox.addEventListener('change', () => {
+            this.useWorkspaceSettings = workspaceSettingsCheckbox.checked;
+            toggleInputs(this.useWorkspaceSettings);
+        });
+
+        const renderSettingsForm = async () => {
+            form.innerHTML = ''; // Clear existing form content
+            form.appendChild(workspaceSettingsLabel); // Re-add checkbox
+
+            const options = await this.ai.getOptions();
+            for (const key in options) {
+                const setting = options[key];
+                const label = document.createElement('label');
+                label.textContent = `${setting.label}: `;
+
+                let inputElement;
+                if (setting.type === 'enum') {
+                    inputElement = document.createElement('select');
+                    inputElement.id = `ollama-${key}`;
+                    setting.enum.forEach(optionValue => {
+                        const option = document.createElement('option');
+                        option.value = optionValue;
+                        option.textContent = optionValue;
+                        if (optionValue === setting.value) {
+                            option.selected = true;
+                        }
+                        inputElement.appendChild(option);
+                    });
+                    if (key === 'model') { // Add refresh button for model select
+                        const refreshButton = new Button();
+                        refreshButton.icon = 'refresh';
+                        refreshButton.classList.add('theme-button');
+                        refreshButton.on('click', async () => {
+                            await this.ai.refreshModels();
+                            renderSettingsForm(); // Re-render the form to update model list
+                        });
+                        label.appendChild(refreshButton);
+                    }
+                } else if (setting.multiline) {
+                    inputElement = document.createElement('textarea');
+                    inputElement.id = `ollama-${key}`;
+                    inputElement.value = setting.value;
+                } else if (setting.type === 'string') {
+                    inputElement = document.createElement('input');
+                    inputElement.type = 'text';
+                    inputElement.id = `ollama-${key}`;
+                    inputElement.value = setting.value;
+                } else {
+                    inputElement = document.createElement('input');
+                    inputElement.type = setting.type;
+                    inputElement.id = `ollama-${key}`;
+                    inputElement.value = setting.value;
+                }
+                label.appendChild(inputElement);
+                form.appendChild(label);
+            }
+
+            toggleInputs(this.useWorkspaceSettings); // Initial state
+
+            const saveButton = new Button('Save Settings');
+            saveButton.icon = 'save'; // Add an icon
+            saveButton.classList.add('theme-button');
+            saveButton.on('click', async () => {
+                const newSettings = {};
+                const currentOptions = await this.ai.getOptions(); // Re-fetch current options to get latest values
+                for (const key in currentOptions) {
+                    const input = form.querySelector(`#ollama-${key}`);
+                    if (input) {
+                        newSettings[key] = input.value;
+                    }
+                }
+                this.ai.setOptions(newSettings, (errorMessage) => {
+                    const errorBlock = new Block();
+                    errorBlock.classList.add('response-block');
+                    errorBlock.innerHTML = `Error: ${errorMessage}`;
+                    this.conversationArea.append(errorBlock);
+                    this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+                }, (successMessage) => {
+                    const successBlock = new Block();
+                    successBlock.classList.add('response-block');
+                    successBlock.innerHTML = successMessage;
+                    this.conversationArea.append(successBlock);
+                    this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+                }, this.useWorkspaceSettings, this.ai.settingsSource);
+                this.toggleSettingsPanel();
+            });
+            form.appendChild(saveButton);
+        };
+
+        renderSettingsForm(); // Initial render
+
+        settingsPanel.appendChild(form);
+        return settingsPanel;
+    }
+
 	toggleSettingsPanel() {
-	  this.panel.classList.toggle('settings-open');
 	  this.conversationArea.classList.toggle('hidden');
+	  this.settingsPanel.classList.toggle('active');
 	}
 
 	async generate() {
@@ -264,12 +387,12 @@ class AIPanel {
 	}
 
 	_setupGlobalShortcuts() {
-		document.addEventListener('keydown', (e) => {
-			if (e.altKey && e.key === 'Z') {
-			  e.preventDefault();
-			  this.toggleSettingsPanel();
-			}
-		});
+		// document.addEventListener('keydown', (e) => {
+		// 	if (e.altKey && e.key === 'Z') {
+		// 	  e.preventDefault();
+		// 	  this.toggleSettingsPanel();
+		// 	}
+		// });
 	}
 	set promptHistory(history) {
 		this.prompts = history;

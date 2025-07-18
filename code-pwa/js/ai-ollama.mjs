@@ -15,14 +15,35 @@ class Ollama extends AI {
 	constructor() {
 		super();
 		this.config = {
-			endpoint: "http://localhost:11434/api/generate",
+			server: "http://localhost:11434",
 			model: models["7b"], // default model
 			system: systemPrompt,
 			useOpenBuffers: false
 		};
 		this.context = null;
         this.messages = [];
+
+        this._settingsSchema = {
+            server: { type: "string", label: "Ollama Server", default: "http://localhost:11434" },
+            model: { type: "enum", label: "Model", default: models["7b"], lookupCallback: this._getAvailableModels.bind(this) },
+            system: { type: "string", label: "System Prompt", default: systemPrompt, multiline: true },
+        };
 	}
+
+    async _getAvailableModels() {
+        try {
+            const tagsEndpoint = `${this.config.server}/api/tags`;
+            const response = await fetch(tagsEndpoint);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            return data.models.map(m => m.name);
+        } catch (error) {
+            console.error("Error fetching models:", error);
+            return [];
+        }
+    }
 
 	async init() {
 		await this._queryModelCapability();
@@ -30,7 +51,7 @@ class Ollama extends AI {
 
 	async _queryModelCapability() {
 		try {
-			const showEndpoint = this.config.endpoint.replace("/api/generate", "/api/show");
+			const showEndpoint = `${this.config.server}/api/show`;
 			const response = await fetch(showEndpoint, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -54,9 +75,11 @@ class Ollama extends AI {
 			}
 
 			console.debug("Model Capabilities:", this._modelCaps, this._modelInfo);
+            return true;
 		} catch (error) {
 			console.error("Error querying model capabilities:", error);
 			this._modelCaps = null; // Ensure it's null on error
+            return false;
 		}
 	}
 
@@ -77,7 +100,7 @@ class Ollama extends AI {
 				requestBody.context = this.context;
 			}
 
-			const response = await fetch(this.config.endpoint, {
+			const response = await fetch(`${this.config.server}/api/generate`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(requestBody)
@@ -141,7 +164,7 @@ class Ollama extends AI {
                 stream: true,
             };
 
-            const response = await fetch(this.config.endpoint.replace('generate', 'chat'), {
+            const response = await fetch(`${this.config.server}/api/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody)
@@ -185,9 +208,38 @@ class Ollama extends AI {
         }
     }
 
+    setOptions(newConfig, onErrorCallback, onSuccessCallback, useWorkspaceSettings, source = 'global') {
+        for (const name in newConfig) {
+            this.setOption(name, newConfig[name]);
+        }
+        this._settingsSource = source; // Set the source of these settings
+        this.clearContext();
+        this._queryModelCapability().then(success => {
+            if (!success && onErrorCallback) {
+                onErrorCallback(`Unable to talk to the server at ${this.config.server}. Please check the server address and ensure Ollama is running.`);
+            } else if (success && onSuccessCallback) {
+                onSuccessCallback(`Connected to ${this.config.server}, using model: ${this.config.model}`);
+            }
+            // Dispatch event for persistence
+            const event = new CustomEvent('setting-changed', {
+                detail: {
+                    settingsName: 'ollamaConfig',
+                    settings: { ...this.config }, // Pass a copy of the current config
+                    useWorkspaceSettings: useWorkspaceSettings,
+                    source: this._settingsSource // Include the source in the event
+                }
+            });
+            window.dispatchEvent(event); // Dispatch globally or on a specific element
+        });
+    }
+
     clearContext() {
         this.context = null;
         this.messages = [];
+    }
+
+    async refreshModels() {
+        await this._queryModelCapability();
     }
 }
 

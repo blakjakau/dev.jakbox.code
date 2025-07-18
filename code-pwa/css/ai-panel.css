@@ -12,6 +12,10 @@
     flex-direction: column;
 }
 
+.conversation-area.hidden {
+    display: none;
+}
+
 .prompt-container {
     position: sticky;
     bottom: 0;
@@ -59,7 +63,7 @@
 
 .theme-button {
     background-color: var(--theme);
-    color: var(--ui-pri-fg);
+    color: var(--light);
     border: 1px solid var(--theme);
     cursor: pointer;
 }
@@ -143,30 +147,56 @@
     word-wrap: break-word;
 }
 
-.settings-open .conversation-area {
-    display: none;
-}
+
 
 .settings-open .prompt-container {
     flex-direction: column;
 }
 
 .settings-panel {
-    display: none;
     flex: 1;
     padding: 16px;
-    background-color: rgba(0, 0, 0, 0.8);
+    background-color: var(--themeDark);
     color: var(--text-color);
     border-radius: var(--border-radius);
+    display: none;
+    flex-direction: column; /* Ensure vertical stacking */
 }
 
-.settings-panel.open {
-    display: flex;
+.settings-panel.active {
+    display: flex; /* Use flex for column layout */
 }
 
 .settings-panel label {
     display: block;
-    margin-bottom: 4px;
+    margin-bottom: 10px; /* Space between options */
+    width: 100%; /* Full width label */
+}
+
+.settings-panel input[type="text"],
+.settings-panel textarea,
+.settings-panel select {
+    width: calc(100% - 16px); /* Full width minus padding */
+    padding: 8px; /* Bigger input elements */
+    margin-top: 4px;
+    border: 1px solid var(--mid);
+    border-radius: var(--buttonBorder);
+    background-color: var(--high);
+    color: var(--dark);
+    box-sizing: border-box; /* Include padding in width */
+}
+
+.settings-panel textarea {
+    min-height: 80px; /* Min height for textarea */
+    resize: vertical;
+}
+
+.settings-panel button[type="submit"] {
+    align-self: flex-end; /* Right align the save button */
+    margin-top: 20px;
+    padding: 10px 20px;
+    border-radius: var(--buttonBorder); /* More rounded */
+    font-size: 16px;
 }
 
 .settings-panel input[type="checkbox"] {
