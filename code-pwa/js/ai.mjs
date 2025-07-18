@@ -59,26 +59,21 @@ export default class AI {
 			const contextItems = [];
 			if (prompt.includes("@code")) {
 				const item = await this._readEditor();
-				if (item) contextItems.push(item);
-				prompt = prompt.replace(/@code/ig, "code");
-			}
-			const m = prompt.match(/\@(^code)/gi);
-			if (m) {
-				// TODO prompt includes other @ tags
-				console.log(m);
-			}
-
-			if (contextItems.length > 0) {
-				for (const item of contextItems) {
-					const { source, type, language, content } = item;
-					fullPrompt += `\n\n// ${type} context: ${language}\n\n${content}\n// end of ${type} context`;
-				}
+				if (item) {
+                    const { source, type, language, content } = item;
+                    const codeBlock = "\n\n ```"+language+"\n"+content+"\n``` ";
+                    fullPrompt = fullPrompt.replace(/@code/ig, codeBlock);
+                }
 			}
 		}
         return fullPrompt;
     }
 
 	generate(prompt, callbacks) {
+		throw new Error("Not implemented");
+	}
+
+	chat(prompt, callbacks) {
 		throw new Error("Not implemented");
 	}
 }

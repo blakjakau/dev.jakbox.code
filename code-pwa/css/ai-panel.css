@@ -50,20 +50,27 @@
 
 
 .settings-button {
-	flex-grow:1;
+	flex-grow:0;
 }
 
-.submit-button {
-    align-self: flex-end;
+.spacer {
+    flex-grow: 1;
+}
+
+.theme-button {
     background-color: var(--theme);
     color: var(--ui-pri-fg);
     border: 1px solid var(--theme);
     cursor: pointer;
 }
 
-.submit-button:hover {
+.theme-button:hover {
     background-color: var(--themeDark);
     border-color: var(--themeDark);
+}
+
+.submit-button {
+    align-self: flex-end;
 }
 
 .clear-button {

@@ -12,6 +12,7 @@ class AIPanel {
 		this.conversationArea = null
 		this.submitButton = null
 		this.md = window.markdownit();
+        this.runMode = "chat"; // chat or generate
 	}
 
 	init(panel, ai) {
@@ -57,23 +58,28 @@ class AIPanel {
 		const promptContainer = new Block()
 		promptContainer.classList.add("prompt-container")
 
-		const progressbar = document.createElement("div");
-		progressbar.classList.add("progress-bar");
-		progressbar.setAttribute("title", "context window utilization")
-		
-		const progressBarInner = document.createElement("div");
+        this.progressBar = document.createElement("div");
+		this.progressBar.classList.add("progress-bar");
+		this.progressBar.setAttribute("title", "context window utilization");
+        this.progressBar.style.display = 'none';
+
+        const progressBarInner = document.createElement("div");
 		progressBarInner.classList.add("progress-bar-inner");
-		
-		progressbar.appendChild(progressBarInner);
-		promptContainer.appendChild(progressbar);
+        this.progressBar.appendChild(progressBarInner);
+        promptContainer.appendChild(this.progressBar);
 
 		this.promptArea = this._createPromptArea()
 		const buttonContainer = new Block();
 		buttonContainer.classList.add("button-container");
 
+        this.runModeButton = this._createRunModeButton();
 		this.submitButton = this._createSubmitButton();
 		this.clearButton = this._createClearButton();
 
+        buttonContainer.append(this.runModeButton);
+        const spacer = new Block();
+        spacer.classList.add("spacer");
+        buttonContainer.append(spacer);
 		buttonContainer.append(this.clearButton);
 		buttonContainer.append(this.submitButton);
 
@@ -126,10 +132,30 @@ class AIPanel {
 		return promptArea
 	}
 
+    _createRunModeButton() {
+        const runModeButton = new Button("Chat");
+        runModeButton.icon = "chat";
+        runModeButton.classList.add("run-mode-button", "theme-button");
+        runModeButton.on("click", () => {
+            if (this.runMode === "chat") {
+                this.runMode = "generate";
+                runModeButton.text = "Generate";
+                runModeButton.icon = "code";
+                this.progressBar.style.display = 'block';
+            } else {
+                this.runMode = "chat";
+                runModeButton.text = "Chat";
+                runModeButton.icon = "chat";
+                this.progressBar.style.display = 'none';
+            }
+        });
+        return runModeButton;
+    }
+
 	_createSubmitButton() {
 		const submitButton = new Button("Send")
 		submitButton.icon = "send"
-		submitButton.classList.add("submit-button")
+		submitButton.classList.add("submit-button", "theme-button")
 		submitButton.on("click", () => this.generate())
 		return submitButton
 	}
@@ -178,14 +204,12 @@ class AIPanel {
                 responseBlock.innerHTML = this.md.render(fullResponse);
                 this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
             },
-            onDone: (contextRatio=1) => {
+            onDone: (contextRatio) => {
                 this._addCodeBlockButtons(responseBlock);
-                
-				if(contextRatio) {
-					const progressBarInner = document.querySelector(".progress-bar-inner");
+                if(contextRatio) {
+					const progressBarInner = this.progressBar.querySelector(".progress-bar-inner");
 					progressBarInner.style.width = (contextRatio*100)+"%"; // Set initial progress
 				}
-
                 spinner.remove();
             },
             onError: (error) => {
@@ -195,7 +219,11 @@ class AIPanel {
             }
         };
 
-		this.ai.generate(userPrompt, callbacks);
+        if (this.runMode === "chat") {
+            this.ai.chat(userPrompt, callbacks);
+        } else {
+    		this.ai.generate(userPrompt, callbacks);
+        }
 	}
 
 	_addCodeBlockButtons(responseBlock) {

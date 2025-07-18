@@ -7,9 +7,8 @@ const models = {
 	"7b-instruct": "codegemma:7b-instruct",
 	"code": "codegemma:code",
 	"assist": "codegemma:assist",
-	"1b-it-qat": "gemma3:1b-it-qat",	
+	"1b-it-qat": "gemma3:1b-it-qat",
 	"4b-it-qat": "gemma3:4b-it-qat",
-	"12b-it-qat": "gemma3:12b-it-qat",
 }
 
 class Ollama extends AI {
@@ -17,14 +16,12 @@ class Ollama extends AI {
 		super();
 		this.config = {
 			endpoint: "http://localhost:11434/api/generate",
-			model: models["4b-it-qat"], // default model
-			options: {
-		    	stop: ["<end_of_turn>", "<start_of_turn>"],
-			},
+			model: models["7b"], // default model
 			system: systemPrompt,
 			useOpenBuffers: false
 		};
 		this.context = null;
+        this.messages = [];
 	}
 
 	async init() {
@@ -75,10 +72,6 @@ class Ollama extends AI {
 				prompt: fullPrompt,
 				stream: true,
 			};
-			
-			if(this.config.model.includes("-it-") || this.config.model.includes("-instruct")) {
-				const prompt = `<start_of_turn>user\n${fullPrompt}<end_of_turn>\n<start_of_turn>model\n`
-			}
 
 			if (this.context) {
 				requestBody.context = this.context;
@@ -98,6 +91,13 @@ class Ollama extends AI {
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) {
+                    if (lastChunk?.eval_count && lastChunk?.prompt_eval_count) {
+                        this.contextCurrent = lastChunk?.eval_count + lastChunk?.prompt_eval_count;
+                        this.contextUsed = ((this.contextCurrent / this.contextMax * 100)) >> 0;
+                        if (callbacks.onDone) callbacks.onDone(this.contextUsed / 100);
+                    } else {
+                        if (callbacks.onDone) callbacks.onDone();
+                    }
 					break;
 				}
 
@@ -125,20 +125,69 @@ class Ollama extends AI {
 				partialResponse = jsonObjects[jsonObjects.length - 1];
 			}
 
-			if (lastChunk?.eval_count && lastChunk?.prompt_eval_count) {
-				this.contextCurrent = lastChunk?.eval_count + lastChunk?.prompt_eval_count;
-				this.contextUsed = ((this.contextCurrent / this.contextMax)*100)>>0;
-				console.log(this.contextCurrent, this.contextMax, this.contextUsed + "% ");
-			}
-
-			if (callbacks.onDone) callbacks.onDone(this.contextUsed/100);
-
 		} catch (error) {
 			if (callbacks.onError) callbacks.onError(error);
 		}
 	}
+
+    async chat(prompt, callbacks) {
+        const fullPrompt = await this._getContextualPrompt(prompt);
+        this.messages.push({ role: "user", content: fullPrompt });
+
+        try {
+            const requestBody = {
+                model: this.config?.model,
+                messages: this.messages,
+                stream: true,
+            };
+
+            const response = await fetch(this.config.endpoint.replace('generate', 'chat'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            let partialResponse = '', lastChunk, fullResponse = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) {
+                    this.messages.push({ role: "assistant", content: fullResponse });
+                    if (callbacks.onDone) callbacks.onDone();
+                    break;
+                }
+
+                partialResponse += decoder.decode(value, { stream: true });
+
+                let jsonObjects = partialResponse.split('\n');
+
+                for (let i = 0; i < jsonObjects.length - 1; i++) {
+                    const jsonObject = jsonObjects[i];
+                    if (jsonObject) {
+                        try {
+                            const parsed = JSON.parse(jsonObject);
+                            lastChunk = parsed;
+                            fullResponse += parsed.message.content;
+                            if (callbacks.onUpdate) callbacks.onUpdate(fullResponse);
+                        } catch (e) {
+                            console.error('Error parsing JSON chunk:', e, jsonObject);
+                        }
+                    }
+                }
+
+                partialResponse = jsonObjects[jsonObjects.length - 1];
+            }
+        } catch (error) { 
+            if (callbacks.onError) callbacks.onError(error);
+        }
+    }
+
     clearContext() {
         this.context = null;
+        this.messages = [];
     }
 }
 
