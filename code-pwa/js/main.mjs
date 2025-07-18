@@ -324,7 +324,7 @@ const saveWorkspace = async () => {
 	workspace.openFolders = fileList.openFolders;
 	workspace.sidebarWidth = ui.sidebar.offsetWidth;
 	workspace.activeSidebarTab = ui.iconTabBar?.activeTab?.iconId;
-	workspace.promptHistory = ui.ollama.prompts;
+	workspace.promptHistory = ui.aiManager.prompts;
 	set(`workspace_${workspace.id}`, workspace);
 }
 
@@ -405,7 +405,7 @@ const openWorkspace = (() => {
 			workspace.activeSidebarTab = load.activeSidebarTab || null;
 			workspace.id = load.id || safeString(workspace.name)
 			workspace.promptHistory = load.promptHistory || [];
-			ui.ollama.promptHistory = workspace.promptHistory;
+			ui.aiManager.promptHistory = workspace.promptHistory;
 			
 			setTimeout(()=>{
 				ui.scratchEditor.session.setOption("wrap", "free")
@@ -783,7 +783,7 @@ const setCurrentEditor = (editor)=>{
 	ui.currentEditor = currentEditor = editor
 	ui.currentTabs = currentTabs = (editor === leftEdit ? ui.leftTabs : ui.rightTabs)
 	ui.currentMediaView = currentMediaView = (editor === leftEdit ? ui.leftMedia : ui.rightMedia)
-	ui.ollama.editor = editor;
+	ui.aiManager.editor = editor;
 	
 	const tab = editor?.tabs?.activeTab
 	if(tab) {
@@ -1630,10 +1630,10 @@ setTimeout(async () => {
     ui.iconTabBar.on("tabs-updated", (e)=>{ 
     	saveWorkspace() 
     	if(e.detail?.tab?._iconId == "developer_board") {
-    		ui.ollama.focus()
+    		ui.aiManager.focus()
     	}
     })
-    ui.ollama.panel.addEventListener('new-prompt', (event) => {
+    ui.aiManager.panel.addEventListener('new-prompt', (event) => {
         workspace.promptHistory = event.detail;
         saveWorkspace();
     });

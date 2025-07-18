@@ -177,6 +177,22 @@
     margin: 10px auto;
 }
 
+.progress-bar {
+  height: 10px;
+  width: 100%;
+  background-color: var(--themeDark);
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+.progress-bar-inner {
+  height: 100%;
+  width: 0%;
+  background-color: var(--theme);
+  border-radius: 5px;
+  transition: width 0.5s ease-in-out;
+}
+
 @keyframes spin {
     0% {
         transform: rotate(0deg);

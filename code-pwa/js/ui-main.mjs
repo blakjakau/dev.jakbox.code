@@ -1,5 +1,6 @@
 import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder, IconTabBar, IconTab, SidebarPanel } from './elements.mjs';
-import ollama from './ollama.mjs';
+import aiManager from './ai-panel.mjs';
+import ollama from './ai-ollama.mjs';
 
 const defaultSettings = {
 	showGutter: true, //set to true to hide the line numbering
@@ -7,7 +8,7 @@ const defaultSettings = {
 	printMargin: false,
 	displayIndentGuides: true,
 	showInvisibles: false, //show whitespace characters (spaces, tabs, returns)
-	scrollPastEnd: 0, //allow the leftEditto scroll past the end of the document
+	scrollPastEnd: 1, //allow the leftEditto scroll past the end of the document
 	useSoftTabs: false,
 	tabSize: 4,
 	newLineMode: "auto",
@@ -105,7 +106,7 @@ const uiManager = {
 		filesPanel.append(fileList);
 
 		const aiPanel = new SidebarPanel();
-		ollama.init(aiPanel);
+		aiManager.init(aiPanel, ollama);
 
 		const scratchPanel = new SidebarPanel();
 		const scratchEditorElement = new Block();
@@ -976,7 +977,7 @@ const uiManager = {
 	get scratchEditor() { return scratchEditor },
 	get iconTabBar() { return iconTabBar },
 	
-	get ollama() { return ollama },
+	get aiManager() { return aiManager },
 	
 	constrainHolders: constrainHolders,
 	
