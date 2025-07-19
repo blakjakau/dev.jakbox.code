@@ -99,9 +99,6 @@ class AIManager {
 		buttonContainer.append(this.clearButton);
 		buttonContainer.append(this.submitButton);
 
-		const checkboxContainer = new Block();
-		checkboxContainer.classList.add("checkbox-container");
-
 		const settingsButton = new Button();
 		settingsButton.classList.add('settings-button');
 		settingsButton.icon = 'settings';
@@ -110,7 +107,6 @@ class AIManager {
 
 		promptContainer.append(this.promptArea);
 		promptContainer.append(buttonContainer);
-		promptContainer.append(checkboxContainer);
 
 		return promptContainer
 	}
@@ -271,11 +267,11 @@ class AIManager {
                 if (setting.type === 'enum') {
                     inputElement = document.createElement('select');
                     inputElement.id = `${this.aiProvider}-${key}`;
-                    setting.enum.forEach(optionValue => {
+                    setting.enum.forEach(optionObj => {
                         const option = document.createElement('option');
-                        option.value = optionValue;
-                        option.textContent = optionValue;
-                        if (optionValue === setting.value) {
+                        option.value = optionObj.value; 
+                        option.textContent = optionObj.label || optionObj.value; // Fallback to value if no label
+                        if (optionObj.value === setting.value) { 
                             option.selected = true;
                         }
                         inputElement.appendChild(option);
@@ -491,17 +487,9 @@ class AIManager {
 		});
 	}
 
-	_setupGlobalShortcuts() {
-		// document.addEventListener('keydown', (e) => {
-		// 	if (e.altKey && e.key === 'Z') {
-		// 	  e.preventDefault();
-		// 	  this.toggleSettingsPanel();
-		// 	}
-		// });
-	}
 	set promptHistory(history) {
 		this.prompts = history;
-		this.promptIndex = history.length+1
+		this.promptIndex = history.length
 	}
 
 	get promptHistory() {

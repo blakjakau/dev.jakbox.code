@@ -805,7 +805,7 @@ ui-panel[type="modal"] h1 small {
 	display: flex;
 	flex-direction: row;
     user-select:none;
-    -webkit-user-select:none;
+    -webkit-user-select:text;
 
 }
 

@@ -73,6 +73,7 @@ export class Panel extends Block {
 				return
 			}
 			this.style.transition = "none"
+			this.style.webkitUserSelect = "none"
 			this.active = true
 			
 			const move = (e)=>{
@@ -105,6 +106,7 @@ export class Panel extends Block {
 				document.removeEventListener("pointerup", release)
 				document.body.style.cursor = ""
 				this.style.transition = ""
+				this.style.webkitUserSelect = ""
 				this.active = false
 				if(this.resize == "left" || this.resize == "right") {
 					this.resizeEndListeners.forEach(f=>{ f(this.offsetWidth) })

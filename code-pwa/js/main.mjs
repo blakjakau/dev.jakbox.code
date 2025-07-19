@@ -671,6 +671,10 @@ const execCommandRestoreFolders = () => {
 	fileAccess.click();
 	fileAccess.style.display = "none";
 	menuRestoreFolders.style.display = "none";
+	fileList.openFolders = workspace.openFolders;
+	setTimeout(()=>{
+		fileList.openFolders = workspace.openFolders;
+	}, 300)
 }
 
 const execCommandCloseActiveTab = async () => {

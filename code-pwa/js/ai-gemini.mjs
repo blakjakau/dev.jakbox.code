@@ -5,252 +5,238 @@ class Gemini extends AI {
         super();
         this.config = {
             apiKey: "",
-            model: "gemini-2.5-flash", // Default Gemini model
-            server: "https://generativelanguage.googleapis.com", // Default Gemini API endpoint
+            model: "gemini-2.5-flash",
+            server: "https://generativelanguage.googleapis.com", 
             system: "You are a helpful AI assistant.",
         };
         this.messages = [];
+        this.MAX_CONTEXT_TOKENS = 32768;
 
         this._settingsSchema = {
             apiKey: { type: "string", label: "Gemini API Key", default: "", secret: true },
             server: { type: "string", label: "Gemini API Server", default: "https://generativelanguage.googleapis.com" },
-            model: { type: "enum", label: "Model", default: "gemini-pro", lookupCallback: this._getAvailableModels.bind(this) },
+            model: { 
+                type: "enum", 
+                label: "Model", 
+                default: "gemini-2.5-flash", 
+                enum: [
+                	{ value: "gemini-2.5-flash", label: "Gemini Flash (32k)", maxTokens: 32768 },
+                    { value: "gemini-2.5-pro", label: "Gemini Pro (32k)", maxTokens: 32768 },
+                    { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro (1M)", maxTokens: 1048576 },
+                    { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash (1M)", maxTokens: 1048576 },
+                ],
+                lookupCallback: this._getAvailableModels.bind(this) 
+            },
             system: { type: "string", label: "System Prompt", default: "You are a helpful AI assistant.", multiline: true },
         };
     }
 
     async _getAvailableModels() {
-        // This is a placeholder. In a real scenario, you'd query the Gemini API
-        // to get a list of available models. For now, we'll hardcode some common ones.
-        return ["gemini-2.5-pro", "gemini-2.5-flash"];
-    }
+        const fallbackModels = [
+        	{ value: "gemini-2.5-flash", label: "Gemini Flash (32k)", maxTokens: 32768 },
+            { value: "gemini-2.5-pro", label: "Gemini Pro (32k)", maxTokens: 32768 },
+            { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro (1M)", maxTokens: 1048576 },
+            { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash (1M)", maxTokens: 1048576 },
+        ]; 
 
-    async init() {
-        // No specific initialization needed for Gemini beyond what's in constructor
-        // unless we want to validate API key or fetch models on init.
-        // For now, we'll assume settings are loaded and validated on setOptions.
-    }
-    
-    get apiUrl() {
-    	return `${this.config.server}/v1beta/models/${this.config.model}:streamGenerateContent?key=${this.config.apiKey}`
-    }
+        if (!this.config.apiKey) {
+            return fallbackModels;
+        }
 
-    async generate(prompt, callbacks) {
-	    const { onUpdate, onError, onDone } = callbacks;
-        const fullPrompt = await this._getContextualPrompt(prompt);
-	
-	    let buffer = '';
-	    const decoder = new TextDecoder('utf-8');
-	    let fullResponseAccumulator = ''; // To accumulate the full text response
-	
-	    try {
-            const response = await fetch(this.apiUrl, {
-	            method: 'POST',
-	            headers: {
-	                'Content-Type': 'application/json',
-	            },
-	            body: JSON.stringify({
-	                contents: [{
-	                    parts: [{
-	                        text: fullPrompt
-	                    }]
-	                }]
-	            }),
-	        });
-	
-	        if (!response.ok) {
-	            const errorText = await response.text();
-	            const httpError = new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
-	            onError(httpError);
-	            return; // Exit if initial response is not OK
-	        }
-	
-	        const reader = response.body.getReader();
-			
-			const processBuffer = () => {
-				while (true) {
-					let braceCount = 0;
-					let objectStartIndex = -1;
-					let objectEndIndex = -1;
-			
-					for (let i = 0; i < buffer.length; i++) {
-						if (buffer[i] === '{') {
-							if (braceCount === 0) {
-								objectStartIndex = i;
-							}
-							braceCount++;
-						} else if (buffer[i] === '}') {
-							braceCount--;
-							if (braceCount === 0 && objectStartIndex !== -1) {
-								objectEndIndex = i;
-								break; 
-							}
-						}
-					}
-			
-					if (objectEndIndex !== -1) {
-						const jsonString = buffer.substring(objectStartIndex, objectEndIndex + 1);
-						buffer = buffer.substring(objectEndIndex + 1); // Remove the parsed object
-			
-						try {
-							const parsed = JSON.parse(jsonString);
-							if (parsed.candidates && parsed.candidates[0].content && parsed.candidates[0].content.parts) {
-								for (const part of parsed.candidates[0].content.parts) {
-									if (part.text) {
-										fullResponseAccumulator += part.text;
-									}
-								}
-								if (onUpdate) onUpdate(fullResponseAccumulator);
-							}
-						} catch (e) {
-							console.error('Error parsing JSON object from stream:', e, jsonString);
-						}
-					} else {
-						break; // No complete object found, wait for more data
-					}
-				}
-			};
-			
-	
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) {
-                    processBuffer();
-                    if (onDone) onDone();
-                    break;
-                }
+        const modelsApiUrl = `${this.config.server}/v1beta/models?key=${this.config.apiKey}`;
 
-                buffer += decoder.decode(value, { stream: true });
-                processBuffer();
+        try {
+            const response = await fetch(modelsApiUrl);
+
+            if (!response.ok) {
+                return fallbackModels;
             }
 
+            const data = await response.json();
+            
+            if (!data.models || !Array.isArray(data.models)) {
+                return fallbackModels;
+            }
+
+            const availableModels = data.models
+                .filter(model => model.supportedGenerationMethods && model.supportedGenerationMethods.includes("GENERATE_CONTENT"))
+                .map(model => ({
+                    value: model.name, 
+                    label: `${model.displayName || model.name} (${model.inputTokenLimit / 1000}k)`,
+                    maxTokens: model.inputTokenLimit
+                }));
+
+            const finalModels = [...new Set([
+                ...availableModels.map(m => JSON.stringify(m)),
+                ...fallbackModels.map(m => JSON.stringify(m))
+            ])].map(s => JSON.parse(s));
+
+            return finalModels;
+
         } catch (error) {
-            console.error("Error calling Gemini API (generate):", error);
-            if (callbacks.onError) callbacks.onError(error);
+            return fallbackModels;
         }
     }
 
-    async chat(prompt, callbacks) {
-        const fullPrompt = await this._getContextualPrompt(prompt);
-        this.messages.push({ role: "user", parts: [{ text: fullPrompt }] });
-        await this._handleStream(callbacks);
+    async init() {
+        // No specific initialization needed for Gemini.
+    }
+    
+    get _streamApiUrl() {
+        return `${this.config.server}/v1beta/models/${this.config.model}:streamGenerateContent?key=${this.config.apiKey}`;
     }
 
-	async _handleStream(callbacks) {
-	    const { onUpdate, onError, onDone } = callbacks;
-	
-	    const decoder = new TextDecoder('utf-8');
-	    let buffer = '';
-	    let fullResponseAccumulator = '';
-	    let processedIndex = 0;
-	
-	    try {
-	        const response = await fetch(this.apiUrl, {
-	            method: 'POST',
-	            headers: {
-	                'Content-Type': 'application/json',
-	            },
-	            body: JSON.stringify({ contents: this.messages }),
-	        });
-	
-	        if (!response.ok) {
-	            const errorText = await response.text();
-	            const httpError = new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
-	            if (onError) onError(httpError);
-	            return;
-	        }
-	
-	        const reader = response.body.getReader();
-	
-	        while (true) {
-	            const { done, value } = await reader.read();
-	
-	            if (done) {
-	                this.messages.push({ role: "model", parts: [{ text: fullResponseAccumulator }] });
-	                if (onDone) onDone();
-	                break;
-	            }
-	
-	            buffer += decoder.decode(value, { stream: false });
-	
-	            while (true) {
-	                const objectStartIndex = buffer.indexOf('{', processedIndex);
-	                if (objectStartIndex === -1) {
-	                    break;
-	                }
-	
-	                let braceCount = 0;
-	                let objectEndIndex = -1;
-	                // ✨ STATE-AWARE PARSING LOGIC STARTS HERE ✨
-	                let inString = false; 
-	
-	                for (let i = objectStartIndex; i < buffer.length; i++) {
-	                    const char = buffer[i];
-	                    
-	                    // Toggle inString state if we find a quote that isn't escaped
-	                    if (char === '"' && buffer[i - 1] !== '\\') {
-	                        inString = !inString;
-	                    }
-	
-	                    // Only count braces if we're NOT inside a string
-	                    if (!inString) {
-	                        if (char === '{') {
-	                            braceCount++;
-	                        } else if (char === '}') {
-	                            braceCount--;
-	                        }
-	                    }
-	
-	                    // If braceCount is zero, we've found the end of our object
-	                    if (braceCount === 0) {
-	                        objectEndIndex = i;
-	                        break;
-	                    }
-	                }
-	
-	                if (objectEndIndex !== -1) {
-	                    const jsonString = buffer.substring(objectStartIndex, objectEndIndex + 1);
-	                    
-	                    try {
-	                        const parsed = JSON.parse(jsonString);
-	                        if (parsed.candidates && parsed.candidates[0].content && parsed.candidates[0].content.parts) {
-	                            for (const part of parsed.candidates[0].content.parts) {
-	                                if (part.text) {
-	                                    fullResponseAccumulator += part.text;
-	                                }
-	                            }
-	                            if (onUpdate) onUpdate(fullResponseAccumulator);
-	                        }
-	                    } catch (e) {
-	                        // This might still fail if our simple tokenizer is fooled, but it's much more robust.
-	                        console.error('Error parsing JSON object from stream:', e, jsonString);
-	                    }
-	                    
-	                    processedIndex = objectEndIndex + 1;
-	                } else {
-	                    break;
-	                }
-	            }
-	        }
-	    } catch (error) {
-	        console.error("Error calling Gemini API:", error);
-	        if (onError) onError(error);
-	    }
-	}
-    async ___handleStream(callbacks) {
-        const { onUpdate, onError, onDone } = callbacks;
+    get _countTokensApiUrl() {
+        return `${this.config.server}/v1beta/models/${this.config.model}:countTokens?key=${this.config.apiKey}`;
+    }
 
-        let buffer = '';
-        const decoder = new TextDecoder('utf-8');
-        let fullResponseAccumulator = '';
-
+    /**
+     * Internal helper to make the Gemini countTokens API call.
+     * @param {Array<Object>} contents - The array of message parts to count tokens for.
+     * @returns {Promise<number>} - The total number of tokens.
+     */
+    async _countTokens(contents) {
+        if (!this.config.apiKey) {
+            return 0;
+        }
         try {
-            const response = await fetch(this.apiUrl, {
+            const response = await fetch(this._countTokensApiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ contents: this.messages }),
+                body: JSON.stringify({ contents }),
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.json();
+                throw new Error(`Gemini API Error (countTokens): ${response.status} ${response.statusText} - ${errorBody.error?.message || JSON.stringify(errorBody)}`);
+            }
+
+            const data = await response.json();
+            return data.totalTokens || 0;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Processes a ReadableStream from a Gemini API response, parsing JSON chunks.
+     * @param {ReadableStreamDefaultReader} reader - The reader for the API response body.
+     * @param {object} callbacks - Contains onUpdate, onError functions.
+     * @returns {Promise<string>} - Resolves with the full accumulated text response.
+     */
+    async _processApiResponseStream(reader, callbacks) {
+        const { onUpdate, onError } = callbacks;
+        let buffer = '';
+        const decoder = new TextDecoder('utf-8');
+        let fullResponseAccumulator = '';
+        let processedIndex = 0;
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                buffer += decoder.decode(value, { stream: true }); 
+
+                while (true) {
+                    const objectStartIndex = buffer.indexOf('{', processedIndex);
+                    if (objectStartIndex === -1) {
+                        break;
+                    }
+
+                    let braceCount = 0;
+                    let objectEndIndex = -1;
+                    let inString = false; 
+
+                    for (let i = objectStartIndex; i < buffer.length; i++) {
+                        const char = buffer[i];
+                        
+                        if (char === '"' && (i === 0 || buffer[i - 1] !== '\\')) {
+                            inString = !inString;
+                        }
+
+                        if (!inString) {
+                            if (char === '{') {
+                                braceCount++;
+                            } else if (char === '}') {
+                                braceCount--;
+                            }
+                        }
+
+                        if (braceCount === 0) {
+                            objectEndIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (objectEndIndex !== -1) {
+                        const jsonString = buffer.substring(objectStartIndex, objectEndIndex + 1);
+                        
+                        try {
+                            const parsed = JSON.parse(jsonString);
+                            if (parsed.candidates && parsed.candidates[0].content && parsed.candidates[0].content.parts) {
+                                for (const part of parsed.candidates[0].content.parts) {
+                                    if (part.text) {
+                                        fullResponseAccumulator += part.text;
+                                    }
+                                }
+                                if (onUpdate) onUpdate(fullResponseAccumulator);
+                            }
+                        } catch (e) {
+                            // Malformed JSON, continue trying to parse
+                        }
+                        
+                        processedIndex = objectEndIndex + 1;
+                    } else {
+                        break;
+                    }
+                }
+
+                if (done) {
+                    buffer = ''; 
+                    processedIndex = 0;
+                    break;
+                }
+            }
+            return fullResponseAccumulator;
+        } catch (error) {
+            if (onError) onError(error);
+            throw error;
+        }
+    }
+
+    /**
+     * Generates content using the Gemini model.
+     * @param {string} prompt - The user's prompt.
+     * @param {object} callbacks - An object with callback functions:
+     *   - onStart(): Called when generation starts.
+     *   - onUpdate(text): Called with streamed chunks.
+     *   - onContextRatioUpdate(ratio): Called with the current context utilization ratio (0-1).
+     *   - onDone(text, contextRatioPercent): Called when generation is complete, includes final text and ratio.
+     *   - onError(error): Called if an error occurs.
+     */
+    async generate(prompt, callbacks = {}) {
+        const { onStart, onError, onDone, onContextRatioUpdate } = callbacks;
+        if (onStart) onStart();
+
+        try {
+            const fullPrompt = await this._getContextualPrompt(prompt);
+            
+            const contentsToSend = [{ role: "user", parts: [{ text: fullPrompt }] }];
+
+            const currentTokens = await this._countTokens(contentsToSend);
+            const contextRatio = currentTokens / this.MAX_CONTEXT_TOKENS;
+
+            if (onContextRatioUpdate) {
+                onContextRatioUpdate(contextRatio);
+            }
+
+            const response = await fetch(this._streamApiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ contents: contentsToSend }),
             });
 
             if (!response.ok) {
@@ -261,79 +247,93 @@ class Gemini extends AI {
             }
 
             const reader = response.body.getReader();
+            const fullResponse = await this._processApiResponseStream(reader, callbacks);
+            
+            if (onDone) onDone(fullResponse, Math.round(contextRatio * 100));
 
-			const processBuffer = () => {
-				while (true) {
-					let braceCount = 0;
-					let objectStartIndex = -1;
-					let objectEndIndex = -1;
-			
-					for (let i = 0; i < buffer.length; i++) {
-						if (buffer[i] === '{') {
-							if (braceCount === 0) {
-								objectStartIndex = i;
-							}
-							braceCount++;
-						} else if (buffer[i] === '}') {
-							braceCount--;
-							if (braceCount === 0 && objectStartIndex !== -1) {
-								objectEndIndex = i;
-								break;
-							}
-						}
-					}
-			
-					if (objectEndIndex !== -1) {
-						const jsonString = buffer.substring(objectStartIndex, objectEndIndex + 1);
-						buffer = buffer.substring(objectEndIndex + 1); // Remove the parsed object
-			
-						try {
-							const parsed = JSON.parse(jsonString);
-							if (parsed.candidates && parsed.candidates[0].content && parsed.candidates[0].content.parts) {
-								for (const part of parsed.candidates[0].content.parts) {
-									if (part.text) {
-										fullResponseAccumulator += part.text;
-									}
-								}
-								if (onUpdate) onUpdate(fullResponseAccumulator);
-							}
-						} catch (e) {
-							console.error('Error parsing JSON object from stream:', e, jsonString);
-						}
-					} else {
-						break; // No complete object found, wait for more data
-					}
-				}
-			};
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) {
-                    processBuffer();
-                    this.messages.push({ role: "model", parts: [{ text: fullResponseAccumulator }] });
-                    if (onDone) onDone();
-                    break;
-                }
-
-                buffer += decoder.decode(value, { stream: true });
-                processBuffer();
-            }
         } catch (error) {
-            console.error("Error calling Gemini API:", error);
             if (onError) onError(error);
         }
     }
 
-    setOptions(newConfig, onErrorCallback, onSuccessCallback, useWorkspaceSettings, source = 'global') {
+    /**
+     * Manages a chat conversation with the Gemini model.
+     * @param {string} prompt - The user's message.
+     * @param {object} callbacks - An object with callback functions:
+     *   - onStart(): Called when chat turn starts.
+     *   - onUpdate(text): Called with streamed chunks.
+     *   - onContextRatioUpdate(ratio): Called with the current context utilization ratio (0-1).
+     *   - onDone(text, contextRatioPercent): Called when chat turn is complete, includes final text and ratio.
+     *   - onError(error): Called if an error occurs.
+     */
+    async chat(prompt, callbacks = {}) {
+        const { onStart, onError, onDone, onContextRatioUpdate } = callbacks;
+        if (onStart) onStart();
+
+        try {
+            const fullPrompt = await this._getContextualPrompt(prompt);
+            
+            const userMessagePart = { role: "user", parts: [{ text: fullPrompt }] };
+            const contentsToSend = [...this.messages, userMessagePart];
+
+            const currentTokens = await this._countTokens(contentsToSend);
+            const contextRatio = currentTokens / this.MAX_CONTEXT_TOKENS;
+
+            if (onContextRatioUpdate) {
+                onContextRatioUpdate(contextRatio);
+            }
+
+            const response = await fetch(this._streamApiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ contents: contentsToSend }),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                const httpError = new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
+                if (onError) onError(httpError);
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const fullResponse = await this._processApiResponseStream(reader, callbacks);
+            
+            this.messages.push(userMessagePart);
+            this.messages.push({ role: "model", parts: [{ text: fullResponse }] });
+
+            const finalTokens = await this._countTokens(this.messages);
+            const finalContextRatio = finalTokens / this.MAX_CONTEXT_TOKENS;
+            if (onContextRatioUpdate) {
+                onContextRatioUpdate(finalContextRatio);
+            }
+
+            if (onDone) {
+                onDone(fullResponse, Math.round(finalContextRatio * 100));
+            }
+
+        } catch (error) {
+            if (onError) onError(error);
+        }
+    }
+    
+    async setOptions(newConfig, onErrorCallback, onSuccessCallback, useWorkspaceSettings, source = 'global') {
         for (const name in newConfig) {
             this.setOption(name, newConfig[name]);
         }
-        this._settingsSource = source; // Set the source of these settings
+        this._settingsSource = source; 
+
+        const selectedModelInfo = this._settingsSchema.model.enum.find(
+            model => model.value === this.config.model
+        );
+        if (selectedModelInfo && selectedModelInfo.maxTokens) {
+            this.MAX_CONTEXT_TOKENS = selectedModelInfo.maxTokens;
+        }
+
         this.clearContext();
 
-        // In a real scenario, you might want to validate the API key here
-        // by making a small test call to the Gemini API.
-        // For now, we'll just assume success if the key is present.
         if (this.config.apiKey) {
             if (onSuccessCallback) {
                 onSuccessCallback(`Gemini settings saved. Using model: ${this.config.model}`);
@@ -344,11 +344,10 @@ class Gemini extends AI {
             }
         }
 
-        // Dispatch event for persistence
         const event = new CustomEvent('setting-changed', {
             detail: {
-                settingsName: 'geminiConfig', // Unique name for Gemini settings
-                settings: { ...this.config }, // Pass a copy of the current config
+                settingsName: 'geminiConfig', 
+                settings: { ...this.config }, 
                 useWorkspaceSettings: useWorkspaceSettings,
                 source: this._settingsSource
             }
@@ -361,10 +360,7 @@ class Gemini extends AI {
     }
 
     async refreshModels() {
-        // For Gemini, refreshing models might involve a network call to list available models.
-        // For now, we rely on the hardcoded list in _getAvailableModels.
-        // If _getAvailableModels were to fetch from an API, this would trigger a re-fetch.
-        console.log("Refreshing Gemini models (currently using hardcoded list).");
+        await this._getAvailableModels();
     }
 }
 

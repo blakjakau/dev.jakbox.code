@@ -37,14 +37,13 @@
     outline: none;
     border-radius: var(--border-radius);
     background-color: rgba(0, 0, 0, 0.25);
-    color: var(--text-color);
+    color: var(--button-text-color);
     font-family: var(--font-family);
     padding: 8px;
-    resize: vertical; /* Allow vertical resizing */
-    overflow-y: auto; /* Hide scrollbar initially */
+    /* Removed `resize: vertical;` as it's overridden by `resize: none;` */
+    resize: none; /* Keep this if JavaScript handles resizing exclusively */
+    overflow-y: auto;
     max-height: 512px;
-    resize:none;
-    /*min-height: 80px; */
 }
 
 .button-container {
@@ -81,7 +80,7 @@
 .clear-button {
     align-self: flex-end;
     background-color: var(--background-color);
-    color: var(--text-color);
+    color: var(--button-text-color);
     border: 1px solid var(--border-color);
     cursor: pointer;
 }
@@ -97,12 +96,12 @@
     border-radius: 16px;
     padding: 0px 16px;
     border: 1px solid var(--themeDark);
-    position: relative; /* Added for button positioning */
+    position: relative;
 }
 
 .response-block pre {
-    position: relative; /* Added for button positioning */
-    padding-top: 24px; /* Make space for buttons */
+    position: relative;
+    padding-top: 24px;
 }
 
 .code-buttons {
@@ -111,12 +110,12 @@
     right: 4px;
     display: flex;
     gap: 4px;
-    opacity: 0; /* Hidden by default */
+    opacity: 0;
     transition: opacity 0.2s ease-in-out;
 }
 
 .response-block pre:hover .code-buttons {
-    opacity: 1; /* Show on hover */
+    opacity: 1;
 }
 
 .code-button {
@@ -139,19 +138,13 @@
 
 .prompt-pill {
     background-color: var(--themeDark);
-    color: var(--ui-pri-bg);
+    color: var(--ui-pri-bg); /* Assuming --ui-pri-bg is a light text color */
     padding: 8px 12px;
     border-radius: 16px;
     margin-bottom: 8px;
     align-self: flex-end;
     max-width: 80%;
     word-wrap: break-word;
-}
-
-
-
-.settings-open .prompt-container {
-    flex-direction: column;
 }
 
 .settings-panel {
@@ -161,42 +154,45 @@
     color: var(--text-color);
     border-radius: var(--border-radius);
     display: none;
-    flex-direction: column; /* Ensure vertical stacking */
+    flex-direction: column;
 }
 
 .settings-panel.active {
-    display: flex; /* Use flex for column layout */
+    display: flex;
 }
 
 .settings-panel label {
     display: block;
-    margin-bottom: 10px; /* Space between options */
-    width: 100%; /* Full width label */
+    margin-bottom: 10px;
+    width: 100%;
 }
 
+/* FIX START */
 .settings-panel input[type="text"],
+.settings-panel input[type="password"], /* Added this line to include password fields */
 .settings-panel textarea,
 .settings-panel select {
-    width: calc(100% - 16px); /* Full width minus padding */
-    padding: 8px; /* Bigger input elements */
+    width: calc(100% - 16px);
+    padding: 8px;
     margin-top: 4px;
     border: 1px solid var(--mid);
     border-radius: var(--buttonBorder);
     background-color: var(--high);
-    color: var(--dark);
-    box-sizing: border-box; /* Include padding in width */
+    color: var(--text-color); /* Changed from var(--dark) for consistency with general text color */
+    box-sizing: border-box;
 }
+/* FIX END */
 
 .settings-panel textarea {
-    min-height: 80px; /* Min height for textarea */
+    min-height: 80px;
     resize: vertical;
 }
 
-.settings-panel button[type="submit"] {
-    align-self: flex-end; /* Right align the save button */
+.settings-panel button.theme-button { /* More specific selector for the save button */
+    align-self: flex-end;
     margin-top: 20px;
     padding: 10px 20px;
-    border-radius: var(--buttonBorder); /* More rounded */
+    border-radius: var(--buttonBorder);
     font-size: 16px;
 }
 
@@ -239,4 +235,3 @@
         transform: rotate(360deg);
     }
 }
-
