@@ -1,4 +1,4 @@
-// TODO enhancements completed
+// enhancements completed
 // --- drag+drop tabs on the leftTabs
 // --- disable live autocomplete
 // --- set text baseValue at load and save, use it for change tracking
@@ -19,14 +19,14 @@
 // --- add licence information (including prettier/ace credits to about)
 // --- restore workspace open files during app load
 // --- implement file-type icons in file view
+// --- implement multiple workspaces (restore last open?)	
+// --- implement side-by-side split view
 
-// implement multiple workspaces (restore last open?)
 // move ace settings panel into a tabbed modal with other application settings
 // implement @lookup in omnibox
-// implement side-by-side split view
 // add keyboard navigation to menus
 // add save/load triggers for prettier with independant settings
-// look at ponyfilling file access https://github.com/jimmywarting/native-file-system-adapter/
+// look at polyfilling file access https://github.com/jimmywarting/native-file-system-adapter/
 // maybe add "delete file" in filelist context menu?
 // maybe consider porting prettier modules for Kotline/Java/Sh/other?
 
