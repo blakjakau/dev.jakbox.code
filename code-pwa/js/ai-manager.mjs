@@ -1,10 +1,20 @@
 // Styles for this module are located in css/ai-manager.css
 import { Block, Button, Icon } from "./elements.mjs"
-
+import Ollama from "./ai-ollama.mjs";
+import Gemini from "./ai-gemini.mjs";
 
 class AIManager {
 	constructor() {
         this.ai = null;
+        this.aiProvider = "ollama"; // Default AI provider
+        this.aiProviders = {
+            "ollama": Ollama,
+            "gemini": Gemini,
+        };
+        this._settingsSchema = {
+            aiProvider: { type: "enum", label: "AI Provider", default: "ollama", enum: Object.keys(this.aiProviders) },
+        };
+
 		this.prompts = []
 		this.promptIndex = -1 // -1 indicates no prompt from history is currently displayed
 		this.panel = null
@@ -18,10 +28,11 @@ class AIManager {
         this.userScrolled = false; // New property for scroll detection
 	}
 
-	init(panel, ai) {
+	async init(panel) {
 		this.panel = panel;
-        this.ai = ai;
-        this.ai.init();
+        await this.loadSettings(); // Load settings including aiProvider
+        this.ai = new this.aiProviders[this.aiProvider]();
+        await this.ai.init();
 		this._createUI()
 		this._setupPanel()
 		this._setupGlobalShortcuts()
@@ -208,6 +219,32 @@ class AIManager {
             form.innerHTML = ''; // Clear existing form content
             form.appendChild(workspaceSettingsLabel); // Re-add checkbox
 
+            // Add AI Provider selection
+            const aiProviderLabel = document.createElement('label');
+            aiProviderLabel.textContent = `AI Provider: `;
+            const aiProviderSelect = document.createElement('select');
+            aiProviderSelect.id = `ai-provider`;
+            const providerOptions = this._settingsSchema.aiProvider.enum;
+            providerOptions.forEach(optionValue => {
+                const option = document.createElement('option');
+                option.value = optionValue;
+                option.textContent = optionValue.charAt(0).toUpperCase() + optionValue.slice(1); // Capitalize
+                if (optionValue === this.aiProvider) {
+                    option.selected = true;
+                }
+                aiProviderSelect.appendChild(option);
+            });
+            aiProviderSelect.addEventListener('change', async () => {
+                this.aiProvider = aiProviderSelect.value;
+                localStorage.setItem('aiProvider', this.aiProvider); // Persist the selected provider
+                this.ai = new this.aiProviders[this.aiProvider](); // Instantiate new AI
+                await this.ai.init(); // Initialize the new AI
+                renderSettingsForm(); // Re-render the form for the new AI's settings
+            });
+            aiProviderLabel.appendChild(aiProviderSelect);
+            form.appendChild(aiProviderLabel);
+
+            // Render AI-specific settings
             const options = await this.ai.getOptions();
             for (const key in options) {
                 const setting = options[key];
@@ -217,7 +254,7 @@ class AIManager {
                 let inputElement;
                 if (setting.type === 'enum') {
                     inputElement = document.createElement('select');
-                    inputElement.id = `ollama-${key}`;
+                    inputElement.id = `${this.aiProvider}-${key}`;
                     setting.enum.forEach(optionValue => {
                         const option = document.createElement('option');
                         option.value = optionValue;
@@ -239,18 +276,26 @@ class AIManager {
                     }
                 } else if (setting.multiline) {
                     inputElement = document.createElement('textarea');
-                    inputElement.id = `ollama-${key}`;
+                    inputElement.id = `${this.aiProvider}-${key}`;
                     inputElement.value = setting.value;
                 } else if (setting.type === 'string') {
                     inputElement = document.createElement('input');
                     inputElement.type = 'text';
-                    inputElement.id = `ollama-${key}`;
+                    inputElement.id = `${this.aiProvider}-${key}`;
+                    inputElement.value = setting.value;
+                } else if (setting.type === 'number') {
+                    inputElement = document.createElement('input');
+                    inputElement.type = 'number';
+                    inputElement.id = `${this.aiProvider}-${key}`;
                     inputElement.value = setting.value;
                 } else {
                     inputElement = document.createElement('input');
                     inputElement.type = setting.type;
-                    inputElement.id = `ollama-${key}`;
+                    inputElement.id = `${this.aiProvider}-${key}`;
                     inputElement.value = setting.value;
+                }
+                if (setting.secret) { // Handle secret fields
+                    inputElement.type = 'password';
                 }
                 label.appendChild(inputElement);
                 form.appendChild(label);
@@ -265,7 +310,7 @@ class AIManager {
                 const newSettings = {};
                 const currentOptions = await this.ai.getOptions(); // Re-fetch current options to get latest values
                 for (const key in currentOptions) {
-                    const input = form.querySelector(`#ollama-${key}`);
+                    const input = form.querySelector(`#${this.aiProvider}-${key}`);
                     if (input) {
                         newSettings[key] = input.value;
                     }
@@ -417,6 +462,13 @@ class AIManager {
 	get promptHistory() {
 		return this.prompts;
 	}
+
+    async loadSettings() {
+        const storedProvider = localStorage.getItem('aiProvider');
+        if (storedProvider && this.aiProviders[storedProvider]) {
+            this.aiProvider = storedProvider;
+        }
+    }
 }
 
 export default new AIManager()

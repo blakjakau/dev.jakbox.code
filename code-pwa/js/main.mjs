@@ -112,7 +112,7 @@ const app = {
 	rendererOptions: null,
 	enableLiveAutocompletion: null,
 	darkmode: 'system',
-    ollamaConfig: null,
+    aiConfig: {},
 }
 
 const workspace = {
@@ -122,7 +122,7 @@ const workspace = {
 	files: [],
 	scratchpad: '',
 	promptHistory: [],
-    ollamaConfig: null,
+    aiConfig: {},
 }
 
 // window.showSettings = ui.showSettings
@@ -408,11 +408,17 @@ const openWorkspace = (() => {
 			workspace.id = load.id || safeString(workspace.name)
 			workspace.promptHistory = load.promptHistory || [];
 			ui.aiManager.promptHistory = workspace.promptHistory;
-            workspace.ollamaConfig = load.ollamaConfig || null;
-            if (workspace.ollamaConfig) {
-                ui.aiManager.ai.setOptions(workspace.ollamaConfig, null, null, true, 'workspace');
-            } else if (app.ollamaConfig) {
-                ui.aiManager.ai.setOptions(app.ollamaConfig, null, null, false, 'global');
+            workspace.aiConfig = load.aiConfig || {};
+            // After loading workspace, ensure aiManager is initialized with the correct provider's config
+            // This assumes ui.aiManager.aiProvider is already set by ui.aiManager.loadSettings() in its init
+            const currentProvider = ui.aiManager.aiProvider;
+            if (workspace.aiConfig[currentProvider]) {
+                ui.aiManager.ai.setOptions(workspace.aiConfig[currentProvider], null, null, true, 'workspace');
+            } else if (app.aiConfig[currentProvider]) {
+                ui.aiManager.ai.setOptions(app.aiConfig[currentProvider], null, null, false, 'global');
+            } else {
+                // If no specific config for the current provider, reset to default for that provider
+                ui.aiManager.ai.setOptions({}, null, null, false, 'global');
             }
 			
 			setTimeout(()=>{
@@ -1647,16 +1653,16 @@ setTimeout(async () => {
     });
     window.addEventListener('setting-changed', (event) => {
         const { settingsName, settings, useWorkspaceSettings } = event.detail;
-        if (settingsName === 'ollamaConfig') {
-            if (useWorkspaceSettings) {
-                workspace.ollamaConfig = { ...settings };
-                app.ollamaConfig = null; // Clear global settings if using workspace specific
-                saveWorkspace();
-            } else {
-                app.ollamaConfig = { ...settings };
-                workspace.ollamaConfig = null; // Clear workspace settings if using global
-                saveAppConfig();
-            }
+        const providerName = settingsName.replace('Config', ''); // e.g., 'ollama' or 'gemini'
+
+        if (useWorkspaceSettings) {
+            workspace.aiConfig[providerName] = { ...settings };
+            if (app.aiConfig) delete app.aiConfig[providerName]; // Clear global settings for this provider if using workspace specific
+            saveWorkspace();
+        } else {
+            app.aiConfig[providerName] = { ...settings };
+            if (workspace.aiConfig) delete workspace.aiConfig[providerName]; // Clear workspace settings for this provider if using global
+            saveAppConfig();
         }
     });
     ui.sidebar.resizeListener(()=>{
@@ -1675,7 +1681,7 @@ setTimeout(async () => {
 
 		app.workspace = stored?.workspace || "default"
 		app.workspaces = stored?.workspaces || [app.workspace]
-        app.ollamaConfig = stored?.ollamaConfig || null;
+        app.aiConfig = stored?.aiConfig || {};
 
 		if (app.workspace) {
 			openWorkspace(app.workspace)
@@ -1687,8 +1693,13 @@ setTimeout(async () => {
 
 		saveAppConfig()
 		
-        if (app.ollamaConfig) {
-            ui.aiManager.ai.setOptions(app.ollamaConfig, null, null, false, 'global');
+        // After appConfig is loaded and aiManager is initialized, apply global AI settings
+        const currentProvider = ui.aiManager.aiProvider;
+        if (app.aiConfig[currentProvider]) {
+            ui.aiManager.ai.setOptions(app.aiConfig[currentProvider], null, null, false, 'global');
+        } else {
+            // If no specific config for the current provider, reset to default for that provider
+            ui.aiManager.ai.setOptions({}, null, null, false, 'global');
         }
 		
 		// set supported files in our FileList control

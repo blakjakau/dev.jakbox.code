@@ -243,4 +243,4 @@ class Ollama extends AI {
     }
 }
 
-export default new Ollama();
+export default Ollama;

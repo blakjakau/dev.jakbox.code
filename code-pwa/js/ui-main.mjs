@@ -106,7 +106,7 @@ const uiManager = {
 		filesPanel.append(fileList);
 
 		const aiManagerPanel = new SidebarPanel();
-		aiManager.init(aiManagerPanel, ollama);
+		aiManager.init(aiManagerPanel);
 
 		const scratchPanel = new SidebarPanel();
 		const scratchEditorElement = new Block();
