@@ -15,6 +15,7 @@ class AIPanel {
         this.runMode = "chat"; // chat or generate
         this.settingsPanel = null;
         this.useWorkspaceSettings = false; // New property
+        this.userScrolled = false; // New property for scroll detection
 	}
 
 	init(panel, ai) {
@@ -322,10 +323,22 @@ class AIPanel {
 		spinner.classList.add('spinner');
 		this.conversationArea.append(spinner);
 
+        this.conversationArea.scrollTop = this.conversationArea.scrollHeight; // Scroll to bottom on send
+
+        this.userScrolled = false; // Reset scroll flag at the start of a new generation
+        const scrollHandler = () => {
+            const { scrollTop, clientHeight, scrollHeight } = this.conversationArea;
+            const isAtBottom = (scrollTop + clientHeight >= scrollHeight - 32); // 32px threshold
+            this.userScrolled = !isAtBottom;
+        };
+        this.conversationArea.addEventListener('scroll', scrollHandler);
+
         const callbacks = {
             onUpdate: (fullResponse) => {
                 responseBlock.innerHTML = this.md.render(fullResponse);
-                this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+                if (!this.userScrolled) {
+                    this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+                }
             },
             onDone: (contextRatio) => {
                 this._addCodeBlockButtons(responseBlock);
@@ -334,11 +347,13 @@ class AIPanel {
 					progressBarInner.style.width = (contextRatio*100)+"%"; // Set initial progress
 				}
                 spinner.remove();
+                this.conversationArea.removeEventListener('scroll', scrollHandler); // Clear scroll listener
             },
             onError: (error) => {
                 responseBlock.innerHTML = `Error: ${error.message}`;
 			    console.error('Error calling Ollama API:', error);
                 spinner.remove();
+                this.conversationArea.removeEventListener('scroll', scrollHandler); // Clear scroll listener
             }
         };
 
