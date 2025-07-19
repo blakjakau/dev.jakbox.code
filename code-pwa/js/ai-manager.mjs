@@ -87,7 +87,7 @@ class AIManager {
 		this.promptArea = this._createPromptArea()
 		const buttonContainer = new Block();
 		buttonContainer.classList.add("button-container");
-
+		
         this.runModeButton = this._createRunModeButton();
 		this.submitButton = this._createSubmitButton();
 		this.clearButton = this._createClearButton();
@@ -116,36 +116,52 @@ class AIManager {
 	}
 
 	_createPromptArea() {
-		const promptArea = document.createElement("textarea")
-		promptArea.classList.add("prompt-area")
-		promptArea.placeholder = "Enter your prompt here..."
+		const promptArea = document.createElement("textarea");
+		promptArea.classList.add("prompt-area");
+		promptArea.placeholder = "Enter your prompt here...";
+
+        const resizePromptArea = () => {
+            promptArea.style.minHeight = 'auto'; // Reset min-height to allow shrinking
+            void promptArea.offsetHeight; // Force reflow to get accurate scrollHeight
+            promptArea.style.minHeight = Math.min(360, promptArea.scrollHeight) + 'px';
+        };
+
 		promptArea.addEventListener('keydown', (e) => {
-			if (e.ctrlKey && e.key === 'Enter') {
-				e.preventDefault();
-				this.generate();
-			} else if (e.ctrlKey && e.key === 'ArrowUp') {
-				e.preventDefault();
-				if (this.prompts.length > 0) {
-					this.promptIndex = Math.max(0, this.promptIndex - 1);
-					this.promptArea.value = this.prompts[this.promptIndex];
-					this.promptArea.style.height = 'auto'; // Reset height to recalculate
-					this.promptArea.style.height = this.promptArea.scrollHeight + 'px';
-				}
-			} else if (e.ctrlKey && e.key === 'ArrowDown') {
-				e.preventDefault();
-				if (this.prompts.length > 0) {
-					this.promptIndex = Math.min(this.prompts.length - 1, this.promptIndex + 1);
-					this.promptArea.value = this.prompts[this.promptIndex];
-					this.promptArea.style.height = 'auto'; // Reset height to recalculate
-					this.promptArea.style.height = this.promptArea.scrollHeight + 'px';
-				}
+			if (e.shiftKey && e.key === 'Enter') { return; }
+
+			if (e.key === 'Enter') {
+				e.preventDefault(); // Prevent the default behavior (inserting a newline)
+				this.generate();    // Submit the prompt
+				return;             // Exit the handler to prevent further processing for this key
 			}
+            if (e.ctrlKey && e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (this.prompts.length > 0) {
+                    this.promptIndex = Math.max(0, this.promptIndex - 1);
+                    this.promptArea.value = this.prompts[this.promptIndex];
+                    resizePromptArea();
+                }
+                return;
+            }
+            if (e.ctrlKey && e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (this.prompts.length > 0) {
+                    this.promptIndex = Math.min(this.prompts.length - 1, this.promptIndex + 1);
+                    // If navigating past the last prompt, clear the prompt area
+                    if (this.promptIndex === this.prompts.length) {
+                        this.promptArea.value = '';
+                    } else {
+                        this.promptArea.value = this.prompts[this.promptIndex];
+                    }
+                    resizePromptArea();
+                }
+                return;
+            }
 		});
 		promptArea.addEventListener('input', () => {
-			promptArea.style.height = 'auto';
-			promptArea.style.height = promptArea.scrollHeight + 'px';
+			resizePromptArea(); // Call the shared resize function
 		});
-		return promptArea
+		return promptArea;
 	}
 
     _createRunModeButton() {
@@ -345,15 +361,44 @@ class AIManager {
 	}
 
 	async generate() {
-		const userPrompt = this.promptArea.value;
+		const userPrompt = this.promptArea.value.trim();
+
 		if (!userPrompt) {
-			return;
+			return; // Do not send empty prompts
 		}
 
-		this.prompts.push(userPrompt);
+        const MAX_PROMPT_HISTORY = 50; // Define your cap here
+
+        // Check if the last prompt in history is the same as the current prompt
+        const lastPrompt = this.prompts.length > 0 ? this.prompts[this.prompts.length - 1].trim() : null;
+
+        if (lastPrompt && lastPrompt === userPrompt) {
+            console.log("Skipping adding duplicate contiguous prompt to history.");
+            this.promptIndex = this.prompts.length; // Ensure promptIndex stays at conceptual end
+        } else {
+            // Add the new prompt to history
+            this.prompts.push(userPrompt);
+
+            // --- REVISED LOGIC FOR CAPPING HISTORY WITH WHILE LOOP ---
+            while (this.prompts.length > MAX_PROMPT_HISTORY) {
+                this.prompts.shift(); // Remove the oldest prompt
+                // Decrement promptIndex for each item shifted, as long as it's not already at the start (0)
+                if (this.promptIndex > 0) {
+                    this.promptIndex--;
+                }
+            }
+            // --- END REVISED LOGIC FOR CAPPING HISTORY ---
+
+            this.promptIndex = this.prompts.length; // Reset index to the end of the array (for new input)
+        }
+
 		this.promptArea.value = '';
+		// Important: Make sure the 'new-prompt' event is dispatched *after* the history array is finalized
 		this.panel.dispatchEvent(new CustomEvent('new-prompt', { detail: this.prompts }));
-		this.promptIndex = this.prompts.length; // Reset index to the end of the array
+
+        // ... rest of your generate() method continues here ...
+        // (promptPill creation, responseBlock, spinner, scroll handling, AI call)
+
 
 		const promptPill = new Block();
 		promptPill.classList.add('prompt-pill');
@@ -396,7 +441,7 @@ class AIManager {
             },
             onError: (error) => {
                 responseBlock.innerHTML = `Error: ${error.message}`;
-			    console.error('Error calling Ollama API:', error);
+			    console.error(`Error calling ${this.ai.config.model} API:`, error);
                 spinner.remove();
                 this.conversationArea.removeEventListener('scroll', scrollHandler); // Clear scroll listener
             }

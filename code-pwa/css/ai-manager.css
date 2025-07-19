@@ -41,9 +41,10 @@
     font-family: var(--font-family);
     padding: 8px;
     resize: vertical; /* Allow vertical resizing */
-    overflow: hidden; /* Hide scrollbar initially */
-    min-height: 80px; /* Minimum height */
-    max-height: 200px; /* Maximum height to prevent it from growing too large */
+    overflow-y: auto; /* Hide scrollbar initially */
+    max-height: 512px;
+    resize:none;
+    /*min-height: 80px; */
 }
 
 .button-container {
