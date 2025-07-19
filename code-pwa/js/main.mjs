@@ -1,4 +1,4 @@
-// TODO enhancements completed
+// enhancements completed
 // --- drag+drop tabs on the leftTabs
 // --- disable live autocomplete
 // --- set text baseValue at load and save, use it for change tracking
@@ -19,14 +19,14 @@
 // --- add licence information (including prettier/ace credits to about)
 // --- restore workspace open files during app load
 // --- implement file-type icons in file view
+// --- implement multiple workspaces (restore last open?)	
+// --- implement side-by-side split view
 
-// implement multiple workspaces (restore last open?)
 // move ace settings panel into a tabbed modal with other application settings
 // implement @lookup in omnibox
-// implement side-by-side split view
 // add keyboard navigation to menus
 // add save/load triggers for prettier with independant settings
-// look at ponyfilling file access https://github.com/jimmywarting/native-file-system-adapter/
+// look at polyfilling file access https://github.com/jimmywarting/native-file-system-adapter/
 // maybe add "delete file" in filelist context menu?
 // maybe consider porting prettier modules for Kotline/Java/Sh/other?
 
@@ -112,6 +112,7 @@ const app = {
 	rendererOptions: null,
 	enableLiveAutocompletion: null,
 	darkmode: 'system',
+    aiConfig: {},
 }
 
 const workspace = {
@@ -120,6 +121,8 @@ const workspace = {
 	folders: [],
 	files: [],
 	scratchpad: '',
+	promptHistory: [],
+    aiConfig: {},
 }
 
 // window.showSettings = ui.showSettings
@@ -323,6 +326,7 @@ const saveWorkspace = async () => {
 	workspace.openFolders = fileList.openFolders;
 	workspace.sidebarWidth = ui.sidebar.offsetWidth;
 	workspace.activeSidebarTab = ui.iconTabBar?.activeTab?.iconId;
+		workspace.promptHistory = ui.aiManager.promptHistory;
 	set(`workspace_${workspace.id}`, workspace);
 }
 
@@ -402,6 +406,20 @@ const openWorkspace = (() => {
 			workspace.sidebarWidth = load.sidebarWidth || null;
 			workspace.activeSidebarTab = load.activeSidebarTab || null;
 			workspace.id = load.id || safeString(workspace.name)
+			workspace.promptHistory = load.promptHistory || [];
+			ui.aiManager.promptHistory = workspace.promptHistory;
+            workspace.aiConfig = load.aiConfig || {};
+            // After loading workspace, ensure aiManager is initialized with the correct provider's config
+            // This assumes ui.aiManager.aiProvider is already set by ui.aiManager.loadSettings() in its init
+            const currentProvider = ui.aiManager.aiProvider;
+            if (workspace.aiConfig[currentProvider]) {
+                ui.aiManager.ai.setOptions(workspace.aiConfig[currentProvider], null, null, true, 'workspace');
+            } else if (app.aiConfig[currentProvider]) {
+                ui.aiManager.ai.setOptions(app.aiConfig[currentProvider], null, null, false, 'global');
+            } else {
+                // If no specific config for the current provider, reset to default for that provider
+                ui.aiManager.ai.setOptions({}, null, null, false, 'global');
+            }
 			
 			setTimeout(()=>{
 				ui.scratchEditor.session.setOption("wrap", "free")
@@ -438,7 +456,7 @@ const openWorkspace = (() => {
 			}
 
 			saveAppConfig()
-			ui.showFolders()
+			ui.showSidebar()
 			fileList.openFolders = workspace.openFolders || [];
 			updateWorkspaceSelectors()
 
@@ -449,11 +467,11 @@ const openWorkspace = (() => {
 				console.log("openWorkspace: ui.iconTabBar._tabs =", ui.iconTabBar._tabs);
 				ui.iconTabBar._tabs.forEach(tab => console.log("  Tab iconId:", tab.iconId));
 			}
-			if (workspace.activeSidebarTab && ui.iconTabBar) {
-				ui.iconTabBar.activeTabById = workspace.activeSidebarTab;
-			}
 			if (workspace.sidebarWidth) {
 				ui.sidebar.width = workspace.sidebarWidth;
+			}
+			if (workspace.activeSidebarTab && ui.iconTabBar) {
+				ui.iconTabBar.activeTabById = workspace.activeSidebarTab;
 			}
 		} else {
 			if (name === "default") {
@@ -607,6 +625,28 @@ const execCommandSplitView = () => {
 	ui.toggleSplitView()
 }
 
+const execCommandToggleSidebarPanel = (panelId) => {
+	const isSidebarVisible = document.body.classList.contains("showSidebar")
+	const currentPanel = ui.iconTabBar.activeTab?.iconId;
+
+	if (isSidebarVisible && currentPanel === panelId) {
+		if(panelId == 'developer_board') {
+			if(!document.activeElement.classList.contains("prompt-area")) {
+				// just focus the tab
+				ui.iconTabBar.activeTabById = panelId;
+				return
+			}
+		}
+		
+		ui.toggleSidebar(); // Close the sidebar
+	} else if (!isSidebarVisible) {
+		ui.toggleSidebar(); // Open the sidebar
+		ui.iconTabBar.activeTabById = panelId;
+	} else {
+		ui.iconTabBar.activeTabById = panelId; // Switch to the new panel
+	}
+};
+
 const execCommandRemoveAllFolders = () => {
 	setTimeout(async () => {
 		const l = workspace.folders.length
@@ -617,7 +657,7 @@ const execCommandRemoveAllFolders = () => {
 				while (workspace.folders.length > 0) {
 					workspace.folders.pop()
 				}
-				ui.showFolders()
+				ui.showSidebar()
 				// saveAppConfig()
 				saveWorkspace()
 			}
@@ -631,6 +671,10 @@ const execCommandRestoreFolders = () => {
 	fileAccess.click();
 	fileAccess.style.display = "none";
 	menuRestoreFolders.style.display = "none";
+	fileList.openFolders = workspace.openFolders;
+	setTimeout(()=>{
+		fileList.openFolders = workspace.openFolders;
+	}, 300)
 }
 
 const execCommandCloseActiveTab = async () => {
@@ -757,6 +801,7 @@ const setCurrentEditor = (editor)=>{
 	ui.currentEditor = currentEditor = editor
 	ui.currentTabs = currentTabs = (editor === leftEdit ? ui.leftTabs : ui.rightTabs)
 	ui.currentMediaView = currentMediaView = (editor === leftEdit ? ui.leftMedia : ui.rightMedia)
+	ui.aiManager.editor = editor;
 	
 	const tab = editor?.tabs?.activeTab
 	if(tab) {
@@ -1134,6 +1179,7 @@ fileAccess.on("click", async () => {
 		await fileList.refreshAll()
 
 		if (workspace.files.length > 0) {
+			const missingFiles = [];
 			for (const file of workspace.files) {
 				let newContainers = []
 				let fileContainers = { container: null }
@@ -1146,13 +1192,21 @@ fileAccess.on("click", async () => {
 				}
 				file.containers = newContainers
 				file.handle.container = fileContainers.container
-				openFileHandle(file.handle, file.path, (file.side === "right" ? rightEdit : leftEdit))
-				fileList.active = file.handle
+				try {
+					await openFileHandle(file.handle, file.path, (file.side === "right" ? rightEdit : leftEdit))
+					fileList.active = file.handle
+				} catch (e) {
+					console.warn(`Failed to open file ${file.path}: ${e.message}`)
+					missingFiles.push(file.path)
+				}
 			}
+			// Remove missing files from workspace.files
+			workspace.files = workspace.files.filter(file => !missingFiles.includes(file.path));
+			saveWorkspace(); // Save workspace after removing missing files
 		}
-		ui.showFolders(1)
+		ui.showSidebar(1)
 	} else {
-		ui.showFolders()
+		ui.showSidebar()
 	}
 })
 
@@ -1181,7 +1235,7 @@ fileOpen.on("click", async () => {
 	if (addToFolders) workspace.folders.push(folderHandle)
 	// 	saveAppConfig()
 	saveWorkspace()
-	ui.showFolders()
+	ui.showSidebar()
 })
 
 const keyBinds = [
@@ -1333,13 +1387,29 @@ const keyBinds = [
 		target: "app",
 		name: "toggleFolders",
 		bindKey: { win: "Alt+F", mac: "Option+F" },
+		exec: () => {
+			execCommandToggleSidebarPanel('folder');
+		},
+	},
+	{
+		target: "app",
+		name: "toggleFoldersSidebar",
+		bindKey: { win: "Alt+Shift+S", mac: "Option+Shift+S" },
 		exec: execCommandToggleFolders,
 	},
 	{
 		target: "app",
 		name: "toggleSplitView",
-		bindKey: { win: "Alt+S", mac: "Option+S" },
+		bindKey: { win: "Alt+Shift+E", mac: "Option+Shift+E" },
 		exec: execCommandSplitView,
+	},
+	{
+		target: "app",
+		name: "show-scratchpad",
+		bindKey: { win: "Alt+S", mac: "Option+S" },
+		exec: () => {
+			execCommandToggleSidebarPanel('edit_note');
+		},
 	},
 	{
 		target: "app",
@@ -1491,6 +1561,14 @@ const keyBinds = [
 			execCommandSetDarkMode(mode);
 		},
 	},
+	{
+		target: "app",
+		name: "show-ai",
+		bindKey: { win: "Alt+A", mac: "Option+A" },
+		exec: () => {
+			execCommandToggleSidebarPanel('developer_board');
+		},
+	},
 ]
 
 keyBinds.forEach((bind) => {
@@ -1555,6 +1633,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 
 setTimeout(async () => {
 	ui.leftHolder.editorElement.classList.remove("loading")
+	ui.rightHolder.editorElement.classList.remove("loading")
 
 	window.filesReceiver.addEventListener("message", (e) => {
 		if (e.data?.open && window.activeFileReceiver) {
@@ -1566,7 +1645,30 @@ setTimeout(async () => {
     leftEdit.on("focus", () => setCurrentEditor(leftEdit));
     rightEdit.on("focus", () => setCurrentEditor(rightEdit));
     
-    ui.iconTabBar.on("tabs-updated", ()=>{ saveWorkspace() })
+    ui.iconTabBar.on("tabs-updated", (e)=>{ 
+    	saveWorkspace() 
+    	if(e.detail?.tab?._iconId == "developer_board") {
+    		ui.aiManager.focus()
+    	}
+    })
+    ui.aiManager.panel.addEventListener('new-prompt', (event) => {
+        workspace.promptHistory = event.detail;
+        saveWorkspace();
+    });
+    window.addEventListener('setting-changed', (event) => {
+        const { settingsName, settings, useWorkspaceSettings } = event.detail;
+        const providerName = settingsName.replace('Config', ''); // e.g., 'ollama' or 'gemini'
+
+        if (useWorkspaceSettings) {
+            workspace.aiConfig[providerName] = { ...settings };
+            if (app.aiConfig) delete app.aiConfig[providerName]; // Clear global settings for this provider if using workspace specific
+            saveWorkspace();
+        } else {
+            app.aiConfig[providerName] = { ...settings };
+            if (workspace.aiConfig) delete workspace.aiConfig[providerName]; // Clear workspace settings for this provider if using global
+            saveAppConfig();
+        }
+    });
     ui.sidebar.resizeListener(()=>{
 		clearTimeout(ui.sidebar.saveTimeout);
 		ui.sidebar.saveTimeout = setTimeout(saveWorkspace, 500);
@@ -1583,6 +1685,7 @@ setTimeout(async () => {
 
 		app.workspace = stored?.workspace || "default"
 		app.workspaces = stored?.workspaces || [app.workspace]
+        app.aiConfig = stored?.aiConfig || {};
 
 		if (app.workspace) {
 			openWorkspace(app.workspace)
@@ -1593,6 +1696,15 @@ setTimeout(async () => {
 		execCommandSetDarkMode(app.darkmode); 
 
 		saveAppConfig()
+		
+        // After appConfig is loaded and aiManager is initialized, apply global AI settings
+        const currentProvider = ui.aiManager.aiProvider;
+        if (app.aiConfig[currentProvider]) {
+            ui.aiManager.ai.setOptions(app.aiConfig[currentProvider], null, null, false, 'global');
+        } else {
+            // If no specific config for the current provider, reset to default for that provider
+            ui.aiManager.ai.setOptions({}, null, null, false, 'global');
+        }
 		
 		// set supported files in our FileList control
 		let regs = []
@@ -1611,11 +1723,11 @@ setTimeout(async () => {
 		})
 
 		Promise.all(all).then(() => {
-			ui.showFolders()
+			ui.showSidebar()
 		})
 
 		if (workspace.folders.length > 0) {
-			ui.showFolders()
+			ui.showSidebar()
 		}
 		ui.toggleSidebar()
 		ui.currentTabs = ui.leftTabs
@@ -1663,5 +1775,13 @@ setTimeout(async () => {
 				}
 			})
 		}
+
+		// Listen for custom event to insert code snippets from AI panel
+		window.addEventListener('insert-snippet', (event) => {
+			if (currentEditor) {
+				currentEditor.insert(event.detail);
+				currentEditor.focus();
+			}
+		});
 	})
 })

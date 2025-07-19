@@ -7,6 +7,8 @@
 	--mid: #afafaf;
 	--low: #455155;
 	--dark: #384144;
+	--text-color: #222a37;
+	--button-text-color: #dadada;
 	--animRate:10ms;
 	--tabRadius: 4px 4px 0 0;
 	--tabHeight: 37px;
@@ -14,6 +16,8 @@
 	--statusHeight: 34px;
 	--editorTop: calc(var(--tabHeight));
 	--ui-icon-color: var(--mid);
+	
+	--buttonBorder: 8px;
 }
 
 a,
@@ -189,7 +193,7 @@ ui-menu::-webkit-scrollbar-thumb,
 	border-radius:4px;
 }
 
-.ace_editor {
+ui-editor-holder .ace_editor {
 	top: calc( var(--menuHeight) + 6px);
     bottom: 0px;
     right: 4px;
@@ -275,11 +279,12 @@ ui-actionbar#menu ui-panel ui-button {
 }
 
 ui-button ui-icon {
-    color: var(--theme);
+    color: inherit;
     font-family: "Material Symbols Outlined";
 }
 ui-button {
     margin:0 2px;
+    border-radius: var(--buttonBorder);
 }
 
 ui-button:hover {
@@ -406,7 +411,7 @@ ui-tabbar.show-split-view-indicator::after {
 }
 
 #mainContent, #sidebar, #statusbar, ui-actionbar, ui-file-list {
-	transition:left var(--animRate), right var(--animRate), opacity var(--animRate), background var(--animRate), color var(--animRate);
+	transition:left var(--animRate), right var(--animRate), width var(--animRate), opacity var(--animRate), background var(--animRate), color var(--animRate);
 }
 
 #leftHolder, #rightHolder {
@@ -489,7 +494,7 @@ ui-tabbar.show-split-view-indicator::after {
 }
 
 
-.showFiles #sidebar {
+.showSidebar #sidebar {
 	opacity:1;
 	left: 0;
 	pointer-events:auto;
@@ -592,7 +597,7 @@ ui-tabbar.show-split-view-indicator::after {
 }
 
 @media (max-width:799px) {
-	.showFiles #mainContent { left: 0; }
+	.showSidebar #mainContent { left: 0; }
 }
 
 .background-element {
@@ -669,10 +674,63 @@ ui-tabbar.show-split-view-indicator::after {
     font-size: 0.9em;
 }
 
-ui-sidebar-panel:not([active]) {
-	display: none;
-}
 
 .notice-bar button:hover {
     background-color: var(--themeDark); /* Darker blue on hover */
+}
+
+#sidebar-panels-container {
+	position: relative;
+	height: 100%;
+	width: 100%;
+}
+
+ui-sidebar-panel {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	/*overflow: hidden;*/
+}
+
+ui-sidebar-panel#ai-panel[active] {
+	display: flex;
+}
+
+ui-sidebar-panel .conversation-area::-webkit-scrollbar {
+	width: .66em; height: .66em;
+}
+
+ui-sidebar-panel .conversation-area::-webkit-scrollbar-track {
+	width: .66em; height: .66em;
+	box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+}
+
+ui-sidebar-panel .conversation-area::-webkit-scrollbar-thumb {
+	background-color: darkgrey;
+	border-radius:4px;
+}
+
+ui-sidebar-panel pre {
+	max-width: 100%;
+	overflow-x: auto;
+	white-space: pre;
+	background-color: rgba(128, 128, 128, 0.25);
+	border-radius: 8px;
+	padding: 8px;
+}
+
+ui-sidebar-panel pre::-webkit-scrollbar {
+	width: .66em; height: .66em;
+}
+
+ui-sidebar-panel pre::-webkit-scrollbar-track {
+	width: .66em; height: .66em;
+	box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+}
+
+ui-sidebar-panel pre::-webkit-scrollbar-thumb {
+	background-color: darkgrey;
+	border-radius:4px;
 }

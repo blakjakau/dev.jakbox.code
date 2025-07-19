@@ -1,4 +1,6 @@
 import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder, IconTabBar, IconTab, SidebarPanel } from './elements.mjs';
+import aiManager from './ai-manager.mjs';
+import ollama from './ai-ollama.mjs';
 
 const defaultSettings = {
 	showGutter: true, //set to true to hide the line numbering
@@ -6,7 +8,7 @@ const defaultSettings = {
 	printMargin: false,
 	displayIndentGuides: true,
 	showInvisibles: false, //show whitespace characters (spaces, tabs, returns)
-	scrollPastEnd: 0, //allow the leftEditto scroll past the end of the document
+	scrollPastEnd: 1, //allow the leftEditto scroll past the end of the document
 	useSoftTabs: false,
 	tabSize: 4,
 	newLineMode: "auto",
@@ -59,6 +61,7 @@ const uiManager = {
 			if(!document.body.classList.contains("showSplitView")) {
 				leftEdit.resize()
 				rightEdit.resize()
+				scratchEditor.resize();
 				return
 			}
 			const w = mainContent.offsetWidth
@@ -74,6 +77,7 @@ const uiManager = {
 			setTimeout(()=>{
 				leftEdit.resize()
 				rightEdit.resize()
+				scratchEditor.resize();
 			}, animRate)
 		}
 
@@ -101,7 +105,8 @@ const uiManager = {
 		filesPanel.append(fileActions);
 		filesPanel.append(fileList);
 
-		const aiPanel = new SidebarPanel();
+		const aiManagerPanel = new SidebarPanel();
+		aiManager.init(aiManagerPanel);
 
 		const scratchPanel = new SidebarPanel();
 		const scratchEditorElement = new Block();
@@ -112,13 +117,16 @@ const uiManager = {
 		const sidebarPanelsContainer = new Block();
 		sidebarPanelsContainer.setAttribute("id", "sidebar-panels-container");
 		sidebarPanelsContainer.append(filesPanel);
-		sidebarPanelsContainer.append(aiPanel);
+		sidebarPanelsContainer.append(aiManagerPanel);
 		sidebarPanelsContainer.append(scratchPanel);
 
 		sidebar = new Panel()
 		sidebar.setAttribute("id", "sidebar")
 		sidebar.append(iconTabBar);
 		sidebar.append(sidebarPanelsContainer);
+		sidebar.minSize = 240
+		sidebar.maxSize = 2440
+
 
 		iconTabBar.on('tabs-updated', ({ detail }) => {
 			const tab = detail.tab;
@@ -128,7 +136,7 @@ const uiManager = {
 			if (tab === filesTab) {
 				filesPanel.active = true;
 			} else if (tab === aiTab) {
-				aiPanel.active = true;
+				aiManagerPanel.active = true;
 			} else if (tab === scratchTab) {
 				scratchPanel.active = true;
 			}
@@ -136,8 +144,8 @@ const uiManager = {
 
 		iconTabBar.activeTab = filesTab;
 		sidebar.resizable = "right"
-		sidebar.minSize = 200
-		let sidebarWidth = 258
+		sidebar.minSize = 40
+		let sidebarWidth = 300
 
 		menu = document.querySelector("#menu")
 		if (menu == null) {
@@ -152,13 +160,13 @@ const uiManager = {
 		openDir.setAttribute("title", "hide file list")
 
 		openDir.on("click", () => {
-			if (toggleBodyClass("showFiles")) {
+			if (toggleBodyClass("showSidebar")) {
 				openDir.icon = "menu_open"
-				openDir.setAttribute("title", "hide file list")
-				mainContent.style.left = sidebarWidth + "px"
+				openDir.setAttribute("title", "hide sidebar")
+				mainContent.style.left = ui.sidebar.offsetWidth + "px"
 			} else {
 				openDir.icon = "menu"
-				openDir.setAttribute("title", "show file list")
+				openDir.setAttribute("title", "show sidebar")
 				mainContent.style.left = ""
 			}
 			setTimeout(()=>{
@@ -248,15 +256,29 @@ const uiManager = {
 		rightHolder.maxSize = 2440
 		
 		sidebar.resizeListener((width)=>{
-			sidebarWidth = width
-			mainContent.style.transition = "none"
-			mainContent.style.left = width + "px"
-			drawer.style.left = (sidebar.offsetLeft+sidebarWidth)+"px"
-			scratchEditor.resize()
+			const maxWidth = window.innerWidth * 0.5; // 50% of window width
+			// sidebar.style.transition = "none";
+			sidebarWidth = Math.min(width, maxWidth); // Constrain width
+			mainContent.style.transition = "none";
+			mainContent.style.left = sidebarWidth + "px";
+			drawer.style.left = (sidebar.offsetLeft + sidebarWidth) + "px";
 		})
 		
 		sidebar.resizeEndListener(()=>{
+			sidebar.style.transition = ""
 			mainContent.style.transition = ""
+
+			void sidebar.offsetWidth
+			const minWidth = 300
+			const maxWidth = window.innerWidth * 0.5; // 50% of window width
+			if(sidebar.offsetWidth > maxWidth) {
+				sidebar.style.width = maxWidth + "px"
+				mainContent.style.left = maxWidth + "px";
+			} else if(sidebar.offsetWidth < minWidth) {
+				sidebar.style.width = minWidth + "px"
+				mainContent.style.left = minWidth + "px";
+			}
+			
 			constrainHolders()
 		})
 
@@ -846,7 +868,7 @@ const uiManager = {
 		});
 	},
 
-	showFolders: async (expandLevels=1) => {
+	showSidebar: async (expandLevels=1) => {
 		fileList.autoExpand = expandLevels
 		fileList.files = workspace.folders
 	},
@@ -954,6 +976,8 @@ const uiManager = {
 	get rightTabs() { return rightTabs },
 	get scratchEditor() { return scratchEditor },
 	get iconTabBar() { return iconTabBar },
+	
+	get aiManager() { return aiManager },
 	
 	constrainHolders: constrainHolders,
 	

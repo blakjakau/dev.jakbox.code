@@ -805,7 +805,7 @@ ui-panel[type="modal"] h1 small {
 	display: flex;
 	flex-direction: row;
     user-select:none;
-    -webkit-user-select:none;
+    -webkit-user-select:text;
 
 }
 
@@ -844,12 +844,8 @@ ui-sidebar-panel {
 	top: 0;
 	left: 0;
 	width: 100%;
-	height: 100%;
+	height: calc(100% - var(--menuHeight));
 	display: none;
-}
-
-ui-sidebar-panel[active] {
-	display: block;
 }
 
 ui-sidebar-panel[active] {

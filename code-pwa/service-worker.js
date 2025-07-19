@@ -46,6 +46,7 @@ const staticAssets = [
 	"https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm",
 
 	"https://fonts.googleapis.com/icon?family=Material+Icons",
+	"https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200",
 	"https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto:wght@300;400&display=swap",
 	"https://fonts.gstatic.com/s/robotomono/v13/L0xuDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_3vq_ROW4.woff2",
 	"https://fonts.gstatic.com/s/materialicons/v107/flUhRq6tzZclQEJ-Vdg-IuiaDsNc.woff2",
@@ -130,6 +131,12 @@ self.addEventListener("fetch", function (event) {
 		})
 		event.respondWith(jsonResponse)
 		return
+	}
+
+	// Do not cache Ollama API requests
+	if (url.pathname.startsWith("/api/")) {
+		event.respondWith(fetch(event.request));
+		return;
 	}
 
 	

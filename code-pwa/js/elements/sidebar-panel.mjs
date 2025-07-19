@@ -1,6 +1,6 @@
-import { Block } from './element.mjs';
+import { Panel } from './panel.mjs';
 
-export class SidebarPanel extends Block {
+export class SidebarPanel extends Panel {
 	constructor() {
 		super();
 		this.classList.add('sidebar-panel');

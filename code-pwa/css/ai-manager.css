@@ -1,0 +1,237 @@
+#ai-panel {
+    flex-direction: column;
+    position: relative;
+    height: 100%;
+}
+
+.conversation-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+}
+
+.conversation-area.hidden {
+    display: none;
+}
+
+.prompt-container {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding-bottom: 8px;
+    background-color: var(--background-color);
+    border-top: 1px solid var(--themeDark);
+    display: flex;
+    flex-direction: column;
+}
+
+.prompt-area {
+    flex: 1;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+    width: 100%;
+    border: none;
+    outline: none;
+    border-radius: var(--border-radius);
+    background-color: rgba(0, 0, 0, 0.25);
+    color: var(--button-text-color);
+    font-family: var(--font-family);
+    padding: 8px;
+    /* Removed `resize: vertical;` as it's overridden by `resize: none;` */
+    resize: none; /* Keep this if JavaScript handles resizing exclusively */
+    overflow-y: auto;
+    max-height: 512px;
+}
+
+.button-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+
+.settings-button {
+	flex-grow:0;
+}
+
+.spacer {
+    flex-grow: 1;
+}
+
+.theme-button {
+    background-color: var(--theme);
+    color: var(--light);
+    border: 1px solid var(--theme);
+    cursor: pointer;
+}
+
+.theme-button:hover {
+    background-color: var(--themeDark);
+    border-color: var(--themeDark);
+}
+
+.submit-button {
+    align-self: flex-end;
+}
+
+.clear-button {
+    align-self: flex-end;
+    background-color: var(--background-color);
+    color: var(--button-text-color);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+}
+
+.clear-button:hover {
+    background-color: var(--background-color-hover);
+    border-color: var(--border-color-hover);
+}
+
+.response-block {
+    margin-bottom: 16px;
+    background: rgba(0, 0, 0, 0.125);
+    border-radius: 16px;
+    padding: 0px 16px;
+    border: 1px solid var(--themeDark);
+    position: relative;
+}
+
+.response-block pre {
+    position: relative;
+    padding-top: 24px;
+}
+
+.code-buttons {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.response-block pre:hover .code-buttons {
+    opacity: 1;
+}
+
+.code-button {
+    background-color: rgba(120 120, 120, 0.5);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0px 4px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.code-button:hover {
+    background-color: rgba(120, 120, 120, 0.7);
+}
+
+.prompt-pill {
+    background-color: var(--themeDark);
+    color: var(--ui-pri-bg); /* Assuming --ui-pri-bg is a light text color */
+    padding: 8px 12px;
+    border-radius: 16px;
+    margin-bottom: 8px;
+    align-self: flex-end;
+    max-width: 80%;
+    word-wrap: break-word;
+}
+
+.settings-panel {
+    flex: 1;
+    padding: 16px;
+    background-color: var(--themeDark);
+    color: var(--text-color);
+    border-radius: var(--border-radius);
+    display: none;
+    flex-direction: column;
+}
+
+.settings-panel.active {
+    display: flex;
+}
+
+.settings-panel label {
+    display: block;
+    margin-bottom: 10px;
+    width: 100%;
+}
+
+/* FIX START */
+.settings-panel input[type="text"],
+.settings-panel input[type="password"], /* Added this line to include password fields */
+.settings-panel textarea,
+.settings-panel select {
+    width: calc(100% - 16px);
+    padding: 8px;
+    margin-top: 4px;
+    border: 1px solid var(--mid);
+    border-radius: var(--buttonBorder);
+    background-color: var(--high);
+    color: var(--text-color); /* Changed from var(--dark) for consistency with general text color */
+    box-sizing: border-box;
+}
+/* FIX END */
+
+.settings-panel textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.settings-panel button.theme-button { /* More specific selector for the save button */
+    align-self: flex-end;
+    margin-top: 20px;
+    padding: 10px 20px;
+    border-radius: var(--buttonBorder);
+    font-size: 16px;
+}
+
+.settings-panel input[type="checkbox"] {
+    margin-right: 4px;
+}
+
+.spinner {
+	content: " ";
+    width: 20px;
+    min-height: 20px;
+    border: 2px solid var(--theme);
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1s linear infinite;
+    margin: 10px auto;
+}
+
+.progress-bar {
+  height: 10px;
+  width: 100%;
+  background-color: var(--themeDark);
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+.progress-bar-inner {
+  height: 100%;
+  width: 0%;
+  background-color: var(--theme);
+  border-radius: 5px;
+  transition: width 0.5s ease-in-out;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
