@@ -1,8 +1,8 @@
-// Styles for this module are located in css/ai-panel.css
+// Styles for this module are located in css/ai-manager.css
 import { Block, Button, Icon } from "./elements.mjs"
 
 
-class AIPanel {
+class AIManager {
 	constructor() {
         this.ai = null;
 		this.prompts = []
@@ -419,4 +419,4 @@ class AIPanel {
 	}
 }
 
-export default new AIPanel()
+export default new AIManager()

@@ -1,5 +1,5 @@
 import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder, IconTabBar, IconTab, SidebarPanel } from './elements.mjs';
-import aiManager from './ai-panel.mjs';
+import aiManager from './ai-manager.mjs';
 import ollama from './ai-ollama.mjs';
 
 const defaultSettings = {
@@ -105,8 +105,8 @@ const uiManager = {
 		filesPanel.append(fileActions);
 		filesPanel.append(fileList);
 
-		const aiPanel = new SidebarPanel();
-		aiManager.init(aiPanel, ollama);
+		const aiManagerPanel = new SidebarPanel();
+		aiManager.init(aiManagerPanel, ollama);
 
 		const scratchPanel = new SidebarPanel();
 		const scratchEditorElement = new Block();
@@ -117,7 +117,7 @@ const uiManager = {
 		const sidebarPanelsContainer = new Block();
 		sidebarPanelsContainer.setAttribute("id", "sidebar-panels-container");
 		sidebarPanelsContainer.append(filesPanel);
-		sidebarPanelsContainer.append(aiPanel);
+		sidebarPanelsContainer.append(aiManagerPanel);
 		sidebarPanelsContainer.append(scratchPanel);
 
 		sidebar = new Panel()
@@ -136,7 +136,7 @@ const uiManager = {
 			if (tab === filesTab) {
 				filesPanel.active = true;
 			} else if (tab === aiTab) {
-				aiPanel.active = true;
+				aiManagerPanel.active = true;
 			} else if (tab === scratchTab) {
 				scratchPanel.active = true;
 			}
