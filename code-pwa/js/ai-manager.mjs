@@ -16,8 +16,10 @@ class AIManager {
 			aiProvider: { type: "enum", label: "AI Provider", default: "ollama", enum: Object.keys(this.aiProviders) },
 		}
 
-		this.prompts = []
+		this.prompts = [] // Stores raw user prompt strings for history navigation (Ctrl+Up/Down)
 		this.promptIndex = -1 // -1 indicates no prompt from history is currently displayed
+		this.chatHistory = [] // NEW: Stores structured history of ALL messages (user, AI, file context)
+
 		this.panel = null
 		this.promptArea = null
 		this.conversationArea = null
@@ -29,16 +31,15 @@ class AIManager {
 		this.userScrolled = false
 	}
 
-	// Removed fileReader setter, as it's no longer a dependency for this scope.
-
 	async init(panel) {
 		this.panel = panel
 		await this.loadSettings()
 		this.ai = new this.aiProviders[this.aiProvider]()
-		// Removed fileReader passing, as it's no longer relevant here.
 		await this.ai.init()
 		this._createUI()
 		this._setupPanel()
+        // If there's any initial history to display, render it
+        this._renderChatHistory();
 	}
 
 	set editor(editor) {
@@ -54,7 +55,6 @@ class AIManager {
 	}
 
 	_setupPanel() {
-		//this.panel.style.display = "flex"
 		this.panel.setAttribute("id", "ai-panel")
 	}
 
@@ -173,12 +173,12 @@ class AIManager {
 				this.runMode = "generate"
 				runModeButton.text = "Generate"
 				runModeButton.icon = "code"
-				this.progressBar.style.display = "block"
+				this.progressBar.style.display = "block" // Generate mode shows context
 			} else {
 				this.runMode = "chat"
 				runModeButton.text = "Chat"
 				runModeButton.icon = "chat"
-				this.progressBar.style.display = "none"
+				this.progressBar.style.display = "none" // Chat mode bar will be managed by specific callbacks
 			}
 		})
 		return runModeButton
@@ -197,7 +197,9 @@ class AIManager {
 		clearButton.classList.add("clear-button")
 		clearButton.on("click", () => {
 			this.conversationArea.innerHTML = ""
-			this.ai.clearContext()
+			this.chatHistory = [] // Clear main chat history
+			this.ai.clearContext() // Delegate to AI for its internal context (e.g., Ollama's `context` array)
+            this._resetProgressBar();
 		})
 		return clearButton
 	}
@@ -250,12 +252,19 @@ class AIManager {
 				aiProviderSelect.appendChild(option)
 			})
 			aiProviderSelect.addEventListener("change", async () => {
+				const oldProvider = this.aiProvider;
 				this.aiProvider = aiProviderSelect.value
 				localStorage.setItem("aiProvider", this.aiProvider)
-				this.ai = new this.aiProviders[this.aiProvider]()
-				// Removed fileReader passing
-				await this.ai.init()
-				renderSettingsForm()
+				
+				// Create new AI instance, maintaining history for it.
+				const newAIInstance = new this.aiProviders[this.aiProvider]();
+				// AIManager already holds the chatHistory, so no need to pass it explicitly to newAIInstance.
+				// The _prepareMessagesForAI will retrieve and prune from this.chatHistory on each call.
+				this.ai = newAIInstance; 
+				await this.ai.init(); // Initialize the new AI with its settings
+
+				renderSettingsForm(); // Re-render settings for the new provider
+				this._resetProgressBar(); // Reset progress bar as context might be different
 			})
 			aiProviderLabel.appendChild(aiProviderSelect)
 			form.appendChild(aiProviderLabel)
@@ -271,7 +280,9 @@ class AIManager {
 				if (setting.type === "enum") {
 					inputElement = document.createElement("select")
 					inputElement.id = `${this.aiProvider}-${key}`
-					setting.enum.forEach((optionObj) => {
+					// Ensure enum options are updated from the lookupCallback
+					const currentEnumOptions = setting.enum || []; // Use provided enum, or empty array
+					currentEnumOptions.forEach((optionObj) => {
 						const option = document.createElement("option")
 						option.value = optionObj.value
 						option.textContent = optionObj.label || optionObj.value
@@ -286,7 +297,7 @@ class AIManager {
 						refreshButton.classList.add("theme-button")
 						refreshButton.on("click", async () => {
 							await this.ai.refreshModels()
-							renderSettingsForm()
+							renderSettingsForm() // Re-render to show updated model list
 						})
 						label.appendChild(refreshButton)
 					}
@@ -331,6 +342,7 @@ class AIManager {
 						newSettings[key] = input.value
 					}
 				}
+				// The setOptions method now correctly updates MAX_CONTEXT_TOKENS internally in AI providers
 				this.ai.setOptions(
 					newSettings,
 					(errorMessage) => {
@@ -365,6 +377,198 @@ class AIManager {
 		this.conversationArea.classList.toggle("hidden")
 		this.settingsPanel.classList.toggle("active")
 	}
+	
+    // NEW: Helper method to update progress bar color based on percentage
+    _updateProgressBarColor(progressBarInner, percentage) {
+        // Remove all color classes first
+        progressBarInner.classList.remove('threshold-yellow', 'threshold-orange', 'threshold-red');
+
+        if (percentage >= 90) {
+            progressBarInner.classList.add('threshold-red');
+        } else if (percentage >= 80) {
+            progressBarInner.classList.add('threshold-orange');
+        } else if (percentage >= 66) {
+            progressBarInner.classList.add('threshold-yellow');
+        }
+        // If percentage is below 66, no specific color class is added,
+        // and it will default to the original --theme color defined in CSS.
+    }
+
+    _resetProgressBar() {
+        this.progressBar.style.display = this.runMode === "generate" ? "block" : "none";
+        const progressBarInner = this.progressBar.querySelector(".progress-bar-inner");
+        progressBarInner.style.width = "0%";
+        // NEW: Reset color when the progress bar is reset
+        this._updateProgressBarColor(progressBarInner, 0); // Reset to default (0%)
+    }
+
+    _renderChatHistory() {
+        this.conversationArea.innerHTML = ""; // Clear existing UI
+        this.chatHistory.forEach(message => {
+            if (message.type === 'user' || message.type === 'model') {
+                const messageBlock = new Block();
+                messageBlock.classList.add(message.type === 'user' ? 'prompt-pill' : 'response-block');
+                messageBlock.innerHTML = this.md.render(message.content);
+                this.conversationArea.append(messageBlock);
+                if (message.type === 'model') {
+                    this._addCodeBlockButtons(messageBlock);
+                }
+            } else if (message.type === 'file_context') {
+                this._appendFileContextUI(message);
+            }
+        });
+        this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+    }
+
+    _appendFileContextUI(fileContext) {
+        // NEW: Create a wrapper for the file pill and its action buttons
+        const wrapperBlock = new Block();
+        wrapperBlock.classList.add("context-file-wrapper"); // A new class for styling the wrapper
+
+        const fileBlock = new Block();
+        // Add both prompt-pill for base styling and context-file-pill for overrides
+        fileBlock.classList.add("prompt-pill", "context-file-pill");
+        fileBlock.dataset.fileId = fileContext.id; // Store ID for removal/update
+
+        // Set the full content as a title attribute for tooltip on hover
+        // Truncate content for the title attribute to max 7 lines
+        const lines = fileContext.content.split('\n');
+        const truncatedContent = lines.length > 7
+            ? lines.slice(0, 7).join('\n') + '\n...'
+            : fileContext.content;
+
+        fileBlock.setAttribute("title", truncatedContent);
+
+        const header = document.createElement("div");
+        header.classList.add("context-file-header");
+        const filenameText = document.createElement("p");
+        filenameText.textContent = `Included File: ${fileContext.filename || fileContext.id}`;
+        header.appendChild(filenameText);
+
+        // Calculate and add file size
+        const fileSize = fileContext.content.length;
+        let sizeText = '';
+        if (fileSize < 1024) {
+            sizeText = `${fileSize} B`;
+        } else {
+            sizeText = `${(fileSize / 1024).toFixed(1)} KB`;
+        }
+        const fileSizeSpan = document.createElement("span");
+        fileSizeSpan.classList.add("file-size"); // Apply size styling if needed
+        fileSizeSpan.textContent = ` (${sizeText})`;
+        filenameText.appendChild(fileSizeSpan); // Append size to the filename span
+
+        const timestampSpan = document.createElement("span");
+        timestampSpan.classList.add("timestamp");
+        timestampSpan.textContent = new Date(fileContext.timestamp).toLocaleTimeString();
+        header.appendChild(timestampSpan);
+        
+        fileBlock.append(header);
+
+        // REMOVED: The code snippet preview element `contentPreview`
+        // REMOVED: The buttonsDiv and its content were here.
+
+        // Append the fileBlock to the new wrapper
+        wrapperBlock.append(fileBlock);
+
+        // NEW: Create the external icon-only buttons
+        const copyButton = new Button(); // No text argument
+        copyButton.icon = "content_copy";
+        copyButton.title = "Copy Content"; // Add title for tooltip
+        copyButton.classList.add("context-file-action-button");
+        copyButton.on("click", () => {
+            navigator.clipboard.writeText(fileContext.content);
+            copyButton.icon = "done";
+            setTimeout(() => copyButton.icon = "content_copy", 1000);
+        });
+
+        const insertButton = new Button(); // No text argument
+        insertButton.icon = "input";
+        insertButton.title = "Insert into Editor"; // Add title for tooltip
+        insertButton.classList.add("context-file-action-button");
+        insertButton.on("click", () => {
+            const event = new CustomEvent("insert-snippet", { detail: fileContext.content });
+            window.dispatchEvent(event);
+            insertButton.icon = "done";
+            setTimeout(() => insertButton.icon = "input", 1000);
+        });
+
+        // Append these new buttons to the wrapper
+        wrapperBlock.append(copyButton, insertButton);
+
+        // Finally, append the wrapper to the conversation area
+        this.conversationArea.append(wrapperBlock);
+    }
+
+    /**
+     * Prepares the messages array for sending to the AI, handling pruning for context limits.
+     * @returns {Array<Object>} The messages array, pruned if necessary.
+     */
+    _prepareMessagesForAI() {
+        // Start with a copy of the raw chat history, before converting file_context to user messages
+        let prunableHistory = [...this.chatHistory]; 
+
+        // Filter out any pending AI response messages before pruning, as they are not input
+        prunableHistory = prunableHistory.filter(msg => msg.role !== 'temp_ai_response');
+
+        const maxTokens = this.ai.MAX_CONTEXT_TOKENS || 4096; // Fallback if MAX_CONTEXT_TOKENS not set
+
+        let currentTokens = this.ai.estimateTokens(prunableHistory);
+        
+        // The last message in prunableHistory should always be the current user's prompt (type: 'user').
+        // We must keep at least the current user prompt.
+        const minimumMessagesToKeep = 1; 
+
+        // Pruning Pass 1: Prioritize removing oldest conversational (user/model) messages
+        let oldestMessageIndex = 0;
+        // Loop condition: still over limit AND there are prunable messages (not including the last N minimum)
+        while (currentTokens > maxTokens && oldestMessageIndex < prunableHistory.length - minimumMessagesToKeep) {
+            const messageToRemove = prunableHistory[oldestMessageIndex];
+
+            // If it's a conversational message, remove it.
+            if (messageToRemove.type === 'user' || messageToRemove.type === 'model') {
+                prunableHistory.splice(oldestMessageIndex, 1); // Remove it
+                currentTokens = this.ai.estimateTokens(prunableHistory); // Re-estimate tokens
+                // Do NOT increment oldestMessageIndex, as the next message has shifted to this position
+            } else if (messageToRemove.type === 'file_context') {
+                // If it's a file_context, skip it for this pass and move to the next message
+                oldestMessageIndex++;
+            } else {
+                // For any other unexpected types, skip and move to the next.
+                oldestMessageIndex++;
+            }
+        }
+        
+        // Pruning Pass 2: If still over limit, remove oldest remaining messages (now including file_context)
+        // This handles cases where file_context + user prompt are too large.
+        oldestMessageIndex = 0; // Reset index to start from the beginning of the remaining history
+        while (currentTokens > maxTokens && oldestMessageIndex < prunableHistory.length - minimumMessagesToKeep) {
+            // Remove the oldest message regardless of its type (as long as it's not the last one)
+            prunableHistory.splice(oldestMessageIndex, 1);
+            currentTokens = this.ai.estimateTokens(prunableHistory);
+            // Do NOT increment oldestMessageIndex
+        }
+
+        // Final check and warning if still over limit (should ideally not happen frequently after two passes)
+        if (currentTokens > maxTokens) {
+            console.warn(`Context window exceeded even after aggressive pruning. Estimated tokens: ${currentTokens}, Max: ${maxTokens}`);
+            // Optionally, consider adding a UI warning here.
+        }
+
+        // Now, convert the pruned history into the format expected by the AI provider
+        const messagesForAI = prunableHistory.map(msg => {
+            if (msg.type === 'file_context') {
+                return { 
+                    role: 'user', 
+                    content: `--- File: ${msg.filename} ---\n\`\`\`${msg.language}\n${msg.content}\n\`\`\``
+                };
+            }
+            // For user/model messages, just return role and content
+            return { role: msg.role, content: msg.content };
+        });
+
+        return messagesForAI;
+    }
 
 	async generate() {
 		const userPrompt = this.promptArea.value.trim()
@@ -396,11 +600,42 @@ class AIManager {
 		this.promptArea.value = ""
 		this.panel.dispatchEvent(new CustomEvent("new-prompt", { detail: this.prompts }))
 
-		const promptPill = new Block()
-		promptPill.classList.add("prompt-pill")
-		promptPill.innerHTML = userPrompt
-		this.conversationArea.append(promptPill)
+        // Step 1: Process prompt for @ tags based on runMode
+		const { processedPrompt, contextItems } = await this.ai._getContextualPrompt(userPrompt, this.runMode);
 
+        // Step 2: Update internal chatHistory (AIManager is source of truth)
+        if (this.runMode === "chat") {
+            // Remove invalidated copies of context files
+            contextItems.forEach(newItem => {
+                this.chatHistory = this.chatHistory.filter(oldItem => 
+                    !(oldItem.type === 'file_context' && oldItem.id === newItem.id)
+                );
+            });
+            // Add new context files to history
+            contextItems.forEach(item => {
+                this.chatHistory.push({ 
+                    type: 'file_context', 
+                    id: item.id, 
+                    filename: item.filename, 
+                    language: item.language, 
+                    content: item.content, 
+                    timestamp: Date.now() 
+                });
+            });
+            // Add the user's processed prompt to history
+            this.chatHistory.push({ role: "user", type: "user", content: processedPrompt, timestamp: Date.now() });
+
+            // Render updated history in UI
+            this._renderChatHistory();
+
+        } else { // 'generate' mode
+            // For 'generate' mode, the prompt itself contains the inlined context.
+            // We just add the user's original prompt string for UI.
+            this.chatHistory.push({ role: "user", type: "user", content: userPrompt, timestamp: Date.now() });
+            this._renderChatHistory(); // Render the single user prompt for generate
+        }
+
+		// Prepare placeholder for AI response and spinner
 		const responseBlock = new Block()
 		responseBlock.classList.add("response-block")
 		this.conversationArea.append(responseBlock)
@@ -426,28 +661,36 @@ class AIManager {
 					this.conversationArea.scrollTop = this.conversationArea.scrollHeight
 				}
 			},
-			onDone: (contextRatio) => {
+			onDone: (fullResponse, contextRatioPercent) => {
 				this._addCodeBlockButtons(responseBlock)
-				if (contextRatio !== null && contextRatio !== undefined) {
+				if (contextRatioPercent !== null && contextRatioPercent !== undefined) {
 					const progressBarInner = this.progressBar.querySelector(".progress-bar-inner")
-					progressBarInner.style.width = contextRatio * 100 + "%"
+					progressBarInner.style.width = contextRatioPercent + "%"
+                    this.progressBar.style.display = "block"; // Ensure visible if ratio is given
 				} else {
-					this.progressBar.style.width = "0%"
+					this.progressBar.style.display = "none"; // Hide if no ratio available (e.g., Ollama chat)
 				}
 				spinner.remove()
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
+
+                // Add AI response to chatHistory for persistence
+                this.chatHistory.push({ role: "model", type: "model", content: fullResponse, timestamp: Date.now() });
 			},
 			onError: (error) => {
 				responseBlock.innerHTML = `Error: ${error.message}`
 				console.error(`Error calling ${this.ai.config.model} API:`, error)
 				spinner.remove()
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
+
+                // Optional: Add error message to chatHistory if you want it persistent
+                this.chatHistory.push({ role: "error", type: "error", content: `Error: ${error.message}`, timestamp: Date.now() });
 			},
 			onContextRatioUpdate: (ratio) => {
 				if (ratio !== null && ratio !== undefined) {
 					this.progressBar.style.display = "block"
 					const progressBarInner = this.progressBar.querySelector(".progress-bar-inner")
 					progressBarInner.style.width = ratio * 100 + "%"
+                    this._updateProgressBarColor(progressBarInner, ratio * 100); // NEW: Update color
 				} else {
 					this.progressBar.style.display = "none"
 				}
@@ -455,9 +698,12 @@ class AIManager {
 		}
 
 		if (this.runMode === "chat") {
-			this.ai.chat(userPrompt, callbacks)
+            const messagesForAI = this._prepareMessagesForAI();
+			this.ai.chat(messagesForAI, callbacks);
 		} else {
-			this.ai.generate(userPrompt, callbacks)
+            // For generate mode, processedPrompt already contains the inlined context.
+            // The AI generate method just needs this single prompt string.
+			this.ai.generate(processedPrompt, callbacks);
 		}
 	}
 

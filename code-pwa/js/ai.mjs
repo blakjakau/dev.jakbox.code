@@ -1,7 +1,7 @@
 // ai.mjs
 export default class AI {
 	constructor() {
-		this._editor = null; 
+		this._editor = null;
 		this.config = {}; // Internal configuration object
 		this._settingsSchema = {}; // Schema for settings metadata
         this._settingsSource = 'global'; // 'global' or 'workspace'
@@ -57,8 +57,6 @@ export default class AI {
         throw new Error("saveSettings must be implemented by subclass");
     }
 
-	// Removed _readFile and fileReader properties/setters, as they are not needed for current scope.
-
 	async _readEditor() {
 		if (!this.editor) return;
 		// read  either the selection, or the full text
@@ -72,16 +70,15 @@ export default class AI {
 
 		if (fileContent) {
 			if (selectedText) {
-				return { source: "selection", type: "code", language: language, content: fileContent };
+				return { source: "selection", type: "code", language: language, content: fileContent, isSelection: true };
 			} else {
 				const filename = this.editor?.tabs?.activeTab?.config?.name || "unknown"; 
-				return { source: filename, type: "file", language: language, content: fileContent };
+				return { source: filename, type: "file", language: language, content: fileContent, isSelection: false };
 			}
 		}
 		return;
 	}
 
-    // REVISED AGAIN: _readOpenBuffers using editor.tabs.tabs (unchanged from last iteration)
     async _readOpenBuffers() {
         if (!this.editor || !this.editor.tabs || !Array.isArray(this.editor.tabs.tabs)) {
             console.warn("Editor.tabs.tabs not available. Cannot read open buffers.");
@@ -100,7 +97,7 @@ export default class AI {
                 const language = modeId.split('/').pop(); 
 
                 if (content) {
-                    openFilesContent.push({ source: filename, type: "file", language: language, content: content });
+                    openFilesContent.push({ source: filename, type: "file", language: language, content: content, isSelection: false });
                 }
             } catch (e) {
                 console.error("Error reading content from an open editor tab:", tabInfo, e);
@@ -109,46 +106,115 @@ export default class AI {
         return openFilesContent;
     }
 
+	/**
+	 * Processes the user's prompt to extract `@` tags for context inclusion.
+	 * Returns the prompt with tags either inlined (for 'generate' mode)
+	 * or removed and stored as structured objects (for 'chat' mode).
+	 * @param {string} prompt The original user prompt.
+	 * @param {'chat' | 'generate'} runMode The current run mode.
+	 * @returns {Promise<{processedPrompt: string, contextItems: Array<Object>}>}
+	 */
+	async _getContextualPrompt(prompt, runMode) {
+        let processedPrompt = prompt;
+        const contextItems = [];
 
-	async _getContextualPrompt(prompt) {
-        let fullPrompt = prompt;
-		if (this.editor && prompt.match(/\@/i)) { 
-			
-            // Handle @code and @current - both use _readEditor
+		if (this.editor && prompt.match(/@/i)) { 
+			// Handle @code and @current - both use _readEditor
 			if (prompt.includes("@code") || prompt.includes("@current")) {
 				const item = await this._readEditor();
 				if (item) {
-                    const { source, type, language, content } = item;
+                    const { source, type, language, content, isSelection } = item;
+                    const contextId = isSelection ? `selection:${language}` : `current_file:${language}:${source}`;
                     const codeBlock = "\n\n ```"+language+"\n"+content+"\n``` ";
-                    fullPrompt = fullPrompt.replace(/@code/ig, codeBlock);
-                    fullPrompt = fullPrompt.replace(/@current/ig, codeBlock);
+                    
+                    if (runMode === "chat") {
+                        contextItems.push({ 
+                            type: "file_context", 
+                            id: contextId,
+                            filename: source, 
+                            language: language, 
+                            content: content,
+                            isSelection: isSelection
+                        });
+                        processedPrompt = processedPrompt.replace(/@code/ig, "");
+                        processedPrompt = processedPrompt.replace(/@current/ig, "");
+                    } else { // generate mode, inline
+                        processedPrompt = processedPrompt.replace(/@code/ig, codeBlock);
+                        processedPrompt = processedPrompt.replace(/@current/ig, codeBlock);
+                    }
                 }
 			}
 
             // Handle @open
             if (prompt.includes("@open")) {
                 const openFiles = await this._readOpenBuffers();
-                let openFilesContentString = "";
+                let openFilesContentString = ""; // For generate mode inlining
+
                 if (openFiles.length > 0) {
                     openFiles.forEach(item => {
-                        const { source, type, language, content } = item;
-                        openFilesContentString += `\n\n--- File: ${source} ---\n`;
-                        openFilesContentString += "\n```"+language+"\n"+content+"\n```\n";
+                        const { source, type, language, content, isSelection } = item;
+                        if (runMode === "chat") {
+                            contextItems.push({ 
+                                type: "file_context", 
+                                id: `open_file:${language}:${source}`,
+                                filename: source, 
+                                language: language, 
+                                content: content,
+                                isSelection: isSelection
+                            });
+                        } else { // generate mode, inline
+                            openFilesContentString += `\n\n--- File: ${source} ---\n`;
+                            openFilesContentString += "\n```"+language+"\n"+content+"\n```\n";
+                        }
                     });
                 } else {
-                    openFilesContentString = "\n\n(No open files found or available via editor API)\n\n";
+                    if (runMode === "generate") {
+                        openFilesContentString = "\n\n(No open files found or available via editor API)\n\n";
+                    }
                 }
-                fullPrompt = fullPrompt.replace(/@open/ig, openFilesContentString);
+                
+                if (runMode === "chat") {
+                    processedPrompt = processedPrompt.replace(/@open/ig, "");
+                } else { // generate mode, inline
+                    processedPrompt = processedPrompt.replace(/@open/ig, openFilesContentString);
+                }
             }
 		}
-        return fullPrompt;
+        processedPrompt = processedPrompt.trim(); // Clean up any extra whitespace from replacements
+        return { processedPrompt, contextItems };
     }
 
-	generate(prompt, callbacks) {
+	/**
+     * Estimates the token count for a given text or array of messages.
+     * This is a very rough character-based estimate (e.g., 1 token per 4 characters)
+     * used when a precise token counting API is not available.
+     * @param {string | Array<Object>} messages The text string or array of messages.
+     * @returns {number} Estimated token count.
+     */
+    estimateTokens(messages) {
+        if (typeof messages === 'string') {
+            return Math.ceil(messages.length / 4);
+        } else if (Array.isArray(messages)) {
+            let totalLength = 0;
+            for (const msg of messages) {
+                if (msg.role === 'user' || msg.role === 'model') {
+                    totalLength += (msg.content || '').length;
+                } else if (msg.type === 'file_context' && msg.content) {
+                    // Include context messages, also consider the "framing" text like filename and code block markers
+                    totalLength += (msg.filename || '').length + (msg.language || '').length + (msg.content || '').length + 50; // Add some overhead for markdown
+                }
+            }
+            return Math.ceil(totalLength / 4);
+        }
+        return 0;
+    }
+
+	generate(messages, callbacks) {
 		throw new Error("Not implemented");
 	}
 
-	chat(prompt, callbacks) {
+	chat(messages, callbacks) {
 		throw new Error("Not implemented");
 	}
 }
+

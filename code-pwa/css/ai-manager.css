@@ -139,7 +139,7 @@
 .prompt-pill {
     background-color: var(--themeDark);
     color: var(--ui-pri-bg); /* Assuming --ui-pri-bg is a light text color */
-    padding: 8px 12px;
+    padding: 0px 12px; /* as the prompt is now being formatted...*/
     border-radius: 16px;
     margin-bottom: 8px;
     align-self: flex-end;
@@ -224,8 +224,23 @@
   width: 0%;
   background-color: var(--theme);
   border-radius: 5px;
-  transition: width 0.5s ease-in-out;
+  /* ADDED: Transition for background-color */
+  transition: width 0.5s ease-in-out, background-color 0.3s ease-in-out;
 }
+
+/* NEW: Classes for progress bar color thresholds */
+.progress-bar-inner.threshold-yellow {
+    background-color: #ffd700; /* Yellow/Gold */
+}
+
+.progress-bar-inner.threshold-orange {
+    background-color: #ffa500; /* Orange */
+}
+
+.progress-bar-inner.threshold-red {
+    background-color: #dc3545; /* Red (common danger color) */
+}
+
 
 @keyframes spin {
     0% {
@@ -234,4 +249,59 @@
     100% {
         transform: rotate(360deg);
     }
+}
+
+/* NEW: Wrapper for context file pill and its action buttons */
+.context-file-wrapper {
+    display: flex; /* Use flexbox to align the pill and buttons */
+    align-items: center; /* Vertically align items */
+    margin-bottom: 8px; /* Maintain spacing between file contexts */
+    align-self: flex-end; /* Align the whole wrapper to the right, like user prompts */
+    max-width: 80%; /* Match the max-width of the prompt-pill */
+    gap: 4px; /* Space between the pill and the buttons, and between buttons */
+}
+
+/* Adjusted style for context file pills */
+.context-file-pill {
+    background-color: var(--dark); /* A dark background from the theme */
+    border: 1px solid var(--theme); /* A dark border from the theme */
+    color: var(--theme); /* Ensure text is readable on the dark background */
+    /* align-self and max-width are now handled by .context-file-wrapper */
+    padding: 0px 12px;
+    border-radius: 16px;
+    flex-grow: 1; /* Allow the pill to grow within the wrapper */
+    flex-shrink: 1; /* Allow the pill to shrink if needed */
+}
+
+/* NEW: Styling for the new icon-only action buttons */
+.context-file-action-button {
+    background-color: var(--dark); /* Dark background for the buttons */
+    color: var(--theme); /* Theme color for the icon */
+    border: 1px solid var(--theme); /* Border matching the pill */
+    border-radius: 50%; /* Make them round */
+    width: 28px; /* Fixed width */
+    height: 28px; /* Fixed height */
+    min-width: 28px; /* Ensure they don't shrink */
+    min-height: 28px; /* Ensure they don't shrink */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    padding: 0; /* No internal padding for icon-only buttons */
+}
+
+.context-file-action-button:hover {
+    background-color: var(--theme); /* Hover: inverse colors */
+    color: var(--dark);
+}
+
+/* Removed old .context-file-buttons style */
+/* .context-file-buttons {
+    margin-top: 8px;
+} */
+
+/* Styling for the new file size span, if needed */
+.file-size {
+    font-size: 0.8em; /* Make it slightly smaller */
+    color: var(--text-color-secondary); /* A lighter color for secondary info */
 }
