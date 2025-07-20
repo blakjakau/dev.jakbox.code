@@ -3,6 +3,11 @@
 import { Block, Button, Icon } from "./elements.mjs"
 import Ollama from "./ai-ollama.mjs"
 import Gemini from "./ai-gemini.mjs"
+import AIManagerHistory from "./ai-manager-history.mjs";
+
+const MAX_PROMPT_HISTORY = 50;
+const MIN_MESSAGES_FOR_SUMMARIZE_BUTTON = 3;
+const MIN_TOKENS_FOR_SUMMARIZE_BUTTON = 750;
 
 class AIManager {
 	constructor() {
@@ -21,7 +26,7 @@ class AIManager {
 
 		this.prompts = [] // Stores raw user prompt strings for history navigation (Ctrl+Up/Down)
 		this.promptIndex = -1 // -1 indicates no prompt from history is currently displayed
-		this.chatHistory = [] // NEW: Stores structured history of ALL messages (user, AI, file context, system messages)
+		this.historyManager = new AIManagerHistory(this);
 
 		this.panel = null
 		this.promptArea = null
@@ -60,7 +65,7 @@ class AIManager {
 		this._createUI()
 		this._setupPanel()
         // If there's any initial history to display, render it
-        this._renderChatHistory();
+        this.historyManager.render();
         this._dispatchContextUpdate('init'); // NEW: Dispatch initial context state
 	}
 
@@ -214,7 +219,7 @@ class AIManager {
         const summarizeButton = new Button("Summarize");
         summarizeButton.icon = "compress"; // Using a suitable icon
         summarizeButton.classList.add("summarize-button", "theme-button");
-        summarizeButton.on("click", () => this._performSummarization());
+        summarizeButton.on("click", () => this.historyManager.performSummarization());
         this._setButtonsDisabledState(this._isProcessing); // Initial state
         return summarizeButton;
     }
@@ -232,11 +237,7 @@ class AIManager {
 		const clearButton = new Button("Clear")
 		clearButton.classList.add("clear-button")
 		clearButton.on("click", () => {
-			this.conversationArea.innerHTML = ""
-			this.chatHistory = [] // Clear main chat history
-			this.ai.clearContext() // Delegate to AI for its internal context (e.g., Ollama's `context` array)
-            this._resetProgressBar();
-            this._dispatchContextUpdate('clear'); // NEW: Dispatch on clear
+			this.historyManager.clear();
 		})
         this._setButtonsDisabledState(this._isProcessing); // Initial state
 		return clearButton
@@ -247,11 +248,7 @@ class AIManager {
         if (this.submitButton) this.submitButton.disabled = disabled;
         if (this.clearButton) this.clearButton.disabled = disabled;
         if (this.summarizeButton) {
-            const eligibleMessages = this.chatHistory.filter(msg => msg.type === 'user' || msg.type === 'model');
-
-            // Define minimums for enabling the button
-            const minMessagesForButton = 3; // e.g., require at least 3 user/model turns to summarize meaningfully
-            const minTokensForButton = 750; // e.g., require at least 750 tokens to consider summarization worthwhile
+            const eligibleMessages = this.historyManager.chatHistory.filter(msg => msg.type === 'user' || msg.type === 'model');
 
             // Calculate tokens for the eligible messages
             const eligibleTokens = this.ai.estimateTokens(eligibleMessages);
@@ -260,9 +257,9 @@ class AIManager {
             // - Not currently processing
             // - At least `minMessagesForButton` eligible messages AND
             // - The estimated tokens of these messages are greater than `minTokensForButton`
-            this.summarizeButton.disabled = disabled || 
-               (eligibleMessages.length < minMessagesForButton) ||
-               (eligibleTokens < minTokensForButton);
+			this.summarizeButton.disabled = disabled ||
+			   (eligibleMessages.length < MIN_MESSAGES_FOR_SUMMARIZE_BUTTON) ||
+			   (eligibleTokens < MIN_TOKENS_FOR_SUMMARIZE_BUTTON);
         }
     }
 
@@ -483,7 +480,7 @@ class AIManager {
 		this.settingsPanel.classList.toggle("active")
         // If settings panel is being hidden, re-render chat history to refresh any potential content/token changes
         if (!this.settingsPanel.classList.contains("active")) {
-            this._renderChatHistory();
+            this.historyManager.render();
             this._dispatchContextUpdate('settings_closed'); // NEW: Dispatch on settings panel close
         }
 	}
@@ -512,123 +509,17 @@ class AIManager {
         this._updateProgressBarColor(progressBarInner, 0); // Reset to default (0%)
     }
 
-    _renderChatHistory() {
-        this.conversationArea.innerHTML = ""; // Clear existing UI
-        this.chatHistory.forEach(message => {
-            if (message.type === 'user') {
-                const messageBlock = new Block();
-                messageBlock.classList.add('prompt-pill');
-                messageBlock.innerHTML = this.md.render(message.content);
-                this.conversationArea.append(messageBlock);
-            } else if (message.type === 'model') {
-                const messageBlock = new Block();
-                messageBlock.classList.add('response-block');
-                messageBlock.innerHTML = this.md.render(message.content);
-                this.conversationArea.append(messageBlock);
-                this._addCodeBlockButtons(messageBlock);
-            } else if (message.type === 'file_context') {
-                this._appendFileContextUI(message);
-            } else if (message.type === 'system_message') { // NEW: Handle system messages
-                const messageBlock = new Block();
-                messageBlock.classList.add('system-message-block');
-                messageBlock.innerHTML = this.md.render(message.content);
-                this.conversationArea.append(messageBlock);
-            }
-        });
-        this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
-    }
-
-    _appendFileContextUI(fileContext) {
-        // NEW: Create a wrapper for the file pill and its action buttons
-        const wrapperBlock = new Block();
-        wrapperBlock.classList.add("context-file-wrapper"); // A new class for styling the wrapper
-
-        const fileBlock = new Block();
-        // Add both prompt-pill for base styling and context-file-pill for overrides
-        fileBlock.classList.add("prompt-pill", "context-file-pill");
-        fileBlock.dataset.fileId = fileContext.id; // Store ID for removal/update
-
-        // Set the full content as a title attribute for tooltip on hover
-        // Truncate content for the title attribute to max 7 lines
-        const lines = fileContext.content.split('\n');
-        const truncatedContent = lines.length > 7
-            ? lines.slice(0, 7).join('\n') + '\n...'
-            : fileContext.content;
-
-        fileBlock.setAttribute("title", truncatedContent);
-
-        const header = document.createElement("div");
-        header.classList.add("context-file-header");
-        const filenameText = document.createElement("p");
-        filenameText.textContent = `Included File: ${fileContext.filename || fileContext.id}`;
-        header.appendChild(filenameText);
-
-        // Calculate and add file size
-        const fileSize = fileContext.content.length;
-        let sizeText = '';
-        if (fileSize < 1024) {
-            sizeText = `${fileSize} B`;
-        } else {
-            sizeText = `${(fileSize / 1024).toFixed(1)} KB`;
-        }
-        const fileSizeSpan = document.createElement("span");
-        fileSizeSpan.classList.add("file-size"); // Apply size styling if needed
-        fileSizeSpan.textContent = ` (${sizeText})`;
-        filenameText.appendChild(fileSizeSpan); // Append size to the filename span
-
-        const timestampSpan = document.createElement("span");
-        timestampSpan.classList.add("timestamp");
-        timestampSpan.textContent = new Date(fileContext.timestamp).toLocaleTimeString();
-        header.appendChild(timestampSpan);
-        
-        fileBlock.append(header);
-
-        // REMOVED: The code snippet preview element `contentPreview`
-        // REMOVED: The buttonsDiv and its content were here.
-
-        // Append the fileBlock to the new wrapper
-        wrapperBlock.append(fileBlock);
-
-        // NEW: Create the external icon-only buttons
-        const copyButton = new Button(); // No text argument
-        copyButton.icon = "content_copy";
-        copyButton.title = "Copy Content"; // Add title for tooltip
-        copyButton.classList.add("context-file-action-button");
-        copyButton.on("click", () => {
-            navigator.clipboard.writeText(fileContext.content);
-            copyButton.icon = "done";
-            setTimeout(() => copyButton.icon = "content_copy", 1000);
-        });
-
-        const insertButton = new Button(); // No text argument
-        insertButton.icon = "input";
-        insertButton.title = "Insert into Editor"; // Add title for tooltip
-        insertButton.classList.add("context-file-action-button");
-        insertButton.on("click", () => {
-            const event = new CustomEvent("insert-snippet", { detail: fileContext.content });
-            window.dispatchEvent(event);
-            insertButton.icon = "done";
-            setTimeout(() => insertButton.icon = "input", 1000);
-        });
-
-        // Append these new buttons to the wrapper
-        wrapperBlock.append(copyButton, insertButton);
-
-        // Finally, append the wrapper to the conversation area
-        this.conversationArea.append(wrapperBlock);
-    }
-
     /**
      * Dispatches a custom 'context-update' event with the current chat state.
      * @param {string} type - The type of update (e.g., 'append_user', 'summarize', 'clear', 'settings_change').
      * @param {object} [details={}] - Additional details relevant to the update type (e.g., summaryDetails).
      */
     _dispatchContextUpdate(type, details = {}) {
-        const estimatedTokensFullHistory = this.ai.estimateTokens(this.chatHistory);
+        const estimatedTokensFullHistory = this.ai.estimateTokens(this.historyManager.chatHistory);
         const maxContextTokens = this.ai.MAX_CONTEXT_TOKENS;
 
         const eventDetail = {
-            chatHistory: JSON.parse(JSON.stringify(this.chatHistory)), // Deep copy for immutability
+            chatHistory: JSON.parse(JSON.stringify(this.historyManager.chatHistory)), // Deep copy for immutability
             aiProvider: this.aiProvider,
             runMode: this.runMode,
             estimatedTokensFullHistory: estimatedTokensFullHistory,
@@ -637,184 +528,6 @@ class AIManager {
             ...details
         };
         this.panel.dispatchEvent(new CustomEvent("context-update", { detail: eventDetail }));
-    }
-
-    /**
-     * Performs summarization of old chat history if conditions are met or manually triggered.
-     * Replaces a block of old messages with a summary and adds a system message.
-     */
-    async _performSummarization() {
-        if (this._isProcessing) {
-            console.warn("AI is currently processing or summarizing. Please wait.");
-            return;
-        }
-
-        this._isProcessing = true;
-        this._setButtonsDisabledState(true);
-
-        try {
-            const chatHistoryCopy = [...this.chatHistory];
-            const MAX_RECENT_MESSAGES_TO_PRESERVE = 5; // Don't summarize the last N messages
-
-            // Filter out file_context and recent messages from summarization target
-            const eligibleMessages = chatHistoryCopy.filter(msg => 
-                (msg.type === 'user' || msg.type === 'model') && msg.type !== 'system_message'
-            );
-
-            // Determine the starting index for summarization
-            const startIndex = Math.max(0, eligibleMessages.length - (eligibleMessages.length * (this.config.summarizeTargetPercentage / 100)));
-            const messagesToSummarize = eligibleMessages.slice(0, Math.max(0, startIndex - MAX_RECENT_MESSAGES_TO_PRESERVE)); // Take oldest % excluding recent N
-
-            if (messagesToSummarize.length < 2) {
-                console.info("Not enough eligible messages to summarize.");
-                return;
-            }
-            
-            // Find the actual indices in the main chatHistory
-            const firstMessageToSummarize = messagesToSummarize[0];
-            const lastMessageToSummarize = messagesToSummarize[messagesToSummarize.length - 1];
-            const originalStartIndex = chatHistoryCopy.findIndex(msg => msg === firstMessageToSummarize);
-            const originalEndIndex = chatHistoryCopy.findIndex(msg => msg === lastMessageToSummarize);
-
-            if (originalStartIndex === -1 || originalEndIndex === -1 || originalStartIndex >= originalEndIndex) {
-                 console.warn("Could not find the range of messages to summarize in actual chat history.");
-                 return;
-            }
-
-            const actualMessagesToSummarize = this.chatHistory.slice(originalStartIndex, originalEndIndex + 1);
-            const tokensBeforeSummary = this.ai.estimateTokens(actualMessagesToSummarize);
-            
-            const summarizationPromptContent = messagesToSummarize.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n\n');
-            const summarizationPrompt = `Please summarize the following conversation very concisely, focusing on key topics, questions, and outcomes. Do not add any new information or conversational filler. Just the summary.\n\n${summarizationPromptContent}`;
-            
-            // Prepare messages for internal AI call (just the summary prompt)
-            const internalMessagesForAI = [{ role: 'user', content: summarizationPrompt }];
-
-            let summaryResponse = '';
-            await new Promise((resolve, reject) => {
-                this.ai.chat(internalMessagesForAI, {
-                    onUpdate: (response) => {
-                        summaryResponse = response;
-                    },
-                    onDone: () => {
-                        resolve();
-                    },
-                    onError: (error) => {
-                        reject(error);
-                    }
-                });
-            });
-
-            if (summaryResponse) {
-                const summaryMessage = {
-                    role: 'model',
-                    type: 'model', // Still a model message, but could add 'isSummary: true' for specific rendering
-                    content: `**Summary of prior conversation:**\n\n${summaryResponse}`,
-                    timestamp: Date.now()
-                };
-                const tokensAfterSummary = this.ai.estimateTokens([summaryMessage]);
-
-                // Replace the summarized block with the new summary message
-                this.chatHistory.splice(originalStartIndex, actualMessagesToSummarize.length, summaryMessage);
-                
-                // Add a system message indicating the summarization
-                const systemMessage = {
-                    type: 'system_message',
-                    content: `History summarized: **${tokensBeforeSummary}** tokens condensed to **${tokensAfterSummary}** tokens.`,
-                    timestamp: Date.now()
-                };
-                this.chatHistory.splice(originalStartIndex + 1, 0, systemMessage); // Insert after summary
-
-                this._renderChatHistory();
-                this._dispatchContextUpdate('summarize', { summaryDetails: { tokensBefore: tokensBeforeSummary, tokensAfter: tokensAfterSummary } });
-                console.log(`Summarized ${tokensBeforeSummary} tokens down to ${tokensAfterSummary} tokens.`);
-            } else {
-                console.warn("Summarization did not return a response.");
-            }
-        } catch (error) {
-            console.error("Error during summarization:", error);
-            // Optional: Add an error system message to chat history
-            this.chatHistory.push({ type: 'system_message', content: `Error during summarization: ${error.message}`, timestamp: Date.now() });
-            this._renderChatHistory();
-            this._dispatchContextUpdate('summarize_error');
-        } finally {
-            this._isProcessing = false;
-            this._setButtonsDisabledState(false);
-        }
-    }
-
-
-    /**
-     * Prepares the messages array for sending to the AI, handling pruning for context limits.
-     * @returns {Array<Object>} The messages array, pruned if necessary.
-     */
-    _prepareMessagesForAI() {
-        // Start with a copy of the raw chat history, before converting file_context to user messages
-        let prunableHistory = [...this.chatHistory]; 
-
-        // NEW: Filter out system messages (these are for UI only)
-        prunableHistory = prunableHistory.filter(msg => msg.type !== 'system_message');
-
-        // Filter out any pending AI response messages before pruning, as they are not input
-        prunableHistory = prunableHistory.filter(msg => msg.role !== 'temp_ai_response');
-
-        const maxTokens = this.ai.MAX_CONTEXT_TOKENS || 4096; // Fallback if MAX_CONTEXT_TOKENS not set
-
-        let currentTokens = this.ai.estimateTokens(prunableHistory);
-        
-        // The last message in prunableHistory should always be the current user's prompt (type: 'user').
-        // We must keep at least the current user prompt.
-        const minimumMessagesToKeep = 1; 
-
-        // Pruning Pass 1: Prioritize removing oldest conversational (user/model) messages
-        let oldestMessageIndex = 0;
-        // Loop condition: still over limit AND there are prunable messages (not including the last N minimum)
-        while (currentTokens > maxTokens && oldestMessageIndex < prunableHistory.length - minimumMessagesToKeep) {
-            const messageToRemove = prunableHistory[oldestMessageIndex];
-
-            // If it's a conversational message, remove it.
-            if (messageToRemove.type === 'user' || messageToRemove.type === 'model') {
-                prunableHistory.splice(oldestMessageIndex, 1); // Remove it
-                currentTokens = this.ai.estimateTokens(prunableHistory); // Re-estimate tokens
-                // Do NOT increment oldestMessageIndex, as the next message has shifted to this position
-            } else if (messageToRemove.type === 'file_context') {
-                // If it's a file_context, skip it for this pass and move to the next message
-                oldestMessageIndex++;
-            } else {
-                // For any other unexpected types, skip and move to the next.
-                oldestMessageIndex++;
-            }
-        }
-        
-        // Pruning Pass 2: If still over limit, remove oldest remaining messages (now including file_context)
-        // This handles cases where file_context + user prompt are too large.
-        oldestMessageIndex = 0; // Reset index to start from the beginning of the remaining history
-        while (currentTokens > maxTokens && oldestMessageIndex < prunableHistory.length - minimumMessagesToKeep) {
-            // Remove the oldest message regardless of its type (as long as it's not the last one)
-            prunableHistory.splice(oldestMessageIndex, 1);
-            currentTokens = this.ai.estimateTokens(prunableHistory);
-            // Do NOT increment oldestMessageIndex
-        }
-
-        // Final check and warning if still over limit (should ideally not happen frequently after two passes)
-        if (currentTokens > maxTokens) {
-            console.warn(`Context window exceeded even after aggressive pruning. Estimated tokens: ${currentTokens}, Max: ${maxTokens}`);
-            // Optionally, consider adding a UI warning here.
-        }
-
-        // Now, convert the pruned history into the format expected by the AI provider
-        const messagesForAI = prunableHistory.map(msg => {
-            if (msg.type === 'file_context') {
-                return { 
-                    role: 'user', 
-                    content: `--- File: ${msg.filename} ---\n\`\`\`${msg.language}\n${msg.content}\n\`\`\``
-                };
-            }
-            // For user/model messages, just return role and content
-            return { role: msg.role, content: msg.content };
-        });
-
-        return messagesForAI;
     }
 
 	async generate() {
@@ -832,8 +545,6 @@ class AIManager {
             this._setButtonsDisabledState(false);
 			return;
 		}
-
-		const MAX_PROMPT_HISTORY = 50
 
 		const lastPrompt = this.prompts.length > 0 ? this.prompts[this.prompts.length - 1].trim() : null
 
@@ -857,11 +568,11 @@ class AIManager {
 		this.panel.dispatchEvent(new CustomEvent("new-prompt", { detail: this.prompts }))
 
         // NEW: Check for automatic summarization before processing the new prompt
-        const estimatedTokensBeforeNewPrompt = this.ai.estimateTokens(this.chatHistory);
+        const estimatedTokensBeforeNewPrompt = this.ai.estimateTokens(this.historyManager.chatHistory);
         const maxContextTokens = this.ai.MAX_CONTEXT_TOKENS;
         if (maxContextTokens > 0 && (estimatedTokensBeforeNewPrompt / maxContextTokens * 100) >= this.config.summarizeThreshold) {
             console.log(`Context at ${Math.round(estimatedTokensBeforeNewPrompt / maxContextTokens * 100)}%, triggering summarization.`);
-            await this._performSummarization(); // Await summarization before continuing
+            await this.historyManager.performSummarization(); // Await summarization before continuing
         }
 
 
@@ -870,35 +581,20 @@ class AIManager {
 
         // Step 2: Update internal chatHistory (AIManager is source of truth)
         if (this.runMode === "chat") {
-            // Remove invalidated copies of context files
-            contextItems.forEach(newItem => {
-                this.chatHistory = this.chatHistory.filter(oldItem => 
-                    !(oldItem.type === 'file_context' && oldItem.id === newItem.id)
-                );
-            });
             // Add new context files to history
-            contextItems.forEach(item => {
-                this.chatHistory.push({ 
-                    type: 'file_context', 
-                    id: item.id, 
-                    filename: item.filename, 
-                    language: item.language, 
-                    content: item.content, 
-                    timestamp: Date.now() 
-                });
-            });
+            contextItems.forEach(item => this.historyManager.addContextFile(item));
             // Add the user's processed prompt to history
-            this.chatHistory.push({ role: "user", type: "user", content: processedPrompt, timestamp: Date.now() });
+            this.historyManager.addMessage({ role: "user", type: "user", content: processedPrompt, timestamp: Date.now() });
 
             // Render updated history in UI and dispatch event
-            this._renderChatHistory();
+            this.historyManager.render();
             this._dispatchContextUpdate('append_user'); // NEW: Dispatch after user prompt and context added
 
         } else { // 'generate' mode
             // For 'generate' mode, the prompt itself contains the inlined context.
             // We just add the user's original prompt string for UI.
-            this.chatHistory.push({ role: "user", type: "user", content: userPrompt, timestamp: Date.now() });
-            this._renderChatHistory(); // Render the single user prompt for generate
+            this.historyManager.addMessage({ role: "user", type: "user", content: userPrompt, timestamp: Date.now() });
+            this.historyManager.render(); // Render the single user prompt for generate
             this._dispatchContextUpdate('append_user'); // NEW: Dispatch after user prompt added
         }
 
@@ -942,7 +638,7 @@ class AIManager {
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
 
                 // Add AI response to chatHistory for persistence
-                this.chatHistory.push({ role: "model", type: "model", content: fullResponse, timestamp: Date.now() });
+                this.historyManager.addMessage({ role: "model", type: "model", content: fullResponse, timestamp: Date.now() });
                 this._dispatchContextUpdate('append_model'); // NEW: Dispatch after model response
 
                 this._isProcessing = false; // NEW: Release lock
@@ -955,7 +651,7 @@ class AIManager {
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
 
                 // Optional: Add error message to chatHistory if you want it persistent
-                this.chatHistory.push({ role: "error", type: "error", content: `Error: ${error.message}`, timestamp: Date.now() });
+                this.historyManager.addMessage({ role: "error", type: "error", content: `Error: ${error.message}`, timestamp: Date.now() });
                 this._dispatchContextUpdate('append_error'); // NEW: Dispatch after error
 
                 this._isProcessing = false; // NEW: Release lock
@@ -974,7 +670,7 @@ class AIManager {
 		}
 
 		if (this.runMode === "chat") {
-            const messagesForAI = this._prepareMessagesForAI();
+            const messagesForAI = this.historyManager.prepareMessagesForAI();
 			this.ai.chat(messagesForAI, callbacks);
 		} else {
             // For generate mode, processedPrompt already contains the inlined context.
