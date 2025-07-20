@@ -14,11 +14,14 @@ class AIManager {
 		}
 		this._settingsSchema = {
 			aiProvider: { type: "enum", label: "AI Provider", default: "ollama", enum: Object.keys(this.aiProviders) },
+            // NEW: Summarization settings
+            summarizeThreshold: { type: "number", label: "Summarize History When Context Reaches (%)", default: 85 },
+            summarizeTargetPercentage: { type: "number", label: "Percentage of Old History to Summarize", default: 50 },
 		}
 
 		this.prompts = [] // Stores raw user prompt strings for history navigation (Ctrl+Up/Down)
 		this.promptIndex = -1 // -1 indicates no prompt from history is currently displayed
-		this.chatHistory = [] // NEW: Stores structured history of ALL messages (user, AI, file context)
+		this.chatHistory = [] // NEW: Stores structured history of ALL messages (user, AI, file context, system messages)
 
 		this.panel = null
 		this.promptArea = null
@@ -29,6 +32,13 @@ class AIManager {
 		this.settingsPanel = null
 		this.useWorkspaceSettings = false
 		this.userScrolled = false
+        this._isProcessing = false // NEW: Flag to track if AI is busy (generating or summarizing)
+        
+        // NEW: Load summarization settings defaults
+        this.config = {
+            summarizeThreshold: this._settingsSchema.summarizeThreshold.default,
+            summarizeTargetPercentage: this._settingsSchema.summarizeTargetPercentage.default,
+        };
 	}
 
 	async init(panel) {
@@ -36,10 +46,22 @@ class AIManager {
 		await this.loadSettings()
 		this.ai = new this.aiProviders[this.aiProvider]()
 		await this.ai.init()
+
+        // NEW: Load summarization settings from storage, overriding defaults
+        const storedSummarizeThreshold = localStorage.getItem("summarizeThreshold");
+        if (storedSummarizeThreshold !== null) {
+            this.config.summarizeThreshold = parseInt(storedSummarizeThreshold);
+        }
+        const storedSummarizeTargetPercentage = localStorage.getItem("summarizeTargetPercentage");
+        if (storedSummarizeTargetPercentage !== null) {
+            this.config.summarizeTargetPercentage = parseInt(storedSummarizeTargetPercentage);
+        }
+
 		this._createUI()
 		this._setupPanel()
         // If there's any initial history to display, render it
         this._renderChatHistory();
+        this._dispatchContextUpdate('init'); // NEW: Dispatch initial context state
 	}
 
 	set editor(editor) {
@@ -92,10 +114,12 @@ class AIManager {
 		buttonContainer.classList.add("button-container")
 
 		this.runModeButton = this._createRunModeButton()
+        this.summarizeButton = this._createSummarizeButton(); // NEW: Summarize button
 		this.submitButton = this._createSubmitButton()
 		this.clearButton = this._createClearButton()
 
 		buttonContainer.append(this.runModeButton)
+        buttonContainer.append(this.summarizeButton); // NEW: Add summarize button
 		const spacer = new Block()
 		spacer.classList.add("spacer")
 		buttonContainer.append(spacer)
@@ -180,15 +204,27 @@ class AIManager {
 				runModeButton.icon = "chat"
 				this.progressBar.style.display = "none" // Chat mode bar will be managed by specific callbacks
 			}
+            this._dispatchContextUpdate('run_mode_change'); // NEW: Dispatch on run mode change
 		})
 		return runModeButton
 	}
+
+    // NEW: Manual Summarize Button
+    _createSummarizeButton() {
+        const summarizeButton = new Button("Summarize");
+        summarizeButton.icon = "compress"; // Using a suitable icon
+        summarizeButton.classList.add("summarize-button", "theme-button");
+        summarizeButton.on("click", () => this._performSummarization());
+        this._setButtonsDisabledState(this._isProcessing); // Initial state
+        return summarizeButton;
+    }
 
 	_createSubmitButton() {
 		const submitButton = new Button("Send")
 		submitButton.icon = "send"
 		submitButton.classList.add("submit-button", "theme-button")
 		submitButton.on("click", () => this.generate())
+        this._setButtonsDisabledState(this._isProcessing); // Initial state
 		return submitButton
 	}
 
@@ -200,9 +236,36 @@ class AIManager {
 			this.chatHistory = [] // Clear main chat history
 			this.ai.clearContext() // Delegate to AI for its internal context (e.g., Ollama's `context` array)
             this._resetProgressBar();
+            this._dispatchContextUpdate('clear'); // NEW: Dispatch on clear
 		})
+        this._setButtonsDisabledState(this._isProcessing); // Initial state
 		return clearButton
 	}
+
+    // NEW: Helper to disable/enable relevant buttons
+     _setButtonsDisabledState(disabled) {
+        if (this.submitButton) this.submitButton.disabled = disabled;
+        if (this.clearButton) this.clearButton.disabled = disabled;
+        if (this.summarizeButton) {
+            const eligibleMessages = this.chatHistory.filter(msg => msg.type === 'user' || msg.type === 'model');
+
+            // Define minimums for enabling the button
+            const minMessagesForButton = 3; // e.g., require at least 3 user/model turns to summarize meaningfully
+            const minTokensForButton = 750; // e.g., require at least 750 tokens to consider summarization worthwhile
+
+            // Calculate tokens for the eligible messages
+            const eligibleTokens = this.ai.estimateTokens(eligibleMessages);
+            
+            // Condition to enable the button:
+            // - Not currently processing
+            // - At least `minMessagesForButton` eligible messages AND
+            // - The estimated tokens of these messages are greater than `minTokensForButton`
+            this.summarizeButton.disabled = disabled || 
+               (eligibleMessages.length < minMessagesForButton) ||
+               (eligibleTokens < minTokensForButton);
+        }
+    }
+
 
 	_createSettingsPanel() {
 		const settingsPanel = new Block()
@@ -265,9 +328,36 @@ class AIManager {
 
 				renderSettingsForm(); // Re-render settings for the new provider
 				this._resetProgressBar(); // Reset progress bar as context might be different
+                this._dispatchContextUpdate('settings_change'); // NEW: Dispatch on AI provider change
 			})
 			aiProviderLabel.appendChild(aiProviderSelect)
 			form.appendChild(aiProviderLabel)
+
+			// NEW: Render summarization settings
+            const summarizeThresholdSetting = this._settingsSchema.summarizeThreshold;
+            const summarizeThresholdLabel = document.createElement("label");
+            summarizeThresholdLabel.textContent = `${summarizeThresholdSetting.label}: `;
+            const summarizeThresholdInput = document.createElement("input");
+            summarizeThresholdInput.type = "number";
+            summarizeThresholdInput.id = "summarizeThreshold";
+            summarizeThresholdInput.min = "0";
+            summarizeThresholdInput.max = "100";
+            summarizeThresholdInput.value = this.config.summarizeThreshold;
+            summarizeThresholdLabel.appendChild(summarizeThresholdInput);
+            form.appendChild(summarizeThresholdLabel);
+
+            const summarizeTargetPercentageSetting = this._settingsSchema.summarizeTargetPercentage;
+            const summarizeTargetPercentageLabel = document.createElement("label");
+            summarizeTargetPercentageLabel.textContent = `${summarizeTargetPercentageSetting.label}: `;
+            const summarizeTargetPercentageInput = document.createElement("input");
+            summarizeTargetPercentageInput.type = "number";
+            summarizeTargetPercentageInput.id = "summarizeTargetPercentage";
+            summarizeTargetPercentageInput.min = "0";
+            summarizeTargetPercentageInput.max = "100";
+            summarizeTargetPercentageInput.value = this.config.summarizeTargetPercentage;
+            summarizeTargetPercentageLabel.appendChild(summarizeTargetPercentageInput);
+            form.appendChild(summarizeTargetPercentageLabel);
+            // END NEW
 
 			// Render AI-specific settings
 			const options = await this.ai.getOptions()
@@ -296,8 +386,14 @@ class AIManager {
 						refreshButton.icon = "refresh"
 						refreshButton.classList.add("theme-button")
 						refreshButton.on("click", async () => {
-							await this.ai.refreshModels()
-							renderSettingsForm() // Re-render to show updated model list
+                            this._setButtonsDisabledState(true); // Disable buttons during model refresh
+                            try {
+							    await this.ai.refreshModels()
+							    renderSettingsForm() // Re-render to show updated model list
+                                this._dispatchContextUpdate('settings_change'); // NEW: Dispatch on model refresh
+                            } finally {
+                                this._setButtonsDisabledState(false); // Re-enable buttons
+                            }
 						})
 						label.appendChild(refreshButton)
 					}
@@ -342,6 +438,13 @@ class AIManager {
 						newSettings[key] = input.value
 					}
 				}
+                // NEW: Read new summarization settings
+                this.config.summarizeThreshold = parseInt(form.querySelector("#summarizeThreshold").value);
+                this.config.summarizeTargetPercentage = parseInt(form.querySelector("#summarizeTargetPercentage").value);
+                localStorage.setItem("summarizeThreshold", this.config.summarizeThreshold);
+                localStorage.setItem("summarizeTargetPercentage", this.config.summarizeTargetPercentage);
+
+
 				// The setOptions method now correctly updates MAX_CONTEXT_TOKENS internally in AI providers
 				this.ai.setOptions(
 					newSettings,
@@ -351,6 +454,7 @@ class AIManager {
 						errorBlock.innerHTML = `Error: ${errorMessage}`
 						this.conversationArea.append(errorBlock)
 						this.conversationArea.scrollTop = this.conversationArea.scrollHeight
+                        this._dispatchContextUpdate('settings_save_error'); // NEW: Dispatch error state
 					},
 					(successMessage) => {
 						const successBlock = new Block()
@@ -358,6 +462,7 @@ class AIManager {
 						successBlock.innerHTML = successMessage
 						this.conversationArea.append(successBlock)
 						this.conversationArea.scrollTop = this.conversationArea.scrollHeight
+                        this._dispatchContextUpdate('settings_save_success'); // NEW: Dispatch success state
 					},
 					this.useWorkspaceSettings,
 					this.ai.settingsSource
@@ -376,6 +481,11 @@ class AIManager {
 	toggleSettingsPanel() {
 		this.conversationArea.classList.toggle("hidden")
 		this.settingsPanel.classList.toggle("active")
+        // If settings panel is being hidden, re-render chat history to refresh any potential content/token changes
+        if (!this.settingsPanel.classList.contains("active")) {
+            this._renderChatHistory();
+            this._dispatchContextUpdate('settings_closed'); // NEW: Dispatch on settings panel close
+        }
 	}
 	
     // NEW: Helper method to update progress bar color based on percentage
@@ -405,16 +515,24 @@ class AIManager {
     _renderChatHistory() {
         this.conversationArea.innerHTML = ""; // Clear existing UI
         this.chatHistory.forEach(message => {
-            if (message.type === 'user' || message.type === 'model') {
+            if (message.type === 'user') {
                 const messageBlock = new Block();
-                messageBlock.classList.add(message.type === 'user' ? 'prompt-pill' : 'response-block');
+                messageBlock.classList.add('prompt-pill');
                 messageBlock.innerHTML = this.md.render(message.content);
                 this.conversationArea.append(messageBlock);
-                if (message.type === 'model') {
-                    this._addCodeBlockButtons(messageBlock);
-                }
+            } else if (message.type === 'model') {
+                const messageBlock = new Block();
+                messageBlock.classList.add('response-block');
+                messageBlock.innerHTML = this.md.render(message.content);
+                this.conversationArea.append(messageBlock);
+                this._addCodeBlockButtons(messageBlock);
             } else if (message.type === 'file_context') {
                 this._appendFileContextUI(message);
+            } else if (message.type === 'system_message') { // NEW: Handle system messages
+                const messageBlock = new Block();
+                messageBlock.classList.add('system-message-block');
+                messageBlock.innerHTML = this.md.render(message.content);
+                this.conversationArea.append(messageBlock);
             }
         });
         this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
@@ -501,12 +619,141 @@ class AIManager {
     }
 
     /**
+     * Dispatches a custom 'context-update' event with the current chat state.
+     * @param {string} type - The type of update (e.g., 'append_user', 'summarize', 'clear', 'settings_change').
+     * @param {object} [details={}] - Additional details relevant to the update type (e.g., summaryDetails).
+     */
+    _dispatchContextUpdate(type, details = {}) {
+        const estimatedTokensFullHistory = this.ai.estimateTokens(this.chatHistory);
+        const maxContextTokens = this.ai.MAX_CONTEXT_TOKENS;
+
+        const eventDetail = {
+            chatHistory: JSON.parse(JSON.stringify(this.chatHistory)), // Deep copy for immutability
+            aiProvider: this.aiProvider,
+            runMode: this.runMode,
+            estimatedTokensFullHistory: estimatedTokensFullHistory,
+            maxContextTokens: maxContextTokens,
+            type: type,
+            ...details
+        };
+        this.panel.dispatchEvent(new CustomEvent("context-update", { detail: eventDetail }));
+    }
+
+    /**
+     * Performs summarization of old chat history if conditions are met or manually triggered.
+     * Replaces a block of old messages with a summary and adds a system message.
+     */
+    async _performSummarization() {
+        if (this._isProcessing) {
+            console.warn("AI is currently processing or summarizing. Please wait.");
+            return;
+        }
+
+        this._isProcessing = true;
+        this._setButtonsDisabledState(true);
+
+        try {
+            const chatHistoryCopy = [...this.chatHistory];
+            const MAX_RECENT_MESSAGES_TO_PRESERVE = 5; // Don't summarize the last N messages
+
+            // Filter out file_context and recent messages from summarization target
+            const eligibleMessages = chatHistoryCopy.filter(msg => 
+                (msg.type === 'user' || msg.type === 'model') && msg.type !== 'system_message'
+            );
+
+            // Determine the starting index for summarization
+            const startIndex = Math.max(0, eligibleMessages.length - (eligibleMessages.length * (this.config.summarizeTargetPercentage / 100)));
+            const messagesToSummarize = eligibleMessages.slice(0, Math.max(0, startIndex - MAX_RECENT_MESSAGES_TO_PRESERVE)); // Take oldest % excluding recent N
+
+            if (messagesToSummarize.length < 2) {
+                console.info("Not enough eligible messages to summarize.");
+                return;
+            }
+            
+            // Find the actual indices in the main chatHistory
+            const firstMessageToSummarize = messagesToSummarize[0];
+            const lastMessageToSummarize = messagesToSummarize[messagesToSummarize.length - 1];
+            const originalStartIndex = chatHistoryCopy.findIndex(msg => msg === firstMessageToSummarize);
+            const originalEndIndex = chatHistoryCopy.findIndex(msg => msg === lastMessageToSummarize);
+
+            if (originalStartIndex === -1 || originalEndIndex === -1 || originalStartIndex >= originalEndIndex) {
+                 console.warn("Could not find the range of messages to summarize in actual chat history.");
+                 return;
+            }
+
+            const actualMessagesToSummarize = this.chatHistory.slice(originalStartIndex, originalEndIndex + 1);
+            const tokensBeforeSummary = this.ai.estimateTokens(actualMessagesToSummarize);
+            
+            const summarizationPromptContent = messagesToSummarize.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n\n');
+            const summarizationPrompt = `Please summarize the following conversation very concisely, focusing on key topics, questions, and outcomes. Do not add any new information or conversational filler. Just the summary.\n\n${summarizationPromptContent}`;
+            
+            // Prepare messages for internal AI call (just the summary prompt)
+            const internalMessagesForAI = [{ role: 'user', content: summarizationPrompt }];
+
+            let summaryResponse = '';
+            await new Promise((resolve, reject) => {
+                this.ai.chat(internalMessagesForAI, {
+                    onUpdate: (response) => {
+                        summaryResponse = response;
+                    },
+                    onDone: () => {
+                        resolve();
+                    },
+                    onError: (error) => {
+                        reject(error);
+                    }
+                });
+            });
+
+            if (summaryResponse) {
+                const summaryMessage = {
+                    role: 'model',
+                    type: 'model', // Still a model message, but could add 'isSummary: true' for specific rendering
+                    content: `**Summary of prior conversation:**\n\n${summaryResponse}`,
+                    timestamp: Date.now()
+                };
+                const tokensAfterSummary = this.ai.estimateTokens([summaryMessage]);
+
+                // Replace the summarized block with the new summary message
+                this.chatHistory.splice(originalStartIndex, actualMessagesToSummarize.length, summaryMessage);
+                
+                // Add a system message indicating the summarization
+                const systemMessage = {
+                    type: 'system_message',
+                    content: `History summarized: **${tokensBeforeSummary}** tokens condensed to **${tokensAfterSummary}** tokens.`,
+                    timestamp: Date.now()
+                };
+                this.chatHistory.splice(originalStartIndex + 1, 0, systemMessage); // Insert after summary
+
+                this._renderChatHistory();
+                this._dispatchContextUpdate('summarize', { summaryDetails: { tokensBefore: tokensBeforeSummary, tokensAfter: tokensAfterSummary } });
+                console.log(`Summarized ${tokensBeforeSummary} tokens down to ${tokensAfterSummary} tokens.`);
+            } else {
+                console.warn("Summarization did not return a response.");
+            }
+        } catch (error) {
+            console.error("Error during summarization:", error);
+            // Optional: Add an error system message to chat history
+            this.chatHistory.push({ type: 'system_message', content: `Error during summarization: ${error.message}`, timestamp: Date.now() });
+            this._renderChatHistory();
+            this._dispatchContextUpdate('summarize_error');
+        } finally {
+            this._isProcessing = false;
+            this._setButtonsDisabledState(false);
+        }
+    }
+
+
+    /**
      * Prepares the messages array for sending to the AI, handling pruning for context limits.
      * @returns {Array<Object>} The messages array, pruned if necessary.
      */
     _prepareMessagesForAI() {
         // Start with a copy of the raw chat history, before converting file_context to user messages
         let prunableHistory = [...this.chatHistory]; 
+
+        // NEW: Filter out system messages (these are for UI only)
+        prunableHistory = prunableHistory.filter(msg => msg.type !== 'system_message');
 
         // Filter out any pending AI response messages before pruning, as they are not input
         prunableHistory = prunableHistory.filter(msg => msg.role !== 'temp_ai_response');
@@ -571,10 +818,19 @@ class AIManager {
     }
 
 	async generate() {
+        if (this._isProcessing) { // NEW: Prevent multiple concurrent AI requests
+            console.warn("AI is currently processing another request. Please wait.");
+            return;
+        }
+        this._isProcessing = true;
+        this._setButtonsDisabledState(true); // Disable buttons immediately
+
 		const userPrompt = this.promptArea.value.trim()
 
 		if (!userPrompt) {
-			return
+            this._isProcessing = false; // NEW: Release lock if no prompt
+            this._setButtonsDisabledState(false);
+			return;
 		}
 
 		const MAX_PROMPT_HISTORY = 50
@@ -599,6 +855,15 @@ class AIManager {
 
 		this.promptArea.value = ""
 		this.panel.dispatchEvent(new CustomEvent("new-prompt", { detail: this.prompts }))
+
+        // NEW: Check for automatic summarization before processing the new prompt
+        const estimatedTokensBeforeNewPrompt = this.ai.estimateTokens(this.chatHistory);
+        const maxContextTokens = this.ai.MAX_CONTEXT_TOKENS;
+        if (maxContextTokens > 0 && (estimatedTokensBeforeNewPrompt / maxContextTokens * 100) >= this.config.summarizeThreshold) {
+            console.log(`Context at ${Math.round(estimatedTokensBeforeNewPrompt / maxContextTokens * 100)}%, triggering summarization.`);
+            await this._performSummarization(); // Await summarization before continuing
+        }
+
 
         // Step 1: Process prompt for @ tags based on runMode
 		const { processedPrompt, contextItems } = await this.ai._getContextualPrompt(userPrompt, this.runMode);
@@ -625,14 +890,16 @@ class AIManager {
             // Add the user's processed prompt to history
             this.chatHistory.push({ role: "user", type: "user", content: processedPrompt, timestamp: Date.now() });
 
-            // Render updated history in UI
+            // Render updated history in UI and dispatch event
             this._renderChatHistory();
+            this._dispatchContextUpdate('append_user'); // NEW: Dispatch after user prompt and context added
 
         } else { // 'generate' mode
             // For 'generate' mode, the prompt itself contains the inlined context.
             // We just add the user's original prompt string for UI.
             this.chatHistory.push({ role: "user", type: "user", content: userPrompt, timestamp: Date.now() });
             this._renderChatHistory(); // Render the single user prompt for generate
+            this._dispatchContextUpdate('append_user'); // NEW: Dispatch after user prompt added
         }
 
 		// Prepare placeholder for AI response and spinner
@@ -667,6 +934,7 @@ class AIManager {
 					const progressBarInner = this.progressBar.querySelector(".progress-bar-inner")
 					progressBarInner.style.width = contextRatioPercent + "%"
                     this.progressBar.style.display = "block"; // Ensure visible if ratio is given
+                    this._updateProgressBarColor(progressBarInner, contextRatioPercent); // NEW: Update color
 				} else {
 					this.progressBar.style.display = "none"; // Hide if no ratio available (e.g., Ollama chat)
 				}
@@ -675,6 +943,10 @@ class AIManager {
 
                 // Add AI response to chatHistory for persistence
                 this.chatHistory.push({ role: "model", type: "model", content: fullResponse, timestamp: Date.now() });
+                this._dispatchContextUpdate('append_model'); // NEW: Dispatch after model response
+
+                this._isProcessing = false; // NEW: Release lock
+                this._setButtonsDisabledState(false); // NEW: Re-enable buttons
 			},
 			onError: (error) => {
 				responseBlock.innerHTML = `Error: ${error.message}`
@@ -684,6 +956,10 @@ class AIManager {
 
                 // Optional: Add error message to chatHistory if you want it persistent
                 this.chatHistory.push({ role: "error", type: "error", content: `Error: ${error.message}`, timestamp: Date.now() });
+                this._dispatchContextUpdate('append_error'); // NEW: Dispatch after error
+
+                this._isProcessing = false; // NEW: Release lock
+                this._setButtonsDisabledState(false); // NEW: Re-enable buttons
 			},
 			onContextRatioUpdate: (ratio) => {
 				if (ratio !== null && ratio !== undefined) {
@@ -760,6 +1036,15 @@ class AIManager {
 		if (storedProvider && this.aiProviders[storedProvider]) {
 			this.aiProvider = storedProvider
 		}
+        // NEW: Load summarization settings from local storage
+        const storedSummarizeThreshold = localStorage.getItem("summarizeThreshold");
+        if (storedSummarizeThreshold !== null) {
+            this.config.summarizeThreshold = parseInt(storedSummarizeThreshold);
+        }
+        const storedSummarizeTargetPercentage = localStorage.getItem("summarizeTargetPercentage");
+        if (storedSummarizeTargetPercentage !== null) {
+            this.config.summarizeTargetPercentage = parseInt(storedSummarizeTargetPercentage);
+        }
 	}
 }
 

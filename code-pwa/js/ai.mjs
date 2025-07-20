@@ -197,11 +197,15 @@ export default class AI {
         } else if (Array.isArray(messages)) {
             let totalLength = 0;
             for (const msg of messages) {
+                // IMPORTANT: Only count content that would be sent to the AI
+                // The `type: 'error'` or `type: 'system_message'` should not contribute to AI tokens.
                 if (msg.role === 'user' || msg.role === 'model') {
                     totalLength += (msg.content || '').length;
                 } else if (msg.type === 'file_context' && msg.content) {
                     // Include context messages, also consider the "framing" text like filename and code block markers
-                    totalLength += (msg.filename || '').length + (msg.language || '').length + (msg.content || '').length + 50; // Add some overhead for markdown
+                    // This estimation should match how _prepareMessagesForAI formats file_context for AI
+                    const fileContentForAI = `--- File: ${msg.filename} ---\n\`\`\`${msg.language}\n${msg.content}\n\`\`\``;
+                    totalLength += fileContentForAI.length;
                 }
             }
             return Math.ceil(totalLength / 4);

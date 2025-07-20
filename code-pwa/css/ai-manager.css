@@ -1,3 +1,4 @@
+/* ai-manager.css */
 #ai-panel {
     flex-direction: column;
     position: relative;
@@ -170,6 +171,7 @@
 /* FIX START */
 .settings-panel input[type="text"],
 .settings-panel input[type="password"], /* Added this line to include password fields */
+.settings-panel input[type="number"], /* NEW: Added number inputs for summarization settings */
 .settings-panel textarea,
 .settings-panel select {
     width: calc(100% - 16px);
@@ -304,4 +306,27 @@
 .file-size {
     font-size: 0.8em; /* Make it slightly smaller */
     color: var(--text-color-secondary); /* A lighter color for secondary info */
+}
+
+/* NEW: Styles for system messages */
+.system-message-block {
+    margin-bottom: 8px;
+    padding: 8px 16px; /* Added more vertical padding */
+    background: rgba(var(--text-color-rgb), 0.05); /* Very subtle background */
+    border-radius: var(--border-radius);
+    color: var(--text-color-secondary); /* A more subtle text color */
+    font-style: italic;
+    font-size: 0.9em;
+    text-align: center; /* Center the system message */
+}
+
+/* NEW: General styles for disabled buttons */
+button:disabled,
+.theme-button:disabled,
+.clear-button:disabled,
+.settings-button:disabled,
+.context-file-action-button:disabled {
+    opacity: 0.6; /* Dim disabled buttons */
+    cursor: not-allowed; /* Indicate not clickable */
+    pointer-events: none; /* Prevent click events on disabled buttons completely */
 }
