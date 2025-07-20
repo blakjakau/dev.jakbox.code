@@ -1,7 +1,7 @@
+// ai.mjs
 export default class AI {
 	constructor() {
-		this.editor = null;
-		this.fileReader = null;
+		this._editor = null; 
 		this.config = {}; // Internal configuration object
 		this._settingsSchema = {}; // Schema for settings metadata
         this._settingsSource = 'global'; // 'global' or 'workspace'
@@ -57,15 +57,7 @@ export default class AI {
         throw new Error("saveSettings must be implemented by subclass");
     }
 
-	set fileReader(fileReader) {
-		// TODO recieve a custom fileReader object
-		// asign to a local variable and implement usage in this._readFile(filename)
-	}
-
-	async _readFile(filename) {
-		// TODO pass filename to the fileReader.readFile()
-		// if a filename and content is returned, it should be passed back to the calling function
-	}
+	// Removed _readFile and fileReader properties/setters, as they are not needed for current scope.
 
 	async _readEditor() {
 		if (!this.editor) return;
@@ -82,25 +74,72 @@ export default class AI {
 			if (selectedText) {
 				return { source: "selection", type: "code", language: language, content: fileContent };
 			} else {
-				const filename = this.editor?.tabs?.activeTab?.config?.name || "unknown";
+				const filename = this.editor?.tabs?.activeTab?.config?.name || "unknown"; 
 				return { source: filename, type: "file", language: language, content: fileContent };
 			}
 		}
 		return;
 	}
 
+    // REVISED AGAIN: _readOpenBuffers using editor.tabs.tabs (unchanged from last iteration)
+    async _readOpenBuffers() {
+        if (!this.editor || !this.editor.tabs || !Array.isArray(this.editor.tabs.tabs)) {
+            console.warn("Editor.tabs.tabs not available. Cannot read open buffers.");
+            return [];
+        }
+
+        const openFilesContent = [];
+        const openTabs = this.editor.tabs.tabs; 
+
+        for (const tabInfo of openTabs) {
+            try {
+                const filename = tabInfo.config.name;
+                const session = tabInfo.config.session;
+                const content = session.getValue();
+                const modeId = session.$modeId; 
+                const language = modeId.split('/').pop(); 
+
+                if (content) {
+                    openFilesContent.push({ source: filename, type: "file", language: language, content: content });
+                }
+            } catch (e) {
+                console.error("Error reading content from an open editor tab:", tabInfo, e);
+            }
+        }
+        return openFilesContent;
+    }
+
+
 	async _getContextualPrompt(prompt) {
         let fullPrompt = prompt;
-		if (this.editor && prompt.match(/\@/i)) {
-			const contextItems = [];
-			if (prompt.includes("@code")) {
+		if (this.editor && prompt.match(/\@/i)) { 
+			
+            // Handle @code and @current - both use _readEditor
+			if (prompt.includes("@code") || prompt.includes("@current")) {
 				const item = await this._readEditor();
 				if (item) {
                     const { source, type, language, content } = item;
                     const codeBlock = "\n\n ```"+language+"\n"+content+"\n``` ";
                     fullPrompt = fullPrompt.replace(/@code/ig, codeBlock);
+                    fullPrompt = fullPrompt.replace(/@current/ig, codeBlock);
                 }
 			}
+
+            // Handle @open
+            if (prompt.includes("@open")) {
+                const openFiles = await this._readOpenBuffers();
+                let openFilesContentString = "";
+                if (openFiles.length > 0) {
+                    openFiles.forEach(item => {
+                        const { source, type, language, content } = item;
+                        openFilesContentString += `\n\n--- File: ${source} ---\n`;
+                        openFilesContentString += "\n```"+language+"\n"+content+"\n```\n";
+                    });
+                } else {
+                    openFilesContentString = "\n\n(No open files found or available via editor API)\n\n";
+                }
+                fullPrompt = fullPrompt.replace(/@open/ig, openFilesContentString);
+            }
 		}
         return fullPrompt;
     }
