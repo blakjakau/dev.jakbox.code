@@ -409,6 +409,10 @@ const openWorkspace = (() => {
 			workspace.promptHistory = load.promptHistory || [];
 			ui.aiManager.promptHistory = workspace.promptHistory;
             workspace.aiConfig = load.aiConfig || {};
+            workspace.chatHistory = load.chatHistory || [];
+            if (ui.aiManager.historyManager) {
+                ui.aiManager.historyManager.loadHistory(workspace.chatHistory);
+            }
             // After loading workspace, ensure aiManager is initialized with the correct provider's config
             // This assumes ui.aiManager.aiProvider is already set by ui.aiManager.loadSettings() in its init
             const currentProvider = ui.aiManager.aiProvider;
@@ -1654,6 +1658,14 @@ setTimeout(async () => {
     ui.aiManager.panel.addEventListener('new-prompt', (event) => {
         workspace.promptHistory = event.detail;
         saveWorkspace();
+    });
+    ui.aiManager.panel.addEventListener('context-update', (event) => {
+        if (event.detail.chatHistory) {
+            workspace.chatHistory = event.detail.chatHistory;
+            // Debounced save
+            clearTimeout(ui.aiManager.saveTimeout);
+            ui.aiManager.saveTimeout = setTimeout(saveWorkspace, 1000);
+        }
     });
     window.addEventListener('setting-changed', (event) => {
         const { settingsName, settings, useWorkspaceSettings } = event.detail;

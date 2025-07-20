@@ -3,11 +3,9 @@
 import { Block, Button, Icon } from "./elements.mjs"
 import Ollama from "./ai-ollama.mjs"
 import Gemini from "./ai-gemini.mjs"
-import AIManagerHistory from "./ai-manager-history.mjs";
+import AIManagerHistory, { MAX_RECENT_MESSAGES_TO_PRESERVE } from "./ai-manager-history.mjs"
 
-const MAX_PROMPT_HISTORY = 50;
-const MIN_MESSAGES_FOR_SUMMARIZE_BUTTON = 3;
-const MIN_TOKENS_FOR_SUMMARIZE_BUTTON = 750;
+const MAX_PROMPT_HISTORY = 50
 
 class AIManager {
 	constructor() {
@@ -19,31 +17,31 @@ class AIManager {
 		}
 		this._settingsSchema = {
 			aiProvider: { type: "enum", label: "AI Provider", default: "ollama", enum: Object.keys(this.aiProviders) },
-            // NEW: Summarization settings
-            summarizeThreshold: { type: "number", label: "Summarize History When Context Reaches (%)", default: 85 },
-            summarizeTargetPercentage: { type: "number", label: "Percentage of Old History to Summarize", default: 50 },
+			// NEW: Summarization settings
+			summarizeThreshold: { type: "number", label: "Summarize History When Context Reaches (%)", default: 85 },
+			summarizeTargetPercentage: { type: "number", label: "Percentage of Old History to Summarize", default: 50 },
 		}
 
 		this.prompts = [] // Stores raw user prompt strings for history navigation (Ctrl+Up/Down)
 		this.promptIndex = -1 // -1 indicates no prompt from history is currently displayed
-		this.historyManager = new AIManagerHistory(this);
+		this.historyManager = new AIManagerHistory(this)
 
 		this.panel = null
 		this.promptArea = null
 		this.conversationArea = null
 		this.submitButton = null
 		this.md = window.markdownit()
-		this.runMode = "chat" // chat or generate
+		// this.runMode is REMOVED
 		this.settingsPanel = null
 		this.useWorkspaceSettings = false
 		this.userScrolled = false
-        this._isProcessing = false // NEW: Flag to track if AI is busy (generating or summarizing)
-        
-        // NEW: Load summarization settings defaults
-        this.config = {
-            summarizeThreshold: this._settingsSchema.summarizeThreshold.default,
-            summarizeTargetPercentage: this._settingsSchema.summarizeTargetPercentage.default,
-        };
+		this._isProcessing = false // NEW: Flag to track if AI is busy (generating or summarizing)
+
+		// NEW: Load summarization settings defaults
+		this.config = {
+			summarizeThreshold: this._settingsSchema.summarizeThreshold.default,
+			summarizeTargetPercentage: this._settingsSchema.summarizeTargetPercentage.default,
+		}
 	}
 
 	async init(panel) {
@@ -52,21 +50,21 @@ class AIManager {
 		this.ai = new this.aiProviders[this.aiProvider]()
 		await this.ai.init()
 
-        // NEW: Load summarization settings from storage, overriding defaults
-        const storedSummarizeThreshold = localStorage.getItem("summarizeThreshold");
-        if (storedSummarizeThreshold !== null) {
-            this.config.summarizeThreshold = parseInt(storedSummarizeThreshold);
-        }
-        const storedSummarizeTargetPercentage = localStorage.getItem("summarizeTargetPercentage");
-        if (storedSummarizeTargetPercentage !== null) {
-            this.config.summarizeTargetPercentage = parseInt(storedSummarizeTargetPercentage);
-        }
+		// NEW: Load summarization settings from storage, overriding defaults
+		const storedSummarizeThreshold = localStorage.getItem("summarizeThreshold")
+		if (storedSummarizeThreshold !== null) {
+			this.config.summarizeThreshold = parseInt(storedSummarizeThreshold)
+		}
+		const storedSummarizeTargetPercentage = localStorage.getItem("summarizeTargetPercentage")
+		if (storedSummarizeTargetPercentage !== null) {
+			this.config.summarizeTargetPercentage = parseInt(storedSummarizeTargetPercentage)
+		}
 
 		this._createUI()
 		this._setupPanel()
-        // If there's any initial history to display, render it
-        this.historyManager.render();
-        this._dispatchContextUpdate('init'); // NEW: Dispatch initial context state
+		// If there's any initial history to display, render it
+		this.historyManager.render()
+		this._dispatchContextUpdate("init") // NEW: Dispatch initial context state
 	}
 
 	set editor(editor) {
@@ -107,7 +105,7 @@ class AIManager {
 		this.progressBar = document.createElement("div")
 		this.progressBar.classList.add("progress-bar")
 		this.progressBar.setAttribute("title", "context window utilization")
-		this.progressBar.style.display = "none"
+		this.progressBar.style.display = "block" // Now always visible
 
 		const progressBarInner = document.createElement("div")
 		progressBarInner.classList.add("progress-bar-inner")
@@ -118,13 +116,13 @@ class AIManager {
 		const buttonContainer = new Block()
 		buttonContainer.classList.add("button-container")
 
-		this.runModeButton = this._createRunModeButton()
-        this.summarizeButton = this._createSummarizeButton(); // NEW: Summarize button
+		// this.runModeButton is REMOVED
+		this.summarizeButton = this._createSummarizeButton() // NEW: Summarize button
 		this.submitButton = this._createSubmitButton()
 		this.clearButton = this._createClearButton()
 
-		buttonContainer.append(this.runModeButton)
-        buttonContainer.append(this.summarizeButton); // NEW: Add summarize button
+		// Append order updated
+		buttonContainer.append(this.summarizeButton) // NEW: Add summarize button
 		const spacer = new Block()
 		spacer.classList.add("spacer")
 		buttonContainer.append(spacer)
@@ -193,76 +191,55 @@ class AIManager {
 		return promptArea
 	}
 
-	_createRunModeButton() {
-		const runModeButton = new Button("Chat")
-		runModeButton.icon = "chat"
-		runModeButton.classList.add("run-mode-button", "theme-button")
-		runModeButton.on("click", () => {
-			if (this.runMode === "chat") {
-				this.runMode = "generate"
-				runModeButton.text = "Generate"
-				runModeButton.icon = "code"
-				this.progressBar.style.display = "block" // Generate mode shows context
-			} else {
-				this.runMode = "chat"
-				runModeButton.text = "Chat"
-				runModeButton.icon = "chat"
-				this.progressBar.style.display = "none" // Chat mode bar will be managed by specific callbacks
-			}
-            this._dispatchContextUpdate('run_mode_change'); // NEW: Dispatch on run mode change
-		})
-		return runModeButton
-	}
+	// The _createRunModeButton() method has been REMOVED
 
-    // NEW: Manual Summarize Button
-    _createSummarizeButton() {
-        const summarizeButton = new Button("Summarize");
-        summarizeButton.icon = "compress"; // Using a suitable icon
-        summarizeButton.classList.add("summarize-button", "theme-button");
-        summarizeButton.on("click", () => this.historyManager.performSummarization());
-        this._setButtonsDisabledState(this._isProcessing); // Initial state
-        return summarizeButton;
-    }
+	// NEW: Manual Summarize Button
+	_createSummarizeButton() {
+		const summarizeButton = new Button("Summarize")
+		summarizeButton.icon = "compress" // Using a suitable icon
+		summarizeButton.classList.add("summarize-button", "theme-button")
+		summarizeButton.on("click", () => this.historyManager.performSummarization())
+		this._setButtonsDisabledState(this._isProcessing) // Initial state
+		return summarizeButton
+	}
 
 	_createSubmitButton() {
 		const submitButton = new Button("Send")
 		submitButton.icon = "send"
 		submitButton.classList.add("submit-button", "theme-button")
 		submitButton.on("click", () => this.generate())
-        this._setButtonsDisabledState(this._isProcessing); // Initial state
+		this._setButtonsDisabledState(this._isProcessing) // Initial state
 		return submitButton
 	}
 
 	_createClearButton() {
-		const clearButton = new Button("Clear")
+		const clearButton = new Button("New Context")
 		clearButton.classList.add("clear-button")
 		clearButton.on("click", () => {
-			this.historyManager.clear();
+			this.historyManager.clear()
 		})
-        this._setButtonsDisabledState(this._isProcessing); // Initial state
+		this._setButtonsDisabledState(this._isProcessing) // Initial state
 		return clearButton
 	}
 
-    // NEW: Helper to disable/enable relevant buttons
-     _setButtonsDisabledState(disabled) {
-        if (this.submitButton) this.submitButton.disabled = disabled;
-        if (this.clearButton) this.clearButton.disabled = disabled;
-        if (this.summarizeButton) {
-            const eligibleMessages = this.historyManager.chatHistory.filter(msg => msg.type === 'user' || msg.type === 'model');
+	// NEW: Helper to disable/enable relevant buttons
+	_setButtonsDisabledState(disabled) {
+		if (this.submitButton) this.submitButton.disabled = disabled
+		if (this.clearButton) this.clearButton.disabled = disabled
+		if (this.summarizeButton) {
+			const eligibleMessages = this.historyManager.chatHistory.filter(
+				(msg) => msg.type === "user" || msg.type === "model"
+			)
 
-            // Calculate tokens for the eligible messages
-            const eligibleTokens = this.ai.estimateTokens(eligibleMessages);
-            
-            // Condition to enable the button:
-            // - Not currently processing
-            // - At least `minMessagesForButton` eligible messages AND
-            // - The estimated tokens of these messages are greater than `minTokensForButton`
-			this.summarizeButton.disabled = disabled ||
-			   (eligibleMessages.length < MIN_MESSAGES_FOR_SUMMARIZE_BUTTON) ||
-			   (eligibleTokens < MIN_TOKENS_FOR_SUMMARIZE_BUTTON);
-        }
-    }
+			// NEW, more accurate condition:
+			// Summarization is only possible if the number of messages we can potentially summarize
+			// (i.e., total messages minus the ones we must preserve) is at least 2 (a user/model pair).
+			const summarizableMessageCount = eligibleMessages.length - MAX_RECENT_MESSAGES_TO_PRESERVE
+			const canSummarize = summarizableMessageCount >= 2
 
+			this.summarizeButton.disabled = disabled || !canSummarize
+		}
+	}
 
 	_createSettingsPanel() {
 		const settingsPanel = new Block()
@@ -312,49 +289,49 @@ class AIManager {
 				aiProviderSelect.appendChild(option)
 			})
 			aiProviderSelect.addEventListener("change", async () => {
-				const oldProvider = this.aiProvider;
+				const oldProvider = this.aiProvider
 				this.aiProvider = aiProviderSelect.value
 				localStorage.setItem("aiProvider", this.aiProvider)
-				
+
 				// Create new AI instance, maintaining history for it.
-				const newAIInstance = new this.aiProviders[this.aiProvider]();
+				const newAIInstance = new this.aiProviders[this.aiProvider]()
 				// AIManager already holds the chatHistory, so no need to pass it explicitly to newAIInstance.
 				// The _prepareMessagesForAI will retrieve and prune from this.chatHistory on each call.
-				this.ai = newAIInstance; 
-				await this.ai.init(); // Initialize the new AI with its settings
+				this.ai = newAIInstance
+				await this.ai.init() // Initialize the new AI with its settings
 
-				renderSettingsForm(); // Re-render settings for the new provider
-				this._resetProgressBar(); // Reset progress bar as context might be different
-                this._dispatchContextUpdate('settings_change'); // NEW: Dispatch on AI provider change
+				renderSettingsForm() // Re-render settings for the new provider
+				this._resetProgressBar() // Reset progress bar as context might be different
+				this._dispatchContextUpdate("settings_change") // NEW: Dispatch on AI provider change
 			})
 			aiProviderLabel.appendChild(aiProviderSelect)
 			form.appendChild(aiProviderLabel)
 
 			// NEW: Render summarization settings
-            const summarizeThresholdSetting = this._settingsSchema.summarizeThreshold;
-            const summarizeThresholdLabel = document.createElement("label");
-            summarizeThresholdLabel.textContent = `${summarizeThresholdSetting.label}: `;
-            const summarizeThresholdInput = document.createElement("input");
-            summarizeThresholdInput.type = "number";
-            summarizeThresholdInput.id = "summarizeThreshold";
-            summarizeThresholdInput.min = "0";
-            summarizeThresholdInput.max = "100";
-            summarizeThresholdInput.value = this.config.summarizeThreshold;
-            summarizeThresholdLabel.appendChild(summarizeThresholdInput);
-            form.appendChild(summarizeThresholdLabel);
+			const summarizeThresholdSetting = this._settingsSchema.summarizeThreshold
+			const summarizeThresholdLabel = document.createElement("label")
+			summarizeThresholdLabel.textContent = `${summarizeThresholdSetting.label}: `
+			const summarizeThresholdInput = document.createElement("input")
+			summarizeThresholdInput.type = "number"
+			summarizeThresholdInput.id = "summarizeThreshold"
+			summarizeThresholdInput.min = "0"
+			summarizeThresholdInput.max = "100"
+			summarizeThresholdInput.value = this.config.summarizeThreshold
+			summarizeThresholdLabel.appendChild(summarizeThresholdInput)
+			form.appendChild(summarizeThresholdLabel)
 
-            const summarizeTargetPercentageSetting = this._settingsSchema.summarizeTargetPercentage;
-            const summarizeTargetPercentageLabel = document.createElement("label");
-            summarizeTargetPercentageLabel.textContent = `${summarizeTargetPercentageSetting.label}: `;
-            const summarizeTargetPercentageInput = document.createElement("input");
-            summarizeTargetPercentageInput.type = "number";
-            summarizeTargetPercentageInput.id = "summarizeTargetPercentage";
-            summarizeTargetPercentageInput.min = "0";
-            summarizeTargetPercentageInput.max = "100";
-            summarizeTargetPercentageInput.value = this.config.summarizeTargetPercentage;
-            summarizeTargetPercentageLabel.appendChild(summarizeTargetPercentageInput);
-            form.appendChild(summarizeTargetPercentageLabel);
-            // END NEW
+			const summarizeTargetPercentageSetting = this._settingsSchema.summarizeTargetPercentage
+			const summarizeTargetPercentageLabel = document.createElement("label")
+			summarizeTargetPercentageLabel.textContent = `${summarizeTargetPercentageSetting.label}: `
+			const summarizeTargetPercentageInput = document.createElement("input")
+			summarizeTargetPercentageInput.type = "number"
+			summarizeTargetPercentageInput.id = "summarizeTargetPercentage"
+			summarizeTargetPercentageInput.min = "0"
+			summarizeTargetPercentageInput.max = "100"
+			summarizeTargetPercentageInput.value = this.config.summarizeTargetPercentage
+			summarizeTargetPercentageLabel.appendChild(summarizeTargetPercentageInput)
+			form.appendChild(summarizeTargetPercentageLabel)
+			// END NEW
 
 			// Render AI-specific settings
 			const options = await this.ai.getOptions()
@@ -368,7 +345,7 @@ class AIManager {
 					inputElement = document.createElement("select")
 					inputElement.id = `${this.aiProvider}-${key}`
 					// Ensure enum options are updated from the lookupCallback
-					const currentEnumOptions = setting.enum || []; // Use provided enum, or empty array
+					const currentEnumOptions = setting.enum || [] // Use provided enum, or empty array
 					currentEnumOptions.forEach((optionObj) => {
 						const option = document.createElement("option")
 						option.value = optionObj.value
@@ -383,14 +360,14 @@ class AIManager {
 						refreshButton.icon = "refresh"
 						refreshButton.classList.add("theme-button")
 						refreshButton.on("click", async () => {
-                            this._setButtonsDisabledState(true); // Disable buttons during model refresh
-                            try {
-							    await this.ai.refreshModels()
-							    renderSettingsForm() // Re-render to show updated model list
-                                this._dispatchContextUpdate('settings_change'); // NEW: Dispatch on model refresh
-                            } finally {
-                                this._setButtonsDisabledState(false); // Re-enable buttons
-                            }
+							this._setButtonsDisabledState(true) // Disable buttons during model refresh
+							try {
+								await this.ai.refreshModels()
+								renderSettingsForm() // Re-render to show updated model list
+								this._dispatchContextUpdate("settings_change") // NEW: Dispatch on model refresh
+							} finally {
+								this._setButtonsDisabledState(false) // Re-enable buttons
+							}
 						})
 						label.appendChild(refreshButton)
 					}
@@ -435,12 +412,11 @@ class AIManager {
 						newSettings[key] = input.value
 					}
 				}
-                // NEW: Read new summarization settings
-                this.config.summarizeThreshold = parseInt(form.querySelector("#summarizeThreshold").value);
-                this.config.summarizeTargetPercentage = parseInt(form.querySelector("#summarizeTargetPercentage").value);
-                localStorage.setItem("summarizeThreshold", this.config.summarizeThreshold);
-                localStorage.setItem("summarizeTargetPercentage", this.config.summarizeTargetPercentage);
-
+				// NEW: Read new summarization settings
+				this.config.summarizeThreshold = parseInt(form.querySelector("#summarizeThreshold").value)
+				this.config.summarizeTargetPercentage = parseInt(form.querySelector("#summarizeTargetPercentage").value)
+				localStorage.setItem("summarizeThreshold", this.config.summarizeThreshold)
+				localStorage.setItem("summarizeTargetPercentage", this.config.summarizeTargetPercentage)
 
 				// The setOptions method now correctly updates MAX_CONTEXT_TOKENS internally in AI providers
 				this.ai.setOptions(
@@ -451,7 +427,7 @@ class AIManager {
 						errorBlock.innerHTML = `Error: ${errorMessage}`
 						this.conversationArea.append(errorBlock)
 						this.conversationArea.scrollTop = this.conversationArea.scrollHeight
-                        this._dispatchContextUpdate('settings_save_error'); // NEW: Dispatch error state
+						this._dispatchContextUpdate("settings_save_error") // NEW: Dispatch error state
 					},
 					(successMessage) => {
 						const successBlock = new Block()
@@ -459,7 +435,7 @@ class AIManager {
 						successBlock.innerHTML = successMessage
 						this.conversationArea.append(successBlock)
 						this.conversationArea.scrollTop = this.conversationArea.scrollHeight
-                        this._dispatchContextUpdate('settings_save_success'); // NEW: Dispatch success state
+						this._dispatchContextUpdate("settings_save_success") // NEW: Dispatch success state
 					},
 					this.useWorkspaceSettings,
 					this.ai.settingsSource
@@ -478,72 +454,73 @@ class AIManager {
 	toggleSettingsPanel() {
 		this.conversationArea.classList.toggle("hidden")
 		this.settingsPanel.classList.toggle("active")
-        // If settings panel is being hidden, re-render chat history to refresh any potential content/token changes
-        if (!this.settingsPanel.classList.contains("active")) {
-            this.historyManager.render();
-            this._dispatchContextUpdate('settings_closed'); // NEW: Dispatch on settings panel close
-        }
+		// If settings panel is being hidden, re-render chat history to refresh any potential content/token changes
+		if (!this.settingsPanel.classList.contains("active")) {
+			this.historyManager.render()
+			this._dispatchContextUpdate("settings_closed") // NEW: Dispatch on settings panel close
+		}
 	}
-	
-    // NEW: Helper method to update progress bar color based on percentage
-    _updateProgressBarColor(progressBarInner, percentage) {
-        // Remove all color classes first
-        progressBarInner.classList.remove('threshold-yellow', 'threshold-orange', 'threshold-red');
 
-        if (percentage >= 90) {
-            progressBarInner.classList.add('threshold-red');
-        } else if (percentage >= 80) {
-            progressBarInner.classList.add('threshold-orange');
-        } else if (percentage >= 66) {
-            progressBarInner.classList.add('threshold-yellow');
-        }
-        // If percentage is below 66, no specific color class is added,
-        // and it will default to the original --theme color defined in CSS.
-    }
+	// NEW: Helper method to update progress bar color based on percentage
+	_updateProgressBarColor(progressBarInner, percentage) {
+		// Remove all color classes first
+		progressBarInner.classList.remove("threshold-yellow", "threshold-orange", "threshold-red")
 
-    _resetProgressBar() {
-        this.progressBar.style.display = this.runMode === "generate" ? "block" : "none";
-        const progressBarInner = this.progressBar.querySelector(".progress-bar-inner");
-        progressBarInner.style.width = "0%";
-        // NEW: Reset color when the progress bar is reset
-        this._updateProgressBarColor(progressBarInner, 0); // Reset to default (0%)
-    }
+		if (percentage >= 90) {
+			progressBarInner.classList.add("threshold-red")
+		} else if (percentage >= 80) {
+			progressBarInner.classList.add("threshold-orange")
+		} else if (percentage >= 66) {
+			progressBarInner.classList.add("threshold-yellow")
+		}
+		// If percentage is below 66, no specific color class is added,
+		// and it will default to the original --theme color defined in CSS.
+	}
 
-    /**
-     * Dispatches a custom 'context-update' event with the current chat state.
-     * @param {string} type - The type of update (e.g., 'append_user', 'summarize', 'clear', 'settings_change').
-     * @param {object} [details={}] - Additional details relevant to the update type (e.g., summaryDetails).
-     */
-    _dispatchContextUpdate(type, details = {}) {
-        const estimatedTokensFullHistory = this.ai.estimateTokens(this.historyManager.chatHistory);
-        const maxContextTokens = this.ai.MAX_CONTEXT_TOKENS;
+	_resetProgressBar() {
+		this.progressBar.style.display = "block"
+		const progressBarInner = this.progressBar.querySelector(".progress-bar-inner")
+		progressBarInner.style.width = "0%"
+		// NEW: Reset color when the progress bar is reset
+		this._updateProgressBarColor(progressBarInner, 0) // Reset to default (0%)
+	}
 
-        const eventDetail = {
-            chatHistory: JSON.parse(JSON.stringify(this.historyManager.chatHistory)), // Deep copy for immutability
-            aiProvider: this.aiProvider,
-            runMode: this.runMode,
-            estimatedTokensFullHistory: estimatedTokensFullHistory,
-            maxContextTokens: maxContextTokens,
-            type: type,
-            ...details
-        };
-        this.panel.dispatchEvent(new CustomEvent("context-update", { detail: eventDetail }));
-    }
+	/**
+	 * Dispatches a custom 'context-update' event with the current chat state.
+	 * @param {string} type - The type of update (e.g., 'append_user', 'summarize', 'clear', 'settings_change').
+	 * @param {object} [details={}] - Additional details relevant to the update type (e.g., summaryDetails).
+	 */
+	_dispatchContextUpdate(type, details = {}) {
+		const estimatedTokensFullHistory = this.ai.estimateTokens(this.historyManager.chatHistory)
+		const maxContextTokens = this.ai.MAX_CONTEXT_TOKENS
+
+		const eventDetail = {
+			chatHistory: JSON.parse(JSON.stringify(this.historyManager.chatHistory)), // Deep copy for immutability
+			aiProvider: this.aiProvider,
+			runMode: "chat", // Always chat mode now
+			estimatedTokensFullHistory: estimatedTokensFullHistory,
+			maxContextTokens: maxContextTokens,
+			type: type,
+			...details,
+		}
+		this.panel.dispatchEvent(new CustomEvent("context-update", { detail: eventDetail }))
+	}
 
 	async generate() {
-        if (this._isProcessing) { // NEW: Prevent multiple concurrent AI requests
-            console.warn("AI is currently processing another request. Please wait.");
-            return;
-        }
-        this._isProcessing = true;
-        this._setButtonsDisabledState(true); // Disable buttons immediately
+		if (this._isProcessing) {
+			// NEW: Prevent multiple concurrent AI requests
+			console.warn("AI is currently processing another request. Please wait.")
+			return
+		}
+		this._isProcessing = true
+		this._setButtonsDisabledState(true) // Disable buttons immediately
 
 		const userPrompt = this.promptArea.value.trim()
 
 		if (!userPrompt) {
-            this._isProcessing = false; // NEW: Release lock if no prompt
-            this._setButtonsDisabledState(false);
-			return;
+			this._isProcessing = false // NEW: Release lock if no prompt
+			this._setButtonsDisabledState(false)
+			return
 		}
 
 		const lastPrompt = this.prompts.length > 0 ? this.prompts[this.prompts.length - 1].trim() : null
@@ -567,36 +544,33 @@ class AIManager {
 		this.promptArea.value = ""
 		this.panel.dispatchEvent(new CustomEvent("new-prompt", { detail: this.prompts }))
 
-        // NEW: Check for automatic summarization before processing the new prompt
-        const estimatedTokensBeforeNewPrompt = this.ai.estimateTokens(this.historyManager.chatHistory);
-        const maxContextTokens = this.ai.MAX_CONTEXT_TOKENS;
-        if (maxContextTokens > 0 && (estimatedTokensBeforeNewPrompt / maxContextTokens * 100) >= this.config.summarizeThreshold) {
-            console.log(`Context at ${Math.round(estimatedTokensBeforeNewPrompt / maxContextTokens * 100)}%, triggering summarization.`);
-            await this.historyManager.performSummarization(); // Await summarization before continuing
-        }
+		// NEW: Check for automatic summarization before processing the new prompt
+		const estimatedTokensBeforeNewPrompt = this.ai.estimateTokens(this.historyManager.chatHistory)
+		const maxContextTokens = this.ai.MAX_CONTEXT_TOKENS
+		if (
+			maxContextTokens > 0 &&
+			(estimatedTokensBeforeNewPrompt / maxContextTokens) * 100 >= this.config.summarizeThreshold
+		) {
+			console.log(
+				`Context at ${Math.round(
+					(estimatedTokensBeforeNewPrompt / maxContextTokens) * 100
+				)}%, triggering summarization.`
+			)
+			await this.historyManager.performSummarization() // Await summarization before continuing
+		}
 
+		// Step 1: Process prompt for @ tags, always using "chat" logic now.
+		const { processedPrompt, contextItems } = await this.ai._getContextualPrompt(userPrompt, "chat")
 
-        // Step 1: Process prompt for @ tags based on runMode
-		const { processedPrompt, contextItems } = await this.ai._getContextualPrompt(userPrompt, this.runMode);
+		// Step 2: Update internal chatHistory (AIManager is source of truth)
+		// Add new context files to history
+		contextItems.forEach((item) => this.historyManager.addContextFile(item))
+		// Add the user's processed prompt to history
+		this.historyManager.addMessage({ role: "user", type: "user", content: processedPrompt, timestamp: Date.now() })
 
-        // Step 2: Update internal chatHistory (AIManager is source of truth)
-        if (this.runMode === "chat") {
-            // Add new context files to history
-            contextItems.forEach(item => this.historyManager.addContextFile(item));
-            // Add the user's processed prompt to history
-            this.historyManager.addMessage({ role: "user", type: "user", content: processedPrompt, timestamp: Date.now() });
-
-            // Render updated history in UI and dispatch event
-            this.historyManager.render();
-            this._dispatchContextUpdate('append_user'); // NEW: Dispatch after user prompt and context added
-
-        } else { // 'generate' mode
-            // For 'generate' mode, the prompt itself contains the inlined context.
-            // We just add the user's original prompt string for UI.
-            this.historyManager.addMessage({ role: "user", type: "user", content: userPrompt, timestamp: Date.now() });
-            this.historyManager.render(); // Render the single user prompt for generate
-            this._dispatchContextUpdate('append_user'); // NEW: Dispatch after user prompt added
-        }
+		// Render updated history in UI and dispatch event
+		this.historyManager.render()
+		this._dispatchContextUpdate("append_user")
 
 		// Prepare placeholder for AI response and spinner
 		const responseBlock = new Block()
@@ -626,23 +600,24 @@ class AIManager {
 			},
 			onDone: (fullResponse, contextRatioPercent) => {
 				this._addCodeBlockButtons(responseBlock)
-				if (contextRatioPercent !== null && contextRatioPercent !== undefined) {
-					const progressBarInner = this.progressBar.querySelector(".progress-bar-inner")
-					progressBarInner.style.width = contextRatioPercent + "%"
-                    this.progressBar.style.display = "block"; // Ensure visible if ratio is given
-                    this._updateProgressBarColor(progressBarInner, contextRatioPercent); // NEW: Update color
-				} else {
-					this.progressBar.style.display = "none"; // Hide if no ratio available (e.g., Ollama chat)
-				}
+
+				// Progress bar is now updated via _dispatchContextUpdate, simplifying this.
+				// We'll update it based on the final history state.
+
 				spinner.remove()
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
 
-                // Add AI response to chatHistory for persistence
-                this.historyManager.addMessage({ role: "model", type: "model", content: fullResponse, timestamp: Date.now() });
-                this._dispatchContextUpdate('append_model'); // NEW: Dispatch after model response
+				// Add AI response to chatHistory for persistence
+				this.historyManager.addMessage({
+					role: "model",
+					type: "model",
+					content: fullResponse,
+					timestamp: Date.now(),
+				})
+				this._dispatchContextUpdate("append_model") // NEW: Dispatch after model response
 
-                this._isProcessing = false; // NEW: Release lock
-                this._setButtonsDisabledState(false); // NEW: Re-enable buttons
+				this._isProcessing = false // NEW: Release lock
+				this._setButtonsDisabledState(false) // NEW: Re-enable buttons
 			},
 			onError: (error) => {
 				responseBlock.innerHTML = `Error: ${error.message}`
@@ -650,33 +625,28 @@ class AIManager {
 				spinner.remove()
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
 
-                // Optional: Add error message to chatHistory if you want it persistent
-                this.historyManager.addMessage({ role: "error", type: "error", content: `Error: ${error.message}`, timestamp: Date.now() });
-                this._dispatchContextUpdate('append_error'); // NEW: Dispatch after error
+				// Optional: Add error message to chatHistory if you want it persistent
+				this.historyManager.addMessage({
+					role: "error",
+					type: "error",
+					content: `Error: ${error.message}`,
+					timestamp: Date.now(),
+				})
+				this._dispatchContextUpdate("append_error") // NEW: Dispatch after error
 
-                this._isProcessing = false; // NEW: Release lock
-                this._setButtonsDisabledState(false); // NEW: Re-enable buttons
+				this._isProcessing = false // NEW: Release lock
+				this._setButtonsDisabledState(false) // NEW: Re-enable buttons
 			},
 			onContextRatioUpdate: (ratio) => {
-				if (ratio !== null && ratio !== undefined) {
-					this.progressBar.style.display = "block"
-					const progressBarInner = this.progressBar.querySelector(".progress-bar-inner")
-					progressBarInner.style.width = ratio * 100 + "%"
-                    this._updateProgressBarColor(progressBarInner, ratio * 100); // NEW: Update color
-				} else {
-					this.progressBar.style.display = "none"
-				}
+				// This callback is now redundant.
+				// The progress bar will be updated whenever the context changes via _dispatchContextUpdate.
+				// We can keep it here for compatibility if AI providers still call it, but it does nothing.
 			},
 		}
 
-		if (this.runMode === "chat") {
-            const messagesForAI = this.historyManager.prepareMessagesForAI();
-			this.ai.chat(messagesForAI, callbacks);
-		} else {
-            // For generate mode, processedPrompt already contains the inlined context.
-            // The AI generate method just needs this single prompt string.
-			this.ai.generate(processedPrompt, callbacks);
-		}
+		// Always use the chat method.
+		const messagesForAI = this.historyManager.prepareMessagesForAI()
+		this.ai.chat(messagesForAI, callbacks)
 	}
 
 	_addCodeBlockButtons(responseBlock) {
@@ -732,15 +702,15 @@ class AIManager {
 		if (storedProvider && this.aiProviders[storedProvider]) {
 			this.aiProvider = storedProvider
 		}
-        // NEW: Load summarization settings from local storage
-        const storedSummarizeThreshold = localStorage.getItem("summarizeThreshold");
-        if (storedSummarizeThreshold !== null) {
-            this.config.summarizeThreshold = parseInt(storedSummarizeThreshold);
-        }
-        const storedSummarizeTargetPercentage = localStorage.getItem("summarizeTargetPercentage");
-        if (storedSummarizeTargetPercentage !== null) {
-            this.config.summarizeTargetPercentage = parseInt(storedSummarizeTargetPercentage);
-        }
+		// NEW: Load summarization settings from local storage
+		const storedSummarizeThreshold = localStorage.getItem("summarizeThreshold")
+		if (storedSummarizeThreshold !== null) {
+			this.config.summarizeThreshold = parseInt(storedSummarizeThreshold)
+		}
+		const storedSummarizeTargetPercentage = localStorage.getItem("summarizeTargetPercentage")
+		if (storedSummarizeTargetPercentage !== null) {
+			this.config.summarizeTargetPercentage = parseInt(storedSummarizeTargetPercentage)
+		}
 	}
 }
 

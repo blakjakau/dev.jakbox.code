@@ -1,7 +1,7 @@
 // js/ai-manager-history.mjs
 
 import { Block, Button } from "./elements.mjs"
-const MAX_RECENT_MESSAGES_TO_PRESERVE = 5;
+export const MAX_RECENT_MESSAGES_TO_PRESERVE = 5
 
 class AIManagerHistory {
 	constructor(aiManager) {
@@ -45,6 +45,13 @@ class AIManagerHistory {
 			content: item.content,
 			timestamp: Date.now(),
 		})
+	}
+
+	loadHistory(history) {
+		if (Array.isArray(history)) {
+			this.chatHistory = history
+			this.render()
+		}
 	}
 
 	render() {
