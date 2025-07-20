@@ -6,6 +6,10 @@ export default class AI {
 		this._settingsSchema = {}; // Schema for settings metadata
         this._settingsSource = 'global'; // 'global' or 'workspace'
 	}
+	
+	async init() {
+		
+	}
 
 	set editor(editor) {
 		this._editor = editor;
@@ -57,7 +61,7 @@ export default class AI {
         throw new Error("saveSettings must be implemented by subclass");
     }
 
-	async _readEditor() {
+	async _readEditor(){
 		if (!this.editor) return;
 		// read  either the selection, or the full text
 		const selection = this.editor.getSelectionRange();
@@ -69,35 +73,52 @@ export default class AI {
 		const language = mode.split('/').pop(); // e.g., "javascript"
 
 		if (fileContent) {
+			const config = this.editor?.tabs?.activeTab?.config;
+			const filename = config?.name || "unknown"; 
+			const path = config?.path || filename;
+
 			if (selectedText) {
-				return { source: "selection", type: "code", language: language, content: fileContent, isSelection: true };
+				return { source: "selection", path: `selection:${path}`, type: "code", language: language, content: fileContent, isSelection: true };
 			} else {
-				const filename = this.editor?.tabs?.activeTab?.config?.name || "unknown"; 
-				return { source: filename, type: "file", language: language, content: fileContent, isSelection: false };
+				return { source: filename, path: path, type: "file", language: language, content: fileContent, isSelection: false };
 			}
 		}
 		return;
 	}
 
     async _readOpenBuffers() {
-        if (!this.editor || !this.editor.tabs || !Array.isArray(this.editor.tabs.tabs)) {
-            console.warn("Editor.tabs.tabs not available. Cannot read open buffers.");
-            return [];
-        }
-
         const openFilesContent = [];
-        const openTabs = this.editor.tabs.tabs; 
+        const allTabs = [];
 
-        for (const tabInfo of openTabs) {
+        if (window.ui && window.ui.leftTabs && window.ui.leftTabs.tabs) {
+            allTabs.push(...window.ui.leftTabs.tabs);
+        }
+        if (window.ui && window.ui.rightTabs && window.ui.rightTabs.tabs) {
+            allTabs.push(...window.ui.rightTabs.tabs);
+        }
+        
+        const uniqueTabs = [...new Map(allTabs.map(tab => [tab.config.path, tab])).values()];
+
+        for (const tabInfo of uniqueTabs) {
             try {
+                if (!tabInfo.config || !tabInfo.config.session) continue;
+
                 const filename = tabInfo.config.name;
+                const path = tabInfo.config.path;
                 const session = tabInfo.config.session;
                 const content = session.getValue();
                 const modeId = session.$modeId; 
-                const language = modeId.split('/').pop(); 
+                const language = modeId ? modeId.split('/').pop() : 'text'; 
 
-                if (content) {
-                    openFilesContent.push({ source: filename, type: "file", language: language, content: content, isSelection: false });
+                if (content && filename !== 'untitled' && path) {
+                    openFilesContent.push({ 
+                        source: filename, 
+                        path: path, 
+                        type: "file", 
+                        language: language, 
+                        content: content, 
+                        isSelection: false 
+                    });
                 }
             } catch (e) {
                 console.error("Error reading content from an open editor tab:", tabInfo, e);
@@ -123,24 +144,20 @@ export default class AI {
 			if (prompt.includes("@code") || prompt.includes("@current")) {
 				const item = await this._readEditor();
 				if (item) {
-                    const { source, type, language, content, isSelection } = item;
-                    const contextId = isSelection ? `selection:${language}` : `current_file:${language}:${source}`;
+                    const { source, path, type, language, content, isSelection } = item;
                     const codeBlock = "\n\n ```"+language+"\n"+content+"\n``` ";
                     
                     if (runMode === "chat") {
                         contextItems.push({ 
                             type: "file_context", 
-                            id: contextId,
+                            id: path,
                             filename: source, 
                             language: language, 
                             content: content,
                             isSelection: isSelection
                         });
-                        processedPrompt = processedPrompt.replace(/@code/ig, "");
-                        processedPrompt = processedPrompt.replace(/@current/ig, "");
                     } else { // generate mode, inline
-                        processedPrompt = processedPrompt.replace(/@code/ig, codeBlock);
-                        processedPrompt = processedPrompt.replace(/@current/ig, codeBlock);
+                        processedPrompt = processedPrompt.replace(/@(code|current)/ig, codeBlock);
                     }
                 }
 			}
@@ -152,11 +169,11 @@ export default class AI {
 
                 if (openFiles.length > 0) {
                     openFiles.forEach(item => {
-                        const { source, type, language, content, isSelection } = item;
+                        const { source, path, type, language, content, isSelection } = item;
                         if (runMode === "chat") {
-                            contextItems.push({ 
+                            contextItems.push({
                                 type: "file_context", 
-                                id: `open_file:${language}:${source}`,
+                                id: path,
                                 filename: source, 
                                 language: language, 
                                 content: content,
@@ -173,11 +190,14 @@ export default class AI {
                     }
                 }
                 
-                if (runMode === "chat") {
-                    processedPrompt = processedPrompt.replace(/@open/ig, "");
-                } else { // generate mode, inline
+                if (runMode === "generate") {
                     processedPrompt = processedPrompt.replace(/@open/ig, openFilesContentString);
                 }
+            }
+            
+            // Clean up all tags for chat mode after processing
+            if (runMode === "chat") {
+                processedPrompt = processedPrompt.replace(/@(code|current|open)/ig, "");
             }
 		}
         processedPrompt = processedPrompt.trim(); // Clean up any extra whitespace from replacements

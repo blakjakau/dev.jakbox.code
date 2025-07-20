@@ -1,3 +1,5 @@
+// ai-gemini.mjs
+
 import AI from './ai.mjs';
 
 class Gemini extends AI {
@@ -13,7 +15,7 @@ class Gemini extends AI {
         this.MAX_CONTEXT_TOKENS = 32768; // Initial default, updated on model load
 
         this._settingsSchema = {
-            apiKey: { type: "string", label: "Gemini API Key", default: "", secret: true },
+            apiKey: { type: "string", label: "Gemini API Key", default: "" },
             server: { type: "string", label: "Gemini API Server", default: "https://generativelanguage.googleapis.com" },
             model: { 
                 type: "enum", 
@@ -78,8 +80,19 @@ class Gemini extends AI {
         }
     }
 
-    async init() {
-        // No specific initialization needed for Gemini.
+	async init() {
+        // First, run the parent init() which calls loadSettings().
+        await super.init();
+
+        // After settings are loaded, we must update any derived state,
+        // like the context window size for the selected model.
+        // This is the same logic as in setOptions().
+        const selectedModelInfo = this._settingsSchema.model.enum.find(
+            model => model.value === this.config.model
+        );
+        if (selectedModelInfo && selectedModelInfo.maxTokens) {
+            this.MAX_CONTEXT_TOKENS = selectedModelInfo.maxTokens;
+        }
     }
     
     get _streamApiUrl() {
@@ -340,14 +353,22 @@ class Gemini extends AI {
         }
     }
     
-    async setOptions(newConfig, onErrorCallback, onSuccessCallback, useWorkspaceSettings, source = 'global') {
-        // ... (No change - same as before) ...
-        for (const name in newConfig) {
-            this.setOption(name, newConfig[name]);
-        }
-        this._settingsSource = source; 
-
-        // Update MAX_CONTEXT_TOKENS based on selected model
+    async setOptions(newSettings, onErrorCallback, onSuccessCallback, useWorkspaceSettings, source = 'global') {
+	    let changesApplied = false;
+	    for (const key in newSettings) {
+	        // Only update if the value is explicitly provided in newSettings
+	        if (newSettings.hasOwnProperty(key) && this.config[key] !== newSettings[key]) {
+	            this.config[key] = newSettings[key];
+	            changesApplied = true;
+	        }
+	    }
+	
+	    // Handle settings persistence based on useWorkspaceSettings and settingsSource
+	    // This part would already exist from your setting-changed listener in main.mjs
+	    // If settingsSource is 'workspace', save to workspace config; if 'global', save to app config.
+	    // It should *not* clear other settings if newSettings is incomplete.
+	
+	    // Also update MAX_CONTEXT_TOKENS if model or other context-affecting settings changed
         const selectedModelInfo = this._settingsSchema.model.enum.find(
             model => model.value === this.config.model
         );
@@ -355,27 +376,23 @@ class Gemini extends AI {
             this.MAX_CONTEXT_TOKENS = selectedModelInfo.maxTokens;
         }
 
-        // clearContext(); // AIManager will handle this
+	
+	    if (changesApplied) {
+	    	if("function" == typeof onSuccessCallback) {
+	        	onSuccessCallback("Settings saved successfully.");
+	    	}
+	    	
+	        const event = new CustomEvent('setting-changed', {
+	            detail: {
+	                settingsName: 'geminiConfig', 
+	                settings: { ...this.config }, 
+	                useWorkspaceSettings: useWorkspaceSettings,
+	                source: this._settingsSource
+	            }
+	        });
+	        window.dispatchEvent(event);
+	    }
 
-        if (this.config.apiKey) {
-            if (onSuccessCallback) {
-                onSuccessCallback(`Gemini settings saved. Using model: ${this.config.model}`);
-            }
-        } else {
-            if (onErrorCallback) {
-                onErrorCallback("Gemini API Key is required.");
-            }
-        }
-
-        const event = new CustomEvent('setting-changed', {
-            detail: {
-                settingsName: 'geminiConfig', 
-                settings: { ...this.config }, 
-                useWorkspaceSettings: useWorkspaceSettings,
-                source: this._settingsSource
-            }
-        });
-        window.dispatchEvent(event);
     }
 
     clearContext() {
@@ -391,4 +408,3 @@ class Gemini extends AI {
 }
 
 export default Gemini;
-

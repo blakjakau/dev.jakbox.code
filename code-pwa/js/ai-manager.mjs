@@ -31,8 +31,9 @@ class AIManager {
 		this.conversationArea = null
 		this.submitButton = null
 		this.md = window.markdownit()
-		// this.runMode is REMOVED
 		this.settingsPanel = null
+		this._settingsForm = null // NEW: Reference to the settings form element
+		this._workspaceSettingsCheckbox = null // NEW: Reference to the checkbox
 		this.useWorkspaceSettings = false
 		this.userScrolled = false
 		this._isProcessing = false // NEW: Flag to track if AI is busy (generating or summarizing)
@@ -86,7 +87,7 @@ class AIManager {
 	_createUI() {
 		this.conversationArea = this._createConversationArea()
 		const promptContainer = this._createPromptContainer()
-		this.settingsPanel = this._createSettingsPanel()
+		this.settingsPanel = this._createSettingsPanel() // Settings panel is created, but not populated yet
 		this.panel.append(this.conversationArea)
 		this.panel.append(this.settingsPanel)
 		this.panel.append(promptContainer)
@@ -104,7 +105,7 @@ class AIManager {
 
 		this.progressBar = document.createElement("div")
 		this.progressBar.classList.add("progress-bar")
-		this.progressBar.setAttribute("title", "context window utilization")
+		this.progressBar.setAttribute("title", "Context window utilization")
 		this.progressBar.style.display = "block" // Now always visible
 
 		const progressBarInner = document.createElement("div")
@@ -116,7 +117,6 @@ class AIManager {
 		const buttonContainer = new Block()
 		buttonContainer.classList.add("button-container")
 
-		// this.runModeButton is REMOVED
 		this.summarizeButton = this._createSummarizeButton() // NEW: Summarize button
 		this.submitButton = this._createSubmitButton()
 		this.clearButton = this._createClearButton()
@@ -191,8 +191,6 @@ class AIManager {
 		return promptArea
 	}
 
-	// The _createRunModeButton() method has been REMOVED
-
 	// NEW: Manual Summarize Button
 	_createSummarizeButton() {
 		const summarizeButton = new Button("Summarize")
@@ -226,6 +224,10 @@ class AIManager {
 	_setButtonsDisabledState(disabled) {
 		if (this.submitButton) this.submitButton.disabled = disabled
 		if (this.clearButton) this.clearButton.disabled = disabled
+		
+		// Also disable all history delete buttons while processing
+		this.conversationArea.querySelectorAll('.delete-history-button').forEach(btn => btn.disabled = disabled);
+
 		if (this.summarizeButton) {
 			const eligibleMessages = this.historyManager.chatHistory.filter(
 				(msg) => msg.type === "user" || msg.type === "model"
@@ -246,11 +248,13 @@ class AIManager {
 		settingsPanel.classList.add("settings-panel")
 
 		const form = document.createElement("form")
+		this._settingsForm = form // Store reference to the form
 
 		const workspaceSettingsCheckbox = document.createElement("input")
 		workspaceSettingsCheckbox.type = "checkbox"
 		workspaceSettingsCheckbox.id = "use-workspace-settings"
 		workspaceSettingsCheckbox.checked = this.useWorkspaceSettings
+		this._workspaceSettingsCheckbox = workspaceSettingsCheckbox // Store reference
 		const workspaceSettingsLabel = document.createElement("label")
 		workspaceSettingsLabel.htmlFor = "use-workspace-settings"
 		workspaceSettingsLabel.textContent = "Use workspace-specific settings"
@@ -269,187 +273,200 @@ class AIManager {
 			toggleInputs(this.useWorkspaceSettings)
 		})
 
-		const renderSettingsForm = async () => {
-			form.innerHTML = ""
-			form.appendChild(workspaceSettingsLabel)
-
-			// Add AI Provider selection
-			const aiProviderLabel = document.createElement("label")
-			aiProviderLabel.textContent = `AI Provider: `
-			const aiProviderSelect = document.createElement("select")
-			aiProviderSelect.id = `ai-provider`
-			const providerOptions = this._settingsSchema.aiProvider.enum
-			providerOptions.forEach((optionValue) => {
-				const option = document.createElement("option")
-				option.value = optionValue
-				option.textContent = optionValue.charAt(0).toUpperCase() + optionValue.slice(1)
-				if (optionValue === this.aiProvider) {
-					option.selected = true
-				}
-				aiProviderSelect.appendChild(option)
-			})
-			aiProviderSelect.addEventListener("change", async () => {
-				const oldProvider = this.aiProvider
-				this.aiProvider = aiProviderSelect.value
-				localStorage.setItem("aiProvider", this.aiProvider)
-
-				// Create new AI instance, maintaining history for it.
-				const newAIInstance = new this.aiProviders[this.aiProvider]()
-				// AIManager already holds the chatHistory, so no need to pass it explicitly to newAIInstance.
-				// The _prepareMessagesForAI will retrieve and prune from this.chatHistory on each call.
-				this.ai = newAIInstance
-				await this.ai.init() // Initialize the new AI with its settings
-
-				renderSettingsForm() // Re-render settings for the new provider
-				this._resetProgressBar() // Reset progress bar as context might be different
-				this._dispatchContextUpdate("settings_change") // NEW: Dispatch on AI provider change
-			})
-			aiProviderLabel.appendChild(aiProviderSelect)
-			form.appendChild(aiProviderLabel)
-
-			// NEW: Render summarization settings
-			const summarizeThresholdSetting = this._settingsSchema.summarizeThreshold
-			const summarizeThresholdLabel = document.createElement("label")
-			summarizeThresholdLabel.textContent = `${summarizeThresholdSetting.label}: `
-			const summarizeThresholdInput = document.createElement("input")
-			summarizeThresholdInput.type = "number"
-			summarizeThresholdInput.id = "summarizeThreshold"
-			summarizeThresholdInput.min = "0"
-			summarizeThresholdInput.max = "100"
-			summarizeThresholdInput.value = this.config.summarizeThreshold
-			summarizeThresholdLabel.appendChild(summarizeThresholdInput)
-			form.appendChild(summarizeThresholdLabel)
-
-			const summarizeTargetPercentageSetting = this._settingsSchema.summarizeTargetPercentage
-			const summarizeTargetPercentageLabel = document.createElement("label")
-			summarizeTargetPercentageLabel.textContent = `${summarizeTargetPercentageSetting.label}: `
-			const summarizeTargetPercentageInput = document.createElement("input")
-			summarizeTargetPercentageInput.type = "number"
-			summarizeTargetPercentageInput.id = "summarizeTargetPercentage"
-			summarizeTargetPercentageInput.min = "0"
-			summarizeTargetPercentageInput.max = "100"
-			summarizeTargetPercentageInput.value = this.config.summarizeTargetPercentage
-			summarizeTargetPercentageLabel.appendChild(summarizeTargetPercentageInput)
-			form.appendChild(summarizeTargetPercentageLabel)
-			// END NEW
-
-			// Render AI-specific settings
-			const options = await this.ai.getOptions()
-			for (const key in options) {
-				const setting = options[key]
-				const label = document.createElement("label")
-				label.textContent = `${setting.label}: `
-
-				let inputElement
-				if (setting.type === "enum") {
-					inputElement = document.createElement("select")
-					inputElement.id = `${this.aiProvider}-${key}`
-					// Ensure enum options are updated from the lookupCallback
-					const currentEnumOptions = setting.enum || [] // Use provided enum, or empty array
-					currentEnumOptions.forEach((optionObj) => {
-						const option = document.createElement("option")
-						option.value = optionObj.value
-						option.textContent = optionObj.label || optionObj.value
-						if (optionObj.value === setting.value) {
-							option.selected = true
-						}
-						inputElement.appendChild(option)
-					})
-					if (key === "model") {
-						const refreshButton = new Button()
-						refreshButton.icon = "refresh"
-						refreshButton.classList.add("theme-button")
-						refreshButton.on("click", async () => {
-							this._setButtonsDisabledState(true) // Disable buttons during model refresh
-							try {
-								await this.ai.refreshModels()
-								renderSettingsForm() // Re-render to show updated model list
-								this._dispatchContextUpdate("settings_change") // NEW: Dispatch on model refresh
-							} finally {
-								this._setButtonsDisabledState(false) // Re-enable buttons
-							}
-						})
-						label.appendChild(refreshButton)
-					}
-				} else if (setting.multiline) {
-					inputElement = document.createElement("textarea")
-					inputElement.id = `${this.aiProvider}-${key}`
-					inputElement.value = setting.value
-				} else if (setting.type === "string") {
-					inputElement = document.createElement("input")
-					inputElement.type = "text"
-					inputElement.id = `${this.aiProvider}-${key}`
-					inputElement.value = setting.value
-				} else if (setting.type === "number") {
-					inputElement = document.createElement("input")
-					inputElement.type = "number"
-					inputElement.id = `${this.aiProvider}-${key}`
-					inputElement.value = setting.value
-				} else {
-					inputElement = document.createElement("input")
-					inputElement.type = setting.type
-					inputElement.id = `${this.aiProvider}-${key}`
-					inputElement.value = setting.value
-				}
-				if (setting.secret) {
-					inputElement.type = "password"
-				}
-				label.appendChild(inputElement)
-				form.appendChild(label)
-			}
-
-			toggleInputs(this.useWorkspaceSettings)
-
-			const saveButton = new Button("Save Settings")
-			saveButton.icon = "save"
-			saveButton.classList.add("theme-button")
-			saveButton.on("click", async () => {
-				const newSettings = {}
-				const currentOptions = await this.ai.getOptions()
-				for (const key in currentOptions) {
-					const input = form.querySelector(`#${this.aiProvider}-${key}`)
-					if (input) {
-						newSettings[key] = input.value
-					}
-				}
-				// NEW: Read new summarization settings
-				this.config.summarizeThreshold = parseInt(form.querySelector("#summarizeThreshold").value)
-				this.config.summarizeTargetPercentage = parseInt(form.querySelector("#summarizeTargetPercentage").value)
-				localStorage.setItem("summarizeThreshold", this.config.summarizeThreshold)
-				localStorage.setItem("summarizeTargetPercentage", this.config.summarizeTargetPercentage)
-
-				// The setOptions method now correctly updates MAX_CONTEXT_TOKENS internally in AI providers
-				this.ai.setOptions(
-					newSettings,
-					(errorMessage) => {
-						const errorBlock = new Block()
-						errorBlock.classList.add("response-block")
-						errorBlock.innerHTML = `Error: ${errorMessage}`
-						this.conversationArea.append(errorBlock)
-						this.conversationArea.scrollTop = this.conversationArea.scrollHeight
-						this._dispatchContextUpdate("settings_save_error") // NEW: Dispatch error state
-					},
-					(successMessage) => {
-						const successBlock = new Block()
-						successBlock.classList.add("response-block")
-						successBlock.innerHTML = successMessage
-						this.conversationArea.append(successBlock)
-						this.conversationArea.scrollTop = this.conversationArea.scrollHeight
-						this._dispatchContextUpdate("settings_save_success") // NEW: Dispatch success state
-					},
-					this.useWorkspaceSettings,
-					this.ai.settingsSource
-				)
-				this.toggleSettingsPanel()
-			})
-			form.appendChild(saveButton)
-		}
-
-		renderSettingsForm()
+		// Do NOT call renderSettingsForm() here. It will be called when the panel is shown.
 
 		settingsPanel.appendChild(form)
 		return settingsPanel
 	}
+
+	/**
+	 * NEW: Private method to render the settings form content.
+	 * This is called whenever the settings panel is made visible.
+	 */
+	async _renderSettingsForm() {
+		const form = this._settingsForm;
+		const workspaceSettingsCheckbox = this._workspaceSettingsCheckbox;
+		const workspaceSettingsLabel = form.querySelector("label[for='use-workspace-settings']"); // Re-select label as its content will be cleared
+
+		// Clear all form content except the workspace settings checkbox and its label
+		form.innerHTML = '';
+		form.appendChild(workspaceSettingsLabel);
+
+		// Re-apply the disabled state based on the current checkbox state
+		const toggleInputs = (disabled) => {
+			const inputs = form.querySelectorAll("input:not(#use-workspace-settings), textarea, select");
+			inputs.forEach((input) => {
+				input.disabled = disabled;
+			});
+		};
+
+		// Add AI Provider selection
+		const aiProviderLabel = document.createElement("label")
+		aiProviderLabel.textContent = `AI Provider: `
+		const aiProviderSelect = document.createElement("select")
+		aiProviderSelect.id = `ai-provider`
+		const providerOptions = this._settingsSchema.aiProvider.enum
+		providerOptions.forEach((optionValue) => {
+			const option = document.createElement("option")
+			option.value = optionValue
+			option.textContent = optionValue.charAt(0).toUpperCase() + optionValue.slice(1)
+			if (optionValue === this.aiProvider) {
+				option.selected = true
+			}
+			aiProviderSelect.appendChild(option)
+		})
+		aiProviderSelect.addEventListener("change", async () => {
+			const oldProvider = this.aiProvider
+			this.aiProvider = aiProviderSelect.value
+			localStorage.setItem("aiProvider", this.aiProvider)
+
+			// Create new AI instance, maintaining history for it.
+			const newAIInstance = new this.aiProviders[this.aiProvider]()
+			this.ai = newAIInstance
+			await this.ai.init() // Initialize the new AI with its settings
+
+			this._renderSettingsForm() // Re-render settings for the new provider
+			this._dispatchContextUpdate("settings_change") // NEW: Dispatch on AI provider change
+		})
+		aiProviderLabel.appendChild(aiProviderSelect)
+		form.appendChild(aiProviderLabel)
+
+		// NEW: Render summarization settings
+		const summarizeThresholdSetting = this._settingsSchema.summarizeThreshold
+		const summarizeThresholdLabel = document.createElement("label")
+		summarizeThresholdLabel.textContent = `${summarizeThresholdSetting.label}: `
+		const summarizeThresholdInput = document.createElement("input")
+		summarizeThresholdInput.type = "number"
+		summarizeThresholdInput.id = "summarizeThreshold"
+		summarizeThresholdInput.min = "0"
+		summarizeThresholdInput.max = "100"
+		summarizeThresholdInput.value = this.config.summarizeThreshold
+		summarizeThresholdLabel.appendChild(summarizeThresholdInput)
+		form.appendChild(summarizeThresholdLabel)
+
+		const summarizeTargetPercentageSetting = this._settingsSchema.summarizeTargetPercentage
+		const summarizeTargetPercentageLabel = document.createElement("label")
+		summarizeTargetPercentageLabel.textContent = `${summarizeTargetPercentageSetting.label}: `
+		const summarizeTargetPercentageInput = document.createElement("input")
+		summarizeTargetPercentageInput.type = "number"
+		summarizeTargetPercentageInput.id = "summarizeTargetPercentage"
+		summarizeTargetPercentageInput.min = "0"
+		summarizeTargetPercentageInput.max = "100"
+		summarizeTargetPercentageInput.value = this.config.summarizeTargetPercentage
+		summarizeTargetPercentageLabel.appendChild(summarizeTargetPercentageInput)
+		form.appendChild(summarizeTargetPercentageLabel)
+		// END NEW
+
+		// Render AI-specific settings
+		const options = await this.ai.getOptions()
+		for (const key in options) {
+			const setting = options[key]
+			const label = document.createElement("label")
+			label.textContent = `${setting.label}: `
+
+			let inputElement
+			if (setting.type === "enum") {
+				inputElement = document.createElement("select")
+				inputElement.id = `${this.aiProvider}-${key}`
+				const currentEnumOptions = setting.enum || []
+				currentEnumOptions.forEach((optionObj) => {
+					const option = document.createElement("option")
+					option.value = optionObj.value
+					option.textContent = optionObj.label || optionObj.value
+					if (optionObj.value === setting.value) {
+						option.selected = true
+					}
+					inputElement.appendChild(option)
+				})
+				if (key === "model") {
+					const refreshButton = new Button()
+					refreshButton.icon = "refresh"
+					refreshButton.classList.add("theme-button")
+					refreshButton.on("click", async () => {
+						this._setButtonsDisabledState(true)
+						try {
+							await this.ai.refreshModels()
+							this._renderSettingsForm() // Re-render to show updated model list
+							this._dispatchContextUpdate("settings_change")
+						} finally {
+							this._setButtonsDisabledState(false)
+						}
+					})
+					label.appendChild(refreshButton)
+				}
+			} else if (setting.multiline) {
+				inputElement = document.createElement("textarea")
+				inputElement.id = `${this.aiProvider}-${key}`
+				inputElement.value = setting.value
+			} else if (setting.type === "string") {
+				inputElement = document.createElement("input")
+				inputElement.type = "text"
+				inputElement.id = `${this.aiProvider}-${key}`
+				inputElement.value = setting.value
+			} else if (setting.type === "number") {
+				inputElement = document.createElement("input")
+				inputElement.type = "number"
+				inputElement.id = `${this.aiProvider}-${key}`
+				inputElement.value = setting.value
+			} else {
+				inputElement = document.createElement("input")
+				inputElement.type = setting.type
+				inputElement.id = `${this.aiProvider}-${key}`
+				inputElement.value = setting.value
+			}
+			if (setting.secret) {
+				inputElement.type = "password"
+			}
+			label.appendChild(inputElement)
+			form.appendChild(label)
+		}
+
+		toggleInputs(this.useWorkspaceSettings) // Apply initial disabled state based on checkbox
+
+		const saveButton = new Button("Save Settings")
+		saveButton.icon = "save"
+		saveButton.classList.add("theme-button")
+		saveButton.on("click", async () => {
+			const newSettings = {}
+			const currentOptions = await this.ai.getOptions()
+			for (const key in currentOptions) {
+				const input = form.querySelector(`#${this.aiProvider}-${key}`)
+				if (input) {
+					newSettings[key] = input.value
+				}
+			}
+			// NEW: Read new summarization settings
+			this.config.summarizeThreshold = parseInt(form.querySelector("#summarizeThreshold").value)
+			this.config.summarizeTargetPercentage = parseInt(form.querySelector("#summarizeTargetPercentage").value)
+			localStorage.setItem("summarizeThreshold", this.config.summarizeThreshold)
+			localStorage.setItem("summarizeTargetPercentage", this.config.summarizeTargetPercentage)
+
+			this.ai.setOptions(
+				newSettings,
+				(errorMessage) => {
+					const errorBlock = new Block()
+					errorBlock.classList.add("response-block")
+					errorBlock.innerHTML = `Error: ${errorMessage}`
+					this.conversationArea.append(errorBlock)
+					this.conversationArea.scrollTop = this.conversationArea.scrollHeight
+					this._dispatchContextUpdate("settings_save_error")
+				},
+				(successMessage) => {
+					const successBlock = new Block()
+					successBlock.classList.add("response-block")
+					successBlock.innerHTML = successMessage
+					this.conversationArea.append(successBlock)
+					this.conversationArea.scrollTop = this.conversationArea.scrollHeight
+					this._dispatchContextUpdate("settings_save_success")
+				},
+				this.useWorkspaceSettings,
+				this.ai.settingsSource
+			)
+			this.toggleSettingsPanel() // Hide settings panel after saving
+		})
+		form.appendChild(saveButton)
+	}
+
 
 	toggleSettingsPanel() {
 		this.conversationArea.classList.toggle("hidden")
@@ -458,6 +475,10 @@ class AIManager {
 		if (!this.settingsPanel.classList.contains("active")) {
 			this.historyManager.render()
 			this._dispatchContextUpdate("settings_closed") // NEW: Dispatch on settings panel close
+		} else {
+			// NEW: If settings panel is being shown, re-render its content to reflect current values
+			this._renderSettingsForm()
+			this._dispatchContextUpdate("settings_opened") // NEW: Dispatch on settings panel open
 		}
 	}
 
@@ -477,12 +498,31 @@ class AIManager {
 		// and it will default to the original --theme color defined in CSS.
 	}
 
-	_resetProgressBar() {
-		this.progressBar.style.display = "block"
+	/**
+	 * NEW (FIX): Centralized method to update context-sensitive UI elements like the progress bar.
+	 * This is now called directly by _dispatchContextUpdate.
+	 * @param {object} detail - The event detail object from _dispatchContextUpdate.
+	 */
+	_updateContextUI(detail) {
+		if (!this.progressBar || !this.ai) return
+
+		const { estimatedTokensFullHistory, maxContextTokens } = detail
 		const progressBarInner = this.progressBar.querySelector(".progress-bar-inner")
-		progressBarInner.style.width = "0%"
-		// NEW: Reset color when the progress bar is reset
-		this._updateProgressBarColor(progressBarInner, 0) // Reset to default (0%)
+
+		if (maxContextTokens > 0) {
+			const percentage = Math.min(100, (estimatedTokensFullHistory / maxContextTokens) * 100)
+			progressBarInner.style.width = `${percentage}%`
+			this.progressBar.setAttribute(
+				"title",
+				`Context: ${estimatedTokensFullHistory} / ${maxContextTokens} tokens (${Math.round(percentage)}%)`
+			)
+			this._updateProgressBarColor(progressBarInner, percentage)
+		} else {
+			// If max tokens is 0 or unknown, show a default state
+			progressBarInner.style.width = "0%"
+			this.progressBar.setAttribute("title", `Context: ${estimatedTokensFullHistory} tokens (max unknown)`)
+			this._updateProgressBarColor(progressBarInner, 0)
+		}
 	}
 
 	/**
@@ -503,6 +543,12 @@ class AIManager {
 			type: type,
 			...details,
 		}
+
+		// FIX: Directly update the AIManager's own UI before dispatching the event for external listeners.
+		this._updateContextUI(eventDetail)
+		// Also update button states, as context changes can affect summarization eligibility.
+		this._setButtonsDisabledState(this._isProcessing)
+
 		this.panel.dispatchEvent(new CustomEvent("context-update", { detail: eventDetail }))
 	}
 
@@ -600,9 +646,6 @@ class AIManager {
 			},
 			onDone: (fullResponse, contextRatioPercent) => {
 				this._addCodeBlockButtons(responseBlock)
-
-				// Progress bar is now updated via _dispatchContextUpdate, simplifying this.
-				// We'll update it based on the final history state.
 
 				spinner.remove()
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
@@ -715,3 +758,4 @@ class AIManager {
 }
 
 export default new AIManager()
+

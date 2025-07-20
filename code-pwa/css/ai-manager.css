@@ -137,16 +137,56 @@
     background-color: rgba(120, 120, 120, 0.7);
 }
 
+/* NEW: Wrapper for the prompt pill to contain the delete button */
+.prompt-pill-wrapper {
+    position: relative; /* Anchor for the absolute positioned button */
+    align-self: flex-end;
+    max-width: 80%;
+    margin-bottom: 8px; /* Maintain spacing */
+    display: flex; /* Ensures pill takes up available space */
+}
+
 .prompt-pill {
     background-color: var(--themeDark);
     color: var(--ui-pri-bg); /* Assuming --ui-pri-bg is a light text color */
     padding: 0px 12px; /* as the prompt is now being formatted...*/
     border-radius: 16px;
-    margin-bottom: 8px;
-    align-self: flex-end;
-    max-width: 80%;
     word-wrap: break-word;
 }
+
+/* NEW: Delete button for prompt/response pairs */
+.delete-history-button {
+    background-color: var(--themeDark);
+    color: var(--light);
+    border: none;
+    border-radius: 50%; /* Make it round */
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    padding: 0;
+    position: absolute;
+    top: -4px; /* Position it slightly offset from the pill */
+    right: -4px;
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5); /* Add a subtle shadow to lift it */
+}
+
+.delete-history-button:hover {
+    background-color: #dc3545; /* Red on hover to indicate danger */
+}
+
+/* NEW: Show delete button on wrapper hover for both prompt and file context pills */
+.prompt-pill-wrapper:hover .delete-history-button,
+.context-file-wrapper:hover .delete-history-button {
+    opacity: 1;
+}
+
 
 .settings-panel {
     flex: 1;
@@ -168,10 +208,9 @@
     width: 100%;
 }
 
-/* FIX START */
 .settings-panel input[type="text"],
-.settings-panel input[type="password"], /* Added this line to include password fields */
-.settings-panel input[type="number"], /* NEW: Added number inputs for summarization settings */
+.settings-panel input[type="password"],
+.settings-panel input[type="number"],
 .settings-panel textarea,
 .settings-panel select {
     width: calc(100% - 16px);
@@ -180,10 +219,9 @@
     border: 1px solid var(--mid);
     border-radius: var(--buttonBorder);
     background-color: var(--high);
-    color: var(--text-color); /* Changed from var(--dark) for consistency with general text color */
+    color: var(--text-color);
     box-sizing: border-box;
 }
-/* FIX END */
 
 .settings-panel textarea {
     min-height: 80px;
@@ -214,11 +252,16 @@
 }
 
 .progress-bar {
-  height: 10px;
+  height: 4px;
   width: 100%;
   background-color: var(--themeDark);
-  border-radius: 5px;
-  margin-bottom: 10px;
+  border-radius: 4px;
+  margin: 4px;
+  transition: height 333ms;
+}
+
+.progress-bar:hover {
+	height: 12px;	
 }
 
 .progress-bar-inner {
@@ -226,11 +269,9 @@
   width: 0%;
   background-color: var(--theme);
   border-radius: 5px;
-  /* ADDED: Transition for background-color */
   transition: width 0.5s ease-in-out, background-color 0.3s ease-in-out;
 }
 
-/* NEW: Classes for progress bar color thresholds */
 .progress-bar-inner.threshold-yellow {
     background-color: #ffd700; /* Yellow/Gold */
 }
@@ -253,80 +294,50 @@
     }
 }
 
-/* NEW: Wrapper for context file pill and its action buttons */
 .context-file-wrapper {
-    display: flex; /* Use flexbox to align the pill and buttons */
-    align-items: center; /* Vertically align items */
-    margin-bottom: 8px; /* Maintain spacing between file contexts */
-    align-self: flex-end; /* Align the whole wrapper to the right, like user prompts */
-    max-width: 80%; /* Match the max-width of the prompt-pill */
-    gap: 4px; /* Space between the pill and the buttons, and between buttons */
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    align-self: flex-end;
+    max-width: 80%;
+    gap: 4px;
+    position: relative; /* NEW: Added for absolute positioning of the delete button */
 }
 
-/* Adjusted style for context file pills */
 .context-file-pill {
-    background-color: var(--dark); /* A dark background from the theme */
-    border: 1px solid var(--theme); /* A dark border from the theme */
-    color: var(--theme); /* Ensure text is readable on the dark background */
-    /* align-self and max-width are now handled by .context-file-wrapper */
+    background-color: var(--dark);
+    border: 1px solid var(--theme);
+    color: var(--theme);
     padding: 0px 12px;
     border-radius: 16px;
-    flex-grow: 1; /* Allow the pill to grow within the wrapper */
-    flex-shrink: 1; /* Allow the pill to shrink if needed */
+    flex-grow: 1;
+    flex-shrink: 1;
 }
 
-/* NEW: Styling for the new icon-only action buttons */
-.context-file-action-button {
-    background-color: var(--dark); /* Dark background for the buttons */
-    color: var(--theme); /* Theme color for the icon */
-    border: 1px solid var(--theme); /* Border matching the pill */
-    border-radius: 50%; /* Make them round */
-    width: 28px; /* Fixed width */
-    height: 28px; /* Fixed height */
-    min-width: 28px; /* Ensure they don't shrink */
-    min-height: 28px; /* Ensure they don't shrink */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    padding: 0; /* No internal padding for icon-only buttons */
-}
+/* REMOVED .context-file-action-button styles as they are no longer used */
 
-.context-file-action-button:hover {
-    background-color: var(--theme); /* Hover: inverse colors */
-    color: var(--dark);
-}
-
-/* Removed old .context-file-buttons style */
-/* .context-file-buttons {
-    margin-top: 8px;
-} */
-
-/* Styling for the new file size span, if needed */
 .file-size {
-    font-size: 0.8em; /* Make it slightly smaller */
-    color: var(--text-color-secondary); /* A lighter color for secondary info */
+    font-size: 0.8em;
+    color: var(--text-color-secondary);
 }
 
-/* NEW: Styles for system messages */
 .system-message-block {
     margin-bottom: 8px;
-    padding: 8px 16px; /* Added more vertical padding */
-    background: rgba(var(--text-color-rgb), 0.05); /* Very subtle background */
+    padding: 8px 16px;
+    background: rgba(var(--text-color-rgb), 0.05);
     border-radius: var(--border-radius);
-    color: var(--text-color-secondary); /* A more subtle text color */
+    color: var(--text-color-secondary);
     font-style: italic;
     font-size: 0.9em;
-    text-align: center; /* Center the system message */
+    text-align: center;
 }
 
-/* NEW: General styles for disabled buttons */
 button:disabled,
 .theme-button:disabled,
 .clear-button:disabled,
 .settings-button:disabled,
-.context-file-action-button:disabled {
-    opacity: 0.6; /* Dim disabled buttons */
-    cursor: not-allowed; /* Indicate not clickable */
-    pointer-events: none; /* Prevent click events on disabled buttons completely */
+.delete-history-button:disabled { /* UPDATED: Removed .context-file-action-button */
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
 }

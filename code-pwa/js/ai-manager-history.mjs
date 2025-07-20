@@ -1,4 +1,4 @@
-// js/ai-manager-history.mjs
+// ai-manager-history.mjs
 
 import { Block, Button } from "./elements.mjs"
 export const MAX_RECENT_MESSAGES_TO_PRESERVE = 5
@@ -14,6 +14,8 @@ class AIManagerHistory {
 		return this.manager.ai
 	}
 
+
+
 	get conversationArea() {
 		return this.manager.conversationArea
 	}
@@ -21,7 +23,6 @@ class AIManagerHistory {
 	clear() {
 		this.chatHistory = []
 		this.ai.clearContext()
-		this.manager._resetProgressBar()
 		this.manager._dispatchContextUpdate("clear")
 		this.render()
 	}
@@ -31,6 +32,8 @@ class AIManagerHistory {
 		this.render()
 		// Dispatching update will be handled by AIManager after calling this
 	}
+
+
 
 	addContextFile(item) {
 		// Remove invalidated copies of the same file first
@@ -51,18 +54,53 @@ class AIManagerHistory {
 		if (Array.isArray(history)) {
 			this.chatHistory = history
 			this.render()
+			// NEW: Dispatch an update to ensure the UI (progress bar, etc.) reflects the loaded state.
+			this.manager._dispatchContextUpdate("history_loaded")
 		}
 	}
 
 	render() {
 		if (!this.conversationArea) return
 		this.conversationArea.innerHTML = "" // Clear existing UI
-		this.chatHistory.forEach((message) => {
+
+		// Use a standard for loop to get index access
+		for (let i = 0; i < this.chatHistory.length; i++) {
+			const message = this.chatHistory[i]
+
 			if (message.type === "user") {
-				const messageBlock = new Block()
-				messageBlock.classList.add("prompt-pill")
-				messageBlock.innerHTML = this.md.render(message.content)
-				this.conversationArea.append(messageBlock)
+				// Check if this user prompt is followed by a model response
+				const nextMessageIsModel = i + 1 < this.chatHistory.length && this.chatHistory[i + 1].type === "model"
+
+				if (nextMessageIsModel) {
+					// Create a wrapper to contain the pill and the delete button
+					const wrapper = new Block()
+					wrapper.classList.add("prompt-pill-wrapper")
+
+					const messageBlock = new Block()
+					messageBlock.classList.add("prompt-pill")
+					messageBlock.innerHTML = this.md.render(message.content)
+					wrapper.append(messageBlock)
+
+					// Create the delete button
+					const deleteButton = new Button()
+					deleteButton.classList.add("delete-history-button")
+					deleteButton.icon = "delete"
+					deleteButton.title = "Delete this prompt and response"
+					deleteButton.on("click", () => this._handleDeleteHistoryItem(i))
+					wrapper.append(deleteButton)
+
+					this.conversationArea.append(wrapper)
+				} else {
+					// Render user prompt without a delete button (it's the last message)
+					const messageBlock = new Block()
+					messageBlock.classList.add("prompt-pill")
+					messageBlock.innerHTML = this.md.render(message.content)
+					// It's not in a wrapper, so it needs its own alignment and margin
+					messageBlock.style.alignSelf = "flex-end"
+					messageBlock.style.maxWidth = "80%"
+					messageBlock.style.marginBottom = "8px"
+					this.conversationArea.append(messageBlock)
+				}
 			} else if (message.type === "model") {
 				const messageBlock = new Block()
 				messageBlock.classList.add("response-block")
@@ -77,8 +115,41 @@ class AIManagerHistory {
 				messageBlock.innerHTML = this.md.render(message.content)
 				this.conversationArea.append(messageBlock)
 			}
-		})
-		this.conversationArea.scrollTop = this.conversationArea.scrollHeight
+		}
+		// this.conversationArea.scrollTop = this.conversationArea.scrollHeight
+	}
+
+	/**
+	 * Handles the deletion of a user prompt and its subsequent model response.
+	 * @param {number} userPromptIndex - The index in chatHistory of the user prompt to remove.
+	 */
+	_handleDeleteHistoryItem(userPromptIndex) {
+		// We are guaranteed that a model response exists at the next index
+		// because the delete button is only rendered when this is true.
+		this.chatHistory.splice(userPromptIndex, 2) // Removes 2 items: the user prompt and the model response
+
+		// Re-render the UI to reflect the change
+		this.render()
+
+		// Dispatch an update so the AIManager can update the progress bar and button states
+		this.manager._dispatchContextUpdate("delete_item")
+	}
+
+	/**
+	 * NEW: Handles the deletion of a file context item from the history.
+	 * @param {string} fileId - The unique ID of the file context item to remove.
+	 */
+	_handleDeleteFileContextItem(fileId) {
+		// Filter out the specific file context item by its unique ID
+		this.chatHistory = this.chatHistory.filter(
+			(item) => !(item.type === "file_context" && item.id === fileId)
+		);
+
+		// Re-render the UI to reflect the change
+		this.render();
+
+		// Dispatch an update so the AIManager can update the progress bar
+		this.manager._dispatchContextUpdate("delete_item");
 	}
 
 	_appendFileContextUI(fileContext) {
@@ -106,36 +177,23 @@ class AIManagerHistory {
 		fileSizeSpan.textContent = ` (${sizeText})`
 		filenameText.appendChild(fileSizeSpan)
 
-		const timestampSpan = document.createElement("span")
-		timestampSpan.classList.add("timestamp")
-		timestampSpan.textContent = new Date(fileContext.timestamp).toLocaleTimeString()
-		header.appendChild(timestampSpan)
+		// Removed the timestampSpan section entirely
+		// const timestampSpan = document.createElement("span")
+		// timestampSpan.classList.add("timestamp")
+		// timestampSpan.textContent = new Date(fileContext.timestamp).toLocaleTimeString()
+		// header.appendChild(timestampSpan)
 
 		fileBlock.append(header)
 		wrapperBlock.append(fileBlock)
 
-		const copyButton = new Button()
-		copyButton.icon = "content_copy"
-		copyButton.title = "Copy Content"
-		copyButton.classList.add("context-file-action-button")
-		copyButton.on("click", () => {
-			navigator.clipboard.writeText(fileContext.content)
-			copyButton.icon = "done"
-			setTimeout(() => (copyButton.icon = "content_copy"), 1000)
-		})
+		// NEW: Add a remove button instead of copy/insert
+		const removeButton = new Button()
+		removeButton.icon = "delete"
+		removeButton.title = "Remove file from context"
+		removeButton.classList.add("delete-history-button") // Reuse existing style
+		removeButton.on("click", () => this._handleDeleteFileContextItem(fileContext.id))
+		wrapperBlock.append(removeButton)
 
-		const insertButton = new Button()
-		insertButton.icon = "input"
-		insertButton.title = "Insert into Editor"
-		insertButton.classList.add("context-file-action-button")
-		insertButton.on("click", () => {
-			const event = new CustomEvent("insert-snippet", { detail: fileContext.content })
-			window.dispatchEvent(event)
-			insertButton.icon = "done"
-			setTimeout(() => (insertButton.icon = "input"), 1000)
-		})
-
-		wrapperBlock.append(copyButton, insertButton)
 		this.conversationArea.append(wrapperBlock)
 	}
 

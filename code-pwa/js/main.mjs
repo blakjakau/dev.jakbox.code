@@ -935,6 +935,7 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 
 	const tab = targetTabs.add({
 		name: file.name,
+		path: path,
 		mode: fileMode,
 		session: newSession,
 		side: (targetEditor === leftEdit) ? "left" : "right",
