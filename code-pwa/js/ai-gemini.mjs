@@ -1,3 +1,5 @@
+// ai-gemini.mjs
+
 import AI from './ai.mjs';
 
 class Gemini extends AI {
@@ -9,11 +11,11 @@ class Gemini extends AI {
             server: "https://generativelanguage.googleapis.com", 
             system: "You are a helpful AI assistant.",
         };
-        this.messages = [];
-        this.MAX_CONTEXT_TOKENS = 32768;
+        // this.messages = []; // AIManager will now manage the full history
+        this.MAX_CONTEXT_TOKENS = 32768; // Initial default, updated on model load
 
         this._settingsSchema = {
-            apiKey: { type: "string", label: "Gemini API Key", default: "", secret: true },
+            apiKey: { type: "string", label: "Gemini API Key", default: "" },
             server: { type: "string", label: "Gemini API Server", default: "https://generativelanguage.googleapis.com" },
             model: { 
                 type: "enum", 
@@ -78,8 +80,19 @@ class Gemini extends AI {
         }
     }
 
-    async init() {
-        // No specific initialization needed for Gemini.
+	async init() {
+        // First, run the parent init() which calls loadSettings().
+        await super.init();
+
+        // After settings are loaded, we must update any derived state,
+        // like the context window size for the selected model.
+        // This is the same logic as in setOptions().
+        const selectedModelInfo = this._settingsSchema.model.enum.find(
+            model => model.value === this.config.model
+        );
+        if (selectedModelInfo && selectedModelInfo.maxTokens) {
+            this.MAX_CONTEXT_TOKENS = selectedModelInfo.maxTokens;
+        }
     }
     
     get _streamApiUrl() {
@@ -91,15 +104,41 @@ class Gemini extends AI {
     }
 
     /**
+     * Converts internal message format to Gemini's `contents` array format.
+     * @param {Array<Object>} messages - Internal chat history messages.
+     * @returns {Array<Object>} - Gemini API `contents` array.
+     */
+    _toGeminiContents(messages) {
+        const contents = [];
+        for (const msg of messages) {
+            if (msg.role === 'user' || msg.role === 'model') {
+                contents.push({ role: msg.role, parts: [{ text: msg.content }] });
+            } else if (msg.type === 'file_context') {
+                // Gemini does not have a 'file_context' role, treat as part of user input
+                const fileContent = `--- File: ${msg.filename} ---\n\`\`\`${msg.language}\n${msg.content}\n\`\`\``;
+                // If the previous message was 'user', append to its parts, otherwise create new.
+                // This simplifies token counting for Gemini which often lumps user inputs.
+                if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+                    contents[contents.length - 1].parts.push({ text: fileContent });
+                } else {
+                    contents.push({ role: 'user', parts: [{ text: fileContent }] });
+                }
+            }
+        }
+        return contents;
+    }
+
+    /**
      * Internal helper to make the Gemini countTokens API call.
-     * @param {Array<Object>} contents - The array of message parts to count tokens for.
+     * @param {Array<Object>} messages - The array of messages (in internal format) to count tokens for.
      * @returns {Promise<number>} - The total number of tokens.
      */
-    async _countTokens(contents) {
+    async _countTokens(messages) {
         if (!this.config.apiKey) {
             return 0;
         }
         try {
+            const contents = this._toGeminiContents(messages);
             const response = await fetch(this._countTokensApiUrl, {
                 method: 'POST',
                 headers: {
@@ -116,7 +155,9 @@ class Gemini extends AI {
             const data = await response.json();
             return data.totalTokens || 0;
         } catch (error) {
-            throw error;
+            console.error("Error in Gemini _countTokens:", error);
+            // Fallback to rough estimate if API call fails
+            return this.estimateTokens(messages); 
         }
     }
 
@@ -127,6 +168,7 @@ class Gemini extends AI {
      * @returns {Promise<string>} - Resolves with the full accumulated text response.
      */
     async _processApiResponseStream(reader, callbacks) {
+        // ... (No change - same as before) ...
         const { onUpdate, onError } = callbacks;
         let buffer = '';
         const decoder = new TextDecoder('utf-8');
@@ -206,25 +248,20 @@ class Gemini extends AI {
     }
 
     /**
-     * Generates content using the Gemini model.
-     * @param {string} prompt - The user's prompt.
-     * @param {object} callbacks - An object with callback functions:
-     *   - onStart(): Called when generation starts.
-     *   - onUpdate(text): Called with streamed chunks.
-     *   - onContextRatioUpdate(ratio): Called with the current context utilization ratio (0-1).
-     *   - onDone(text, contextRatioPercent): Called when generation is complete, includes final text and ratio.
-     *   - onError(error): Called if an error occurs.
+     * Generates content using the Gemini model. For 'generate' mode, the prompt is expected
+     * to have all context inlined by AIManager._getContextualPrompt.
+     * @param {string} prompt - The user's prompt (with context inlined).
+     * @param {object} callbacks - An object with callback functions.
      */
     async generate(prompt, callbacks = {}) {
         const { onStart, onError, onDone, onContextRatioUpdate } = callbacks;
         if (onStart) onStart();
 
         try {
-            const fullPrompt = await this._getContextualPrompt(prompt);
-            
-            const contentsToSend = [{ role: "user", parts: [{ text: fullPrompt }] }];
+            const contentsToSend = [{ role: "user", parts: [{ text: prompt }] }];
 
-            const currentTokens = await this._countTokens(contentsToSend);
+            // Note: _countTokens expects internal message format, so convert
+            const currentTokens = await this._countTokens([{ role: "user", content: prompt }]);
             const contextRatio = currentTokens / this.MAX_CONTEXT_TOKENS;
 
             if (onContextRatioUpdate) {
@@ -249,7 +286,11 @@ class Gemini extends AI {
             const reader = response.body.getReader();
             const fullResponse = await this._processApiResponseStream(reader, callbacks);
             
-            if (onDone) onDone(fullResponse, Math.round(contextRatio * 100));
+            // Recalculate context after response if needed, for more accurate final ratio
+            const finalTokens = await this._countTokens([{ role: "user", content: prompt }, { role: "model", content: fullResponse }]);
+            const finalContextRatio = finalTokens / this.MAX_CONTEXT_TOKENS;
+
+            if (onDone) onDone(fullResponse, Math.round(finalContextRatio * 100));
 
         } catch (error) {
             if (onError) onError(error);
@@ -258,25 +299,18 @@ class Gemini extends AI {
 
     /**
      * Manages a chat conversation with the Gemini model.
-     * @param {string} prompt - The user's message.
-     * @param {object} callbacks - An object with callback functions:
-     *   - onStart(): Called when chat turn starts.
-     *   - onUpdate(text): Called with streamed chunks.
-     *   - onContextRatioUpdate(ratio): Called with the current context utilization ratio (0-1).
-     *   - onDone(text, contextRatioPercent): Called when chat turn is complete, includes final text and ratio.
-     *   - onError(error): Called if an error occurs.
+     * Accepts a pre-filtered array of messages (chat history + current context items + user prompt).
+     * @param {Array<Object>} messages - The prepared array of messages for this turn.
+     * @param {object} callbacks - An object with callback functions.
      */
-    async chat(prompt, callbacks = {}) {
+    async chat(messages, callbacks = {}) {
         const { onStart, onError, onDone, onContextRatioUpdate } = callbacks;
         if (onStart) onStart();
 
         try {
-            const fullPrompt = await this._getContextualPrompt(prompt);
-            
-            const userMessagePart = { role: "user", parts: [{ text: fullPrompt }] };
-            const contentsToSend = [...this.messages, userMessagePart];
+            const contentsToSend = this._toGeminiContents(messages);
 
-            const currentTokens = await this._countTokens(contentsToSend);
+            const currentTokens = await this._countTokens(messages);
             const contextRatio = currentTokens / this.MAX_CONTEXT_TOKENS;
 
             if (onContextRatioUpdate) {
@@ -301,10 +335,10 @@ class Gemini extends AI {
             const reader = response.body.getReader();
             const fullResponse = await this._processApiResponseStream(reader, callbacks);
             
-            this.messages.push(userMessagePart);
-            this.messages.push({ role: "model", parts: [{ text: fullResponse }] });
+            // Add the model's response to the messages array (for final token calculation)
+            messages.push({ role: "model", content: fullResponse });
 
-            const finalTokens = await this._countTokens(this.messages);
+            const finalTokens = await this._countTokens(messages);
             const finalContextRatio = finalTokens / this.MAX_CONTEXT_TOKENS;
             if (onContextRatioUpdate) {
                 onContextRatioUpdate(finalContextRatio);
@@ -319,12 +353,22 @@ class Gemini extends AI {
         }
     }
     
-    async setOptions(newConfig, onErrorCallback, onSuccessCallback, useWorkspaceSettings, source = 'global') {
-        for (const name in newConfig) {
-            this.setOption(name, newConfig[name]);
-        }
-        this._settingsSource = source; 
-
+    async setOptions(newSettings, onErrorCallback, onSuccessCallback, useWorkspaceSettings, source = 'global') {
+	    let changesApplied = false;
+	    for (const key in newSettings) {
+	        // Only update if the value is explicitly provided in newSettings
+	        if (newSettings.hasOwnProperty(key) && this.config[key] !== newSettings[key]) {
+	            this.config[key] = newSettings[key];
+	            changesApplied = true;
+	        }
+	    }
+	
+	    // Handle settings persistence based on useWorkspaceSettings and settingsSource
+	    // This part would already exist from your setting-changed listener in main.mjs
+	    // If settingsSource is 'workspace', save to workspace config; if 'global', save to app config.
+	    // It should *not* clear other settings if newSettings is incomplete.
+	
+	    // Also update MAX_CONTEXT_TOKENS if model or other context-affecting settings changed
         const selectedModelInfo = this._settingsSchema.model.enum.find(
             model => model.value === this.config.model
         );
@@ -332,35 +376,34 @@ class Gemini extends AI {
             this.MAX_CONTEXT_TOKENS = selectedModelInfo.maxTokens;
         }
 
-        this.clearContext();
+	
+	    if (changesApplied) {
+	    	if("function" == typeof onSuccessCallback) {
+	        	onSuccessCallback("Settings saved successfully.");
+	    	}
+	    	
+	        const event = new CustomEvent('setting-changed', {
+	            detail: {
+	                settingsName: 'geminiConfig', 
+	                settings: { ...this.config }, 
+	                useWorkspaceSettings: useWorkspaceSettings,
+	                source: this._settingsSource
+	            }
+	        });
+	        window.dispatchEvent(event);
+	    }
 
-        if (this.config.apiKey) {
-            if (onSuccessCallback) {
-                onSuccessCallback(`Gemini settings saved. Using model: ${this.config.model}`);
-            }
-        } else {
-            if (onErrorCallback) {
-                onErrorCallback("Gemini API Key is required.");
-            }
-        }
-
-        const event = new CustomEvent('setting-changed', {
-            detail: {
-                settingsName: 'geminiConfig', 
-                settings: { ...this.config }, 
-                useWorkspaceSettings: useWorkspaceSettings,
-                source: this._settingsSource
-            }
-        });
-        window.dispatchEvent(event);
     }
 
     clearContext() {
-        this.messages = [];
+        // This is now effectively a no-op as AIManager manages the history
+        // but keep it for consistency if a provider wants to reset internal state.
+        console.log("Gemini internal context cleared (AIManager manages chat history).");
     }
 
     async refreshModels() {
-        await this._getAvailableModels();
+        // ... (No change - same as before) ...
+        this._settingsSchema.model.enum = await this._getAvailableModels();
     }
 }
 

@@ -8,6 +8,16 @@ const FILE_URL = "openFile.html"
 
 const deploy = true
 
+// --- List of hostnames for services that should NOT be cached ---
+const NON_CACHEABLE_HOSTS = [
+    "generativelanguage.googleapis.com", // Gemini API hostname
+    // Add other external API hostnames here, e.g.:
+    // "maps.googleapis.com",
+    // "api.stripe.com",
+    // "my-custom-external-service.com",
+];
+
+
 // Files here will be kept fresh every time the serviceworker is updated
 const essential = [
 	"/",
@@ -78,22 +88,35 @@ self.addEventListener("install", function (event) {
 			// always cache these static assets
 			for (let i = 0, l = staticAssets.length; i < l; i++) {
 				try {
-					await cache.add(new Request(staticAssets[i])) //, { cache: "reload" }))
-					await offline.add(new Request(staticAssets[i]))
+					// IMPORTANT: Do NOT add URLs from NON_CACHEABLE_HOSTS here,
+                    // as the goal is to prevent caching them.
+					// Check if the static asset should be cached
+                    const assetUrl = new URL(staticAssets[i], self.location.origin);
+                    if (!NON_CACHEABLE_HOSTS.includes(assetUrl.hostname)) {
+                        await cache.add(new Request(staticAssets[i]))
+                        await offline.add(new Request(staticAssets[i]))
+                    } else {
+                        console.debug("[service] Not pre-caching non-cacheable static asset:", staticAssets[i]);
+                    }
 				} catch (e) {
-					console.error("failed to add cache", staticAssets[i])
+					console.error("failed to add cache", staticAssets[i], e)
 				}
 			}
 
 			// force cache these only if we're deployed
-
 			if (deploy) {
 				for (let i = 0, l = essential.length; i < l; i++) {
 					try {
-						await cache.add(new Request(essential[i], { cache: "reload" }))
-						await offline.add(new Request(essential[i]))
+                        // IMPORTANT: Do NOT add URLs from NON_CACHEABLE_HOSTS here.
+                        const essentialUrl = new URL(essential[i], self.location.origin);
+                        if (!NON_CACHEABLE_HOSTS.includes(essentialUrl.hostname)) {
+						    await cache.add(new Request(essential[i], { cache: "reload" }))
+						    await offline.add(new Request(essential[i]))
+                        } else {
+                            console.debug("[service] Not pre-caching non-cacheable essential asset:", essential[i]);
+                        }
 					} catch (e) {
-						console.error("failed to add cache", essential[i])
+						console.error("failed to add cache", essential[i], e)
 					}
 				}
 			}
@@ -120,10 +143,9 @@ self.addEventListener("activate", (event) => {
 })
 
 self.addEventListener("fetch", function (event) {
-
-	// special handler for version request to read the variable in here
-	// Check if the request is for /version.json
 	const url = new URL(event.request.url)
+
+	// Special handler for version request
 	if (url.pathname === "/version.json") {
 		const responseBody = { appName: "code.jakbox.dev", version: APP_VERSION, }
 		const jsonResponse = new Response(JSON.stringify(responseBody), {
@@ -133,8 +155,17 @@ self.addEventListener("fetch", function (event) {
 		return
 	}
 
-	// Do not cache Ollama API requests
+    // --- NEW: Do not cache calls to external APIs like Gemini ---
+    if (NON_CACHEABLE_HOSTS.includes(url.hostname)) {
+        console.debug("[service] Bypassing cache for external API:", url.href);
+        event.respondWith(fetch(event.request)); // Go directly to network
+        return; // Important: Exit here to prevent any further caching logic for this request
+    }
+
+	// Do not cache Ollama API requests (your existing logic)
+	// This specifically targets your local /api/ path, which is good.
 	if (url.pathname.startsWith("/api/")) {
+		console.debug("[service] Bypassing cache for internal API:", url.href);
 		event.respondWith(fetch(event.request));
 		return;
 	}
@@ -156,7 +187,10 @@ self.addEventListener("fetch", function (event) {
 
 				if (networkResponse && !cached) {
 					console.warn("[service] [request]", event.request.url, "updating cache")
-					cache.add(new Request(event.request.url))
+                    // For navigation requests, assume they are internal and cacheable.
+                    // This is less likely to be an external API but could be.
+                    // If navigation leads to an external domain, the NON_CACHEABLE_HOSTS check above handles it.
+					await cache.add(new Request(event.request.url)) // Or use put if you have the response already
 					return networkResponse
 				}
 
@@ -218,20 +252,32 @@ self.addEventListener("fetch", function (event) {
 
 				if (networkResponse) {
 					console.debug("[service] [updating] ", event.request.url)
-					if (event.request.url.indexOf("http") === 0) {
-						// let's only cache HTTP/S content
-						offline.add(new Request(event.request.url))
+					if (event.request.url.indexOf("http") === 0) { // Ensures it's an HTTP/S request
+                        // Only cache GET requests and non-cacheable hosts are already filtered out
+                        // by the check at the top of the fetch listener.
+                        // However, a double-check here adds robustness.
+                        if (event.request.method === 'GET' && !NON_CACHEABLE_HOSTS.includes(url.hostname)) {
+                            // --- MODIFICATION: Using .put() with .clone() ---
+                            // We clone the response because networkResponse will be consumed when returned.
+                            // If we want to also put it in cache, we need a separate copy.
+                            await offline.put(event.request.url, networkResponse.clone());
+                            console.debug("[service] Cached via .put():", event.request.url);
+                        }
 					}
 					return networkResponse
 				}
 
-				if (cached) {
-					console.debug("[service] [cached]", event.request.url)
-					return cached
-				}
+				// Fallback to cache if network failed and no other response found
+                const cached = await offline.match(event.request.url) // Re-check if it's in offline cache
+                if (cached) {
+                    console.debug("[service] [cached] (fallback)", event.request.url);
+                    return cached;
+                }
 
-				return cached
+				console.error("[service] No response found for", event.request.url);
+				return null; // If neither network nor cache has it
 			})()
 		)
 	}
 })
+

@@ -24,8 +24,8 @@ class Ollama extends AI {
 			system: systemPrompt,
 			useOpenBuffers: false
 		};
-		this.context = null; // For /api/generate context
-        this.messages = []; // For /api/chat messages
+		this.context = null; // For /api/generate context (Ollama's internal context)
+        // this.messages = []; // AIManager will now manage the full history
         this.MAX_CONTEXT_TOKENS = 0; // This will be dynamically set by _queryModelCapability
         this.contextUsed = 0; // For /api/generate context usage percentage
 
@@ -42,8 +42,8 @@ class Ollama extends AI {
         };
 	}
 
-    // Updated to return objects {value, label, maxTokens?}
     async _getAvailableModels() {
+        // ... (No change - same as before) ...
         try {
             const tagsEndpoint = `${this.config.server}/api/tags`;
             const response = await fetch(tagsEndpoint);
@@ -97,7 +97,8 @@ class Ollama extends AI {
 	}
 
 	async _queryModelCapability() {
-		try {
+		// ... (No change - same as before) ...
+        try {
 			const showEndpoint = `${this.config.server}/api/show`;
 			const response = await fetch(showEndpoint, {
 				method: 'POST',
@@ -139,13 +140,15 @@ class Ollama extends AI {
 		}
 	}
 
-    // NOTE: For /api/generate, Ollama reports eval_count and prompt_eval_count in the *final* chunk.
-    // This means we can only provide the context ratio *after* the generation is complete.
+    /**
+     * Generates content using the Ollama model (for 'generate' mode).
+     * The prompt is expected to have all context inlined by AIManager._getContextualPrompt.
+     * @param {string} prompt - The user's prompt (with context inlined).
+     * @param {object} callbacks - An object with callback functions.
+     */
 	async generate(prompt, callbacks = {}) {
         const { onStart, onUpdate, onDone, onError, onContextRatioUpdate } = callbacks;
         if (onStart) onStart();
-
-		const fullPrompt = await this._getContextualPrompt(prompt);
 
 		try {
 			const requestBody = {
@@ -153,7 +156,7 @@ class Ollama extends AI {
 				system: this.config?.system,
 				template: this.config?.template,
 				options: this.config?.options,
-				prompt: fullPrompt,
+				prompt: prompt, // Use the already processed prompt
 				stream: true,
 			};
 
@@ -161,8 +164,6 @@ class Ollama extends AI {
 				requestBody.context = this.context;
 			}
             
-            // For generate, we can only update the ratio at the end of the response.
-            // Provide a placeholder or 0 initially for the progress bar.
             if (onContextRatioUpdate) {
                 onContextRatioUpdate(0); // Indicate 0% used initially or N/A
             }
@@ -190,23 +191,20 @@ class Ollama extends AI {
 				if (done) {
                     let finalContextRatioPercent = null; 
 
-                    // Calculate context utilization if eval_count and prompt_eval_count are available
                     if (lastChunk?.eval_count !== undefined && lastChunk?.prompt_eval_count !== undefined && this.MAX_CONTEXT_TOKENS > 0) {
                         const totalTokensUsedInThisRequest = lastChunk.eval_count + lastChunk.prompt_eval_count;
                         this.contextUsed = Math.round((totalTokensUsedInThisRequest / this.MAX_CONTEXT_TOKENS) * 100);
                         finalContextRatioPercent = this.contextUsed;
 
                         if (onContextRatioUpdate) {
-                            onContextRatioUpdate(finalContextRatioPercent / 100); // Send final ratio (0-1)
+                            onContextRatioUpdate(finalContextRatioPercent / 100); 
                         }
                     } else if (this.MAX_CONTEXT_TOKENS > 0) { 
-                        // If model has a max context but no counts reported for some reason
-                        this.contextUsed = 0; // Reset
-                        finalContextRatioPercent = 0; // Explicitly 0%
+                        this.contextUsed = 0; 
+                        finalContextRatioPercent = 0; 
                         if (onContextRatioUpdate) onContextRatioUpdate(0);
                     }
 
-                    // Call onDone with the full response and the calculated percentage (0-100)
                     if (onDone) onDone(fullResponse, finalContextRatioPercent);
 					break;
 				}
@@ -222,7 +220,7 @@ class Ollama extends AI {
 							const parsed = JSON.parse(jsonObject);
 							lastChunk = parsed; 
 							if (parsed.context) { 
-								this.context = parsed.context; // Update context for next *generate* call
+								this.context = parsed.context; 
 							}
 							fullResponse += parsed.response;
 							if (onUpdate) onUpdate(fullResponse);
@@ -240,25 +238,38 @@ class Ollama extends AI {
 		}
 	}
 
-    // NOTE: For /api/chat, Ollama does NOT report token counts in the streaming response.
-    // Thus, context ratio cannot be provided for this endpoint using current Ollama API.
-    async chat(prompt, callbacks = {}) {
+    /**
+     * Manages a chat conversation with the Ollama model (for 'chat' mode).
+     * Accepts a pre-filtered array of messages (chat history + current context items + user prompt).
+     * @param {Array<Object>} messages - The prepared array of messages for this turn.
+     * @param {object} callbacks - An object with callback functions.
+     */
+    async chat(messages, callbacks = {}) {
         const { onStart, onUpdate, onDone, onError, onContextRatioUpdate } = callbacks;
         if (onStart) onStart();
 
-        const fullPrompt = await this._getContextualPrompt(prompt);
-        this.messages.push({ role: "user", content: fullPrompt }); // Add user prompt to history
-
         try {
+            // Ollama's /api/chat expects messages in { role: "user", content: "..." } or { role: "assistant", content: "..." }
+            // So, file_context messages need to be formatted as user messages.
+            const messagesToSend = messages.map(msg => {
+                if (msg.type === 'file_context') {
+                    return {
+                        role: 'user',
+                        content: `--- File: ${msg.filename} ---\n\`\`\`${msg.language}\n${msg.content}\n\`\`\``
+                    };
+                }
+                return { role: msg.role, content: msg.content };
+            });
+
             const requestBody = {
                 model: this.config?.model,
-                messages: this.messages, // Send full history
+                messages: messagesToSend, // Send full history prepared by AIManager
                 stream: true,
             };
 
             // Cannot provide contextRatio for Ollama /api/chat as token counts are not exposed.
             if (onContextRatioUpdate) {
-                onContextRatioUpdate(null); // Indicate that context ratio is not available (will hide progress bar)
+                onContextRatioUpdate(null); 
             }
 
             const response = await fetch(`${this.config.server}/api/chat`, {
@@ -282,7 +293,6 @@ class Ollama extends AI {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) {
-                    this.messages.push({ role: "assistant", content: fullResponse });
                     // Call onDone with the full response and null for context ratio
                     if (onDone) onDone(fullResponse, null); 
                     break;
@@ -314,23 +324,18 @@ class Ollama extends AI {
         }
     }
 
-    // Override setOptions to set MAX_CONTEXT_TOKENS after model capability is queried
     async setOptions(newConfig, onErrorCallback, onSuccessCallback, useWorkspaceSettings, source = 'global') {
-        // Apply new config first
+        // ... (No change - same as before) ...
         for (const name in newConfig) {
             this.setOption(name, newConfig[name]); 
         }
         this._settingsSource = source; 
-        this.clearContext(); // Clear context as model or server may have changed
+        // clearContext(); // AIManager will handle this
 
-        // Query model capability for the *newly set* model
         const querySuccess = await this._queryModelCapability(); 
         
-        // MAX_CONTEXT_TOKENS is now directly set by _queryModelCapability
         if (!querySuccess || this.MAX_CONTEXT_TOKENS === 0) {
-            // Fallback: If contextMax isn't found or query failed, use a reasonable default.
-            // This ensures contextRatio doesn't divide by zero.
-            this.MAX_CONTEXT_TOKENS = 4096; // Common default for many models
+            this.MAX_CONTEXT_TOKENS = 4096; 
             console.warn(`Could not determine MAX_CONTEXT_TOKENS for Ollama model: ${this.config.model}. Using default ${this.MAX_CONTEXT_TOKENS}.`);
         }
 
@@ -340,7 +345,6 @@ class Ollama extends AI {
             onSuccessCallback(`Connected to ${this.config.server}, using model: ${this.config.model}`);
         }
         
-        // Dispatch event for persistence
         const event = new CustomEvent('setting-changed', {
             detail: {
                 settingsName: 'ollamaConfig',
@@ -354,17 +358,16 @@ class Ollama extends AI {
 
     clearContext() {
         this.context = null; // For /api/generate
-        this.messages = [];  // For /api/chat
+        // this.messages = [];  // AIManager now manages the history
         this.contextUsed = 0; // Reset context usage
-        console.log("Ollama chat context cleared.");
+        console.log("Ollama internal context cleared (AIManager manages chat history).");
     }
 
     async refreshModels() {
-        // Calling _getAvailableModels will update the internal list in _settingsSchema.model.enum.
-        // It's then crucial to re-render the settings form in AIManager
-        // so the dropdown reflects the new list.
+        // ... (No change - same as before) ...
         this._settingsSchema.model.enum = await this._getAvailableModels();
     }
 }
 
 export default Ollama;
+

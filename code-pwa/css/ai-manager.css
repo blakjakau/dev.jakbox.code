@@ -1,3 +1,4 @@
+/* ai-manager.css */
 #ai-panel {
     flex-direction: column;
     position: relative;
@@ -136,16 +137,56 @@
     background-color: rgba(120, 120, 120, 0.7);
 }
 
+/* NEW: Wrapper for the prompt pill to contain the delete button */
+.prompt-pill-wrapper {
+    position: relative; /* Anchor for the absolute positioned button */
+    align-self: flex-end;
+    max-width: 80%;
+    margin-bottom: 8px; /* Maintain spacing */
+    display: flex; /* Ensures pill takes up available space */
+}
+
 .prompt-pill {
     background-color: var(--themeDark);
     color: var(--ui-pri-bg); /* Assuming --ui-pri-bg is a light text color */
-    padding: 8px 12px;
+    padding: 0px 12px; /* as the prompt is now being formatted...*/
     border-radius: 16px;
-    margin-bottom: 8px;
-    align-self: flex-end;
-    max-width: 80%;
     word-wrap: break-word;
 }
+
+/* NEW: Delete button for prompt/response pairs */
+.delete-history-button {
+    background-color: var(--themeDark);
+    color: var(--light);
+    border: none;
+    border-radius: 50%; /* Make it round */
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    padding: 0;
+    position: absolute;
+    top: -4px; /* Position it slightly offset from the pill */
+    right: -4px;
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5); /* Add a subtle shadow to lift it */
+}
+
+.delete-history-button:hover {
+    background-color: #dc3545; /* Red on hover to indicate danger */
+}
+
+/* NEW: Show delete button on wrapper hover for both prompt and file context pills */
+.prompt-pill-wrapper:hover .delete-history-button,
+.context-file-wrapper:hover .delete-history-button {
+    opacity: 1;
+}
+
 
 .settings-panel {
     flex: 1;
@@ -167,9 +208,9 @@
     width: 100%;
 }
 
-/* FIX START */
 .settings-panel input[type="text"],
-.settings-panel input[type="password"], /* Added this line to include password fields */
+.settings-panel input[type="password"],
+.settings-panel input[type="number"],
 .settings-panel textarea,
 .settings-panel select {
     width: calc(100% - 16px);
@@ -178,10 +219,9 @@
     border: 1px solid var(--mid);
     border-radius: var(--buttonBorder);
     background-color: var(--high);
-    color: var(--text-color); /* Changed from var(--dark) for consistency with general text color */
+    color: var(--text-color);
     box-sizing: border-box;
 }
-/* FIX END */
 
 .settings-panel textarea {
     min-height: 80px;
@@ -212,11 +252,16 @@
 }
 
 .progress-bar {
-  height: 10px;
+  height: 4px;
   width: 100%;
   background-color: var(--themeDark);
-  border-radius: 5px;
-  margin-bottom: 10px;
+  border-radius: 4px;
+  margin: 4px;
+  transition: height 333ms;
+}
+
+.progress-bar:hover {
+	height: 12px;	
 }
 
 .progress-bar-inner {
@@ -224,8 +269,21 @@
   width: 0%;
   background-color: var(--theme);
   border-radius: 5px;
-  transition: width 0.5s ease-in-out;
+  transition: width 0.5s ease-in-out, background-color 0.3s ease-in-out;
 }
+
+.progress-bar-inner.threshold-yellow {
+    background-color: #ffd700; /* Yellow/Gold */
+}
+
+.progress-bar-inner.threshold-orange {
+    background-color: #ffa500; /* Orange */
+}
+
+.progress-bar-inner.threshold-red {
+    background-color: #dc3545; /* Red (common danger color) */
+}
+
 
 @keyframes spin {
     0% {
@@ -234,4 +292,52 @@
     100% {
         transform: rotate(360deg);
     }
+}
+
+.context-file-wrapper {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    align-self: flex-end;
+    max-width: 80%;
+    gap: 4px;
+    position: relative; /* NEW: Added for absolute positioning of the delete button */
+}
+
+.context-file-pill {
+    background-color: var(--dark);
+    border: 1px solid var(--theme);
+    color: var(--theme);
+    padding: 0px 12px;
+    border-radius: 16px;
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+/* REMOVED .context-file-action-button styles as they are no longer used */
+
+.file-size {
+    font-size: 0.8em;
+    color: var(--text-color-secondary);
+}
+
+.system-message-block {
+    margin-bottom: 8px;
+    padding: 8px 16px;
+    background: rgba(var(--text-color-rgb), 0.05);
+    border-radius: var(--border-radius);
+    color: var(--text-color-secondary);
+    font-style: italic;
+    font-size: 0.9em;
+    text-align: center;
+}
+
+button:disabled,
+.theme-button:disabled,
+.clear-button:disabled,
+.settings-button:disabled,
+.delete-history-button:disabled { /* UPDATED: Removed .context-file-action-button */
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
 }
