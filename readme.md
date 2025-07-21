@@ -53,16 +53,13 @@ git clone https://github.com/blakjakau/dev.jakbox.code.git
 
 - Install the npm packages and `nodemon`
 ```sh
-cd dev.jakbox.code
-
+cd dev.jakbox.code/http
 npm i
-
-npm i -g nodemon
+sudo npm i -g nodemon
 ```
 
-- Run the http app
+- Run the http app (localhost service to host the app)
 ```sh
-cd http
 npm start
 ```
 
