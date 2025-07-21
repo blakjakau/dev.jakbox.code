@@ -38,6 +38,9 @@ class AIManager {
 		this.userScrolled = false
 		this._isProcessing = false // NEW: Flag to track if AI is busy (generating or summarizing)
 
+		// NEW: Reference to the AI info display element
+		this.aiInfoDisplay = null;
+
 		// NEW: Load summarization settings defaults
 		this.config = {
 			summarizeThreshold: this._settingsSchema.summarizeThreshold.default,
@@ -48,24 +51,30 @@ class AIManager {
 	async init(panel) {
 		this.panel = panel
 		await this.loadSettings()
-		this.ai = new this.aiProviders[this.aiProvider]()
-		await this.ai.init()
+		
+		// Initialize the AI provider instance
+		this.ai = new this.aiProviders[this.aiProvider]();
+		await this.ai.init(); // Initialize with loaded settings
 
 		// NEW: Load summarization settings from storage, overriding defaults
 		const storedSummarizeThreshold = localStorage.getItem("summarizeThreshold")
 		if (storedSummarizeThreshold !== null) {
-			this.config.summarizeThreshold = parseInt(storedSummarizeThreshold)
+			this.config.summarizeThreshold = parseInt(storedSummarizeThreshold);
 		}
 		const storedSummarizeTargetPercentage = localStorage.getItem("summarizeTargetPercentage")
 		if (storedSummarizeTargetPercentage !== null) {
-			this.config.summarizeTargetPercentage = parseInt(storedSummarizeTargetPercentage)
+			this.config.summarizeTargetPercentage = parseInt(storedSummarizeTargetPercentage);
 		}
 
-		this._createUI()
-		this._setupPanel()
+		this._createUI(); // Creates UI elements, including aiInfoDisplay
+		this._setupPanel();
+		
+		// NEW: Update the AI info display once UI elements are available and AI is initialized
+		this._updateAIInfoDisplay();
+
 		// If there's any initial history to display, render it
-		this.historyManager.render()
-		this._dispatchContextUpdate("init") // NEW: Dispatch initial context state
+		this.historyManager.render();
+		this._dispatchContextUpdate("init"); // NEW: Dispatch initial context state
 	}
 
 	set editor(editor) {
@@ -108,32 +117,42 @@ class AIManager {
 		this.progressBar.setAttribute("title", "Context window utilization")
 		this.progressBar.style.display = "block" // Now always visible
 
+
 		const progressBarInner = document.createElement("div")
 		progressBarInner.classList.add("progress-bar-inner")
 		this.progressBar.appendChild(progressBarInner)
 		promptContainer.appendChild(this.progressBar)
 
 		this.promptArea = this._createPromptArea()
+		
 		const buttonContainer = new Block()
 		buttonContainer.classList.add("button-container")
+		
+		const spacer = new Block()
+		spacer.classList.add("spacer")
 
 		this.summarizeButton = this._createSummarizeButton() // NEW: Summarize button
 		this.submitButton = this._createSubmitButton()
 		this.clearButton = this._createClearButton()
 
-		// Append order updated
-		buttonContainer.append(this.summarizeButton) // NEW: Add summarize button
-		const spacer = new Block()
-		spacer.classList.add("spacer")
-		buttonContainer.append(spacer)
+		// MODIFIED: Removed direct text/attribute setting here.
+		// The content will be managed by _updateAIInfoDisplay().
+		this.aiInfoDisplay = document.createElement("span");
+		this.aiInfoDisplay.classList.add("ai-info-display");
+
+
 		buttonContainer.append(this.clearButton)
+		buttonContainer.append(this.summarizeButton) // NEW: Add summarize button
+		buttonContainer.append(this.aiInfoDisplay); // Element is created, but content will be set by _updateAIInfoDisplay()
+		buttonContainer.append(spacer)
 		buttonContainer.append(this.submitButton)
 
+		// Settings button remains last on the right
 		const settingsButton = new Button()
 		settingsButton.classList.add("settings-button")
 		settingsButton.icon = "settings"
 		settingsButton.on("click", () => this.toggleSettingsPanel())
-		buttonContainer.prepend(settingsButton)
+		buttonContainer.append(settingsButton) // Append settings button to the right
 
 		promptContainer.append(this.promptArea)
 		promptContainer.append(buttonContainer)
@@ -211,7 +230,7 @@ class AIManager {
 	}
 
 	_createClearButton() {
-		const clearButton = new Button("New Context")
+		const clearButton = new Button("Clear")
 		clearButton.classList.add("clear-button")
 		clearButton.on("click", () => {
 			this.historyManager.clear()
@@ -315,18 +334,35 @@ class AIManager {
 			}
 			aiProviderSelect.appendChild(option)
 		})
+		// MODIFIED: Changed listener to correctly update AI, add system message, and update UI display
 		aiProviderSelect.addEventListener("change", async () => {
-			const oldProvider = this.aiProvider
+			const oldProviderName = this.aiProvider; // Store old provider name
+
 			this.aiProvider = aiProviderSelect.value
 			localStorage.setItem("aiProvider", this.aiProvider)
 
 			// Create new AI instance, maintaining history for it.
-			const newAIInstance = new this.aiProviders[this.aiProvider]()
-			this.ai = newAIInstance
-			await this.ai.init() // Initialize the new AI with its settings
+			const newAIInstance = new this.aiProviders[this.aiProvider]();
+			this.ai = newAIInstance;
+			await this.ai.init(); // Initialize the new AI with its settings
+
+			// --- NEW CODE: Add system message on provider switch ---
+			// Check if the provider actually changed and we have a valid new AI instance
+			if (oldProviderName !== this.aiProvider && this.ai) {
+				// Add a system message to the history to inform the user about the AI provider change
+				this.historyManager.addMessage({
+					type: "system_message",
+					content: `AI Provider switched to: **${this.aiProvider.charAt(0).toUpperCase() + this.aiProvider.slice(1)}**`,
+					timestamp: Date.now()
+				});
+				// _dispatchContextUpdate is called within addMessage for system messages,
+				// but we can also dispatch explicitly to ensure AI status UI is updated.
+				this._dispatchContextUpdate("ai_provider_switched");
+			}
+			// --- END NEW CODE ---
 
 			this._renderSettingsForm() // Re-render settings for the new provider
-			this._dispatchContextUpdate("settings_change") // NEW: Dispatch on AI provider change
+			this._updateAIInfoDisplay(); // NEW: Update the display element for the new AI/model
 		})
 		aiProviderLabel.appendChild(aiProviderSelect)
 		form.appendChild(aiProviderLabel)
@@ -387,6 +423,7 @@ class AIManager {
 						try {
 							await this.ai.refreshModels()
 							this._renderSettingsForm() // Re-render to show updated model list
+							this._updateAIInfoDisplay(); // Update display after refresh
 							this._dispatchContextUpdate("settings_change")
 						} finally {
 							this._setButtonsDisabledState(false)
@@ -441,6 +478,7 @@ class AIManager {
 			localStorage.setItem("summarizeThreshold", this.config.summarizeThreshold)
 			localStorage.setItem("summarizeTargetPercentage", this.config.summarizeTargetPercentage)
 
+			// MODIFIED: Pass `this.ai.settingsSource` to setOptions if it's available and relevant
 			this.ai.setOptions(
 				newSettings,
 				(errorMessage) => {
@@ -460,7 +498,7 @@ class AIManager {
 					this._dispatchContextUpdate("settings_save_success")
 				},
 				this.useWorkspaceSettings,
-				this.ai.settingsSource
+				this.ai.settingsSource // Pass source for correct persistence
 			)
 			this.toggleSettingsPanel() // Hide settings panel after saving
 		})
@@ -478,6 +516,7 @@ class AIManager {
 		} else {
 			// NEW: If settings panel is being shown, re-render its content to reflect current values
 			this._renderSettingsForm()
+			this._updateAIInfoDisplay(); // NEW: Ensure display is updated when panel opens
 			this._dispatchContextUpdate("settings_opened") // NEW: Dispatch on settings panel open
 		}
 	}
@@ -499,31 +538,52 @@ class AIManager {
 	}
 
 	/**
-	 * NEW (FIX): Centralized method to update context-sensitive UI elements like the progress bar.
+	 * NEW (FIX): Centralized method to update context-sensitive UI elements like the progress bar and AI info display.
 	 * This is now called directly by _dispatchContextUpdate.
 	 * @param {object} detail - The event detail object from _dispatchContextUpdate.
 	 */
 	_updateContextUI(detail) {
-		if (!this.progressBar || !this.ai) return
+		// Update Progress Bar
+		if (this.progressBar && this.ai) {
+			const { estimatedTokensFullHistory, maxContextTokens } = detail
+			const progressBarInner = this.progressBar.querySelector(".progress-bar-inner")
 
-		const { estimatedTokensFullHistory, maxContextTokens } = detail
-		const progressBarInner = this.progressBar.querySelector(".progress-bar-inner")
+			if (maxContextTokens > 0) {
+				const percentage = Math.min(100, (estimatedTokensFullHistory / maxContextTokens) * 100)
+				progressBarInner.style.width = `${percentage}%`
+				this.progressBar.setAttribute(
+					"title",
+					`Context: ${estimatedTokensFullHistory} / ${maxContextTokens} tokens (${Math.round(percentage)}%)`
+				)
+				this._updateProgressBarColor(progressBarInner, percentage)
+			} else {
+				// If max tokens is 0 or unknown, show a default state
+				progressBarInner.style.width = "0%"
+				this.progressBar.setAttribute("title", `Context: ${estimatedTokensFullHistory} tokens (max unknown)`)
+				this._updateProgressBarColor(progressBarInner, 0)
+			}
+		}
+		// Update AI Info Display (This is called by _updateAIInfoDisplay() directly, not here)
+	}
 
-		if (maxContextTokens > 0) {
-			const percentage = Math.min(100, (estimatedTokensFullHistory / maxContextTokens) * 100)
-			progressBarInner.style.width = `${percentage}%`
-			this.progressBar.setAttribute(
-				"title",
-				`Context: ${estimatedTokensFullHistory} / ${maxContextTokens} tokens (${Math.round(percentage)}%)`
-			)
-			this._updateProgressBarColor(progressBarInner, percentage)
-		} else {
-			// If max tokens is 0 or unknown, show a default state
-			progressBarInner.style.width = "0%"
-			this.progressBar.setAttribute("title", `Context: ${estimatedTokensFullHistory} tokens (max unknown)`)
-			this._updateProgressBarColor(progressBarInner, 0)
+	// NEW: Method to update the AI info display element
+	_updateAIInfoDisplay() {
+		if (this.aiInfoDisplay && this.ai) {
+			const providerName = this.aiProvider;
+			// Safely access model name, fall back to default if ai or config is not ready
+			const modelName = this.ai.config?.model || this._settingsSchema.aiProvider.default;
+			
+			this.aiInfoDisplay.textContent = `AI: ${modelName}`;
+			this.aiInfoDisplay.setAttribute("title", `AI Provider: ${providerName}, Model: ${modelName}`);
+		} else if (this.aiInfoDisplay) {
+			// Fallback if ai hasn't been initialized yet or something went wrong
+			const providerName = this.aiProvider;
+			const modelName = this._settingsSchema.aiProvider.default;
+			this.aiInfoDisplay.textContent = `AI: ${modelName}`;
+			this.aiInfoDisplay.setAttribute("title", `AI Provider: ${providerName}, Model: ${modelName}`);
 		}
 	}
+
 
 	/**
 	 * Dispatches a custom 'context-update' event with the current chat state.
@@ -531,6 +591,12 @@ class AIManager {
 	 * @param {object} [details={}] - Additional details relevant to the update type (e.g., summaryDetails).
 	 */
 	_dispatchContextUpdate(type, details = {}) {
+		// Ensure ai and historyManager are available before proceeding
+		if (!this.ai || !this.historyManager) {
+			console.warn("Attempted to dispatch context update before AI or History Manager was ready.");
+			return;
+		}
+
 		const estimatedTokensFullHistory = this.ai.estimateTokens(this.historyManager.chatHistory)
 		const maxContextTokens = this.ai.MAX_CONTEXT_TOKENS
 
@@ -544,10 +610,17 @@ class AIManager {
 			...details,
 		}
 
-		// FIX: Directly update the AIManager's own UI before dispatching the event for external listeners.
-		this._updateContextUI(eventDetail)
+		// FIX: Directly update the AIManager's own UI (progress bar) before dispatching the event for external listeners.
+		this._updateContextUI(eventDetail);
 		// Also update button states, as context changes can affect summarization eligibility.
-		this._setButtonsDisabledState(this._isProcessing)
+		this._setButtonsDisabledState(this._isProcessing);
+
+		// MODIFIED: Added setTimeout for scrolling to bottom after UI updates
+		if (this.conversationArea && !this.settingsPanel?.classList.contains("active")) {
+			setTimeout(() => {
+				this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+			}, 0);
+		}
 
 		this.panel.dispatchEvent(new CustomEvent("context-update", { detail: eventDetail }))
 	}
@@ -745,7 +818,7 @@ class AIManager {
 		if (storedProvider && this.aiProviders[storedProvider]) {
 			this.aiProvider = storedProvider
 		}
-		// NEW: Load summarization settings from local storage
+		// NEW: Load summarization settings
 		const storedSummarizeThreshold = localStorage.getItem("summarizeThreshold")
 		if (storedSummarizeThreshold !== null) {
 			this.config.summarizeThreshold = parseInt(storedSummarizeThreshold)
@@ -758,4 +831,3 @@ class AIManager {
 }
 
 export default new AIManager()
-

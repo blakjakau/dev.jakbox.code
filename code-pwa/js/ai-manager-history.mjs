@@ -50,12 +50,18 @@ class AIManagerHistory {
 		})
 	}
 
-	loadHistory(history) {
+	loadHistory(history, autoScroll=false) {
 		if (Array.isArray(history)) {
 			this.chatHistory = history
 			this.render()
 			// NEW: Dispatch an update to ensure the UI (progress bar, etc.) reflects the loaded state.
 			this.manager._dispatchContextUpdate("history_loaded")
+			
+			if(autoScroll) {
+				setTimeout(()=>{
+					this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+				}, 250)
+			}
 		}
 	}
 
