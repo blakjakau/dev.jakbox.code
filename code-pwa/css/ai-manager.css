@@ -78,18 +78,21 @@
     align-self: flex-end;
 }
 
-.clear-button {
+/* MODIFIED: Updated styles for clear-button and added styles for summarize-button */
+.clear-button, .summarize-button { /* Grouped styles */
     align-self: flex-end;
-    background-color: var(--background-color);
+    background-color: var(--low);
     color: var(--button-text-color);
     border: 1px solid var(--border-color);
     cursor: pointer;
 }
 
-.clear-button:hover {
-    background-color: var(--background-color-hover);
-    border-color: var(--border-color-hover);
+/* MODIFIED: Updated hover background for clear-button and summarize-button */
+.clear-button:hover, .summarize-button:hover {
+    background-color: var(--themeDark); /* Changed hover background */
+    border-color: var(--mid); /* Ensure border matches background on hover */
 }
+
 
 .response-block {
     margin-bottom: 16px;
@@ -120,7 +123,7 @@
 }
 
 .code-button {
-    background-color: rgba(120 120, 120, 0.5);
+    background-color: rgba(120, 120, 120, 0.5);
     color: white;
     border: none;
     border-radius: 4px;
@@ -340,4 +343,29 @@ button:disabled,
     opacity: 0.6;
     cursor: not-allowed;
     pointer-events: none;
+}
+
+/* In ai-manager.css */
+.ai-info-display {
+    font-size: 0.85em;
+    color: var(--text-color-secondary);
+    align-self: center; /* Vertically center in the button container */
+    padding-left: 8px;
+    white-space: nowrap; /* Prevent wrapping */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px; /* Adjust as needed */
+}
+
+/* Adjust button container layout if needed to accommodate the new element */
+.button-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: center; /* Align items vertically */
+}
+
+/* Ensure settings button is aligned correctly if ai-info-display is prepended */
+.settings-button {
+    order: -1; /* Puts it at the start of the flex order */
 }

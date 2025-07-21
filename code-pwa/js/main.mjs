@@ -411,7 +411,7 @@ const openWorkspace = (() => {
             workspace.aiConfig = load.aiConfig || {};
             workspace.chatHistory = load.chatHistory || [];
             if (ui.aiManager.historyManager) {
-                ui.aiManager.historyManager.loadHistory(workspace.chatHistory);
+                ui.aiManager.historyManager.loadHistory(workspace.chatHistory, true);
             }
             // After loading workspace, ensure aiManager is initialized with the correct provider's config
             // This assumes ui.aiManager.aiProvider is already set by ui.aiManager.loadSettings() in its init
