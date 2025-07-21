@@ -43,6 +43,10 @@ export default class AI {
 		return options;
 	}
 
+	isConfigured() { 
+		return false
+	}
+
 	setOption(name, value) {
 		if (this._settingsSchema[name]) {
 			this.config[name] = value;

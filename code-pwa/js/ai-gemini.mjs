@@ -7,7 +7,7 @@ class Gemini extends AI {
         super();
         this.config = {
             apiKey: "",
-            model: "gemini-2.5-flash", 
+            model: "", 
             server: "https://generativelanguage.googleapis.com", 
             system: "You are a helpful AI assistant.",
         };
@@ -32,6 +32,10 @@ class Gemini extends AI {
             return modelName.substring("models/".length);
         }
         return modelName;
+    }
+    
+    isConfigured() {
+    	return this.config.apiKey != "" && this.config.model != ""
     }
 
     async _getAvailableModels() {
