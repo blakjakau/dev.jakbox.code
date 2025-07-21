@@ -1,8 +1,8 @@
 // ai-manager.mjs
 // Styles for this module are located in css/ai-manager.css
 import { Block, Button, Icon } from "./elements.mjs"
-import Ollama from "./ai-ollama.mjs"
-import Gemini from "./ai-gemini.mjs"
+import Ollama from "./ai-ollama.mjs" // Assuming this file exists and has isConfigured()
+import Gemini from "./ai-gemini.mjs" // Assuming this file exists and has isConfigured()
 import AIManagerHistory, { MAX_RECENT_MESSAGES_TO_PRESERVE } from "./ai-manager-history.mjs"
 
 const MAX_PROMPT_HISTORY = 50
@@ -89,7 +89,7 @@ class AIManager {
 	}
 
 	focus() {
-		this.promptArea.focus()
+		this.promptArea?.focus()
 	}
 
 	_setupPanel() {
@@ -166,7 +166,8 @@ class AIManager {
 	_createPromptArea() {
 		const promptArea = document.createElement("textarea")
 		promptArea.classList.add("prompt-area")
-		promptArea.placeholder = "Enter your prompt here..."
+		// NEW: Update placeholder based on AI configuration
+		this._updatePromptAreaPlaceholder(promptArea);
 
 		// MODIFIED: Moved the resize logic into a new method _resizePromptArea
 		promptArea.addEventListener("keydown", (e) => {
@@ -217,6 +218,19 @@ class AIManager {
 		}
 	}
 
+    // NEW METHOD: Updates the prompt area placeholder text based on AI configuration
+    _updatePromptAreaPlaceholder(promptArea = this.promptArea) {
+        if (!promptArea) return;
+
+        if (this.ai && this.ai.isConfigured()) {
+            promptArea.placeholder = "Enter your prompt here...";
+            promptArea.removeAttribute('disabled');
+        } else {
+            promptArea.placeholder = "AI is not configured. Go to Settings (gear icon) to set up a provider.";
+            promptArea.setAttribute('disabled', 'true');
+        }
+    }
+
 	// NEW: Manual Summarize Button
 	_createSummarizeButton() {
 		const summarizeButton = new Button("Summarize")
@@ -248,11 +262,15 @@ class AIManager {
 
 	// NEW: Helper to disable/enable relevant buttons
 	_setButtonsDisabledState(disabled) {
-		if (this.submitButton) this.submitButton.disabled = disabled
-		if (this.clearButton) this.clearButton.disabled = disabled
+        const isAIConfigured = this.ai && this.ai.isConfigured();
+
+		if (this.submitButton) this.submitButton.disabled = disabled || !isAIConfigured;
+		if (this.clearButton) this.clearButton.disabled = disabled; // Clear is always enabled
 		
 		// Also disable all history delete buttons while processing
-		this.conversationArea.querySelectorAll('.delete-history-button').forEach(btn => btn.disabled = disabled);
+		if(this.conversationArea) {
+			this.conversationArea.querySelectorAll('.delete-history-button').forEach(btn => btn.disabled = disabled);
+		}
 
 		if (this.summarizeButton) {
 			const eligibleMessages = this.historyManager.chatHistory.filter(
@@ -263,10 +281,11 @@ class AIManager {
 			// Summarization is only possible if the number of messages we can potentially summarize
 			// (i.e., total messages minus the ones we must preserve) is at least 2 (a user/model pair).
 			const summarizableMessageCount = eligibleMessages.length - MAX_RECENT_MESSAGES_TO_PRESERVE
-			const canSummarize = summarizableMessageCount >= 2
+			const canSummarize = summarizableMessageCount >= 2 && isAIConfigured; // Must be configured to summarize
 
 			this.summarizeButton.disabled = disabled || !canSummarize
 		}
+        this._updatePromptAreaPlaceholder(); // Update prompt area disabled state
 	}
 
 	_createSettingsPanel() {
@@ -370,6 +389,7 @@ class AIManager {
 
 			this._renderSettingsForm() // Re-render settings for the new provider
 			this._updateAIInfoDisplay(); // NEW: Update the display element for the new AI/model
+            this.historyManager.render(); // Re-render history to show/hide welcome message
 		})
 		aiProviderLabel.appendChild(aiProviderSelect)
 		form.appendChild(aiProviderLabel)
@@ -432,6 +452,7 @@ class AIManager {
 							this._renderSettingsForm() // Re-render to show updated model list
 							this._updateAIInfoDisplay(); // Update display after refresh
 							this._dispatchContextUpdate("settings_change")
+                            this.historyManager.render(); // Re-render history to show/hide welcome message
 						} finally {
 							this._setButtonsDisabledState(false)
 						}
@@ -518,7 +539,7 @@ class AIManager {
 		this.settingsPanel.classList.toggle("active")
 		// If settings panel is being hidden, re-render chat history to refresh any potential content/token changes
 		if (!this.settingsPanel.classList.contains("active")) {
-			this.historyManager.render()
+			this.historyManager.render() // Re-render history to show/hide welcome message
 			this._dispatchContextUpdate("settings_closed") // NEW: Dispatch on settings panel close
 		} else {
 			// NEW: If settings panel is being shown, re-render its content to reflect current values
@@ -555,20 +576,22 @@ class AIManager {
 			const { estimatedTokensFullHistory, maxContextTokens } = detail
 			const progressBarInner = this.progressBar.querySelector(".progress-bar-inner")
 
-			if (maxContextTokens > 0) {
-				const percentage = Math.min(100, (estimatedTokensFullHistory / maxContextTokens) * 100)
-				progressBarInner.style.width = `${percentage}%`
-				this.progressBar.setAttribute(
-					"title",
-					`Context: ${estimatedTokensFullHistory} / ${maxContextTokens} tokens (${Math.round(percentage)}%)`
-				)
-				this._updateProgressBarColor(progressBarInner, percentage)
-			} else {
-				// If max tokens is 0 or unknown, show a default state
-				progressBarInner.style.width = "0%"
-				this.progressBar.setAttribute("title", `Context: ${estimatedTokensFullHistory} tokens (max unknown)`)
-				this._updateProgressBarColor(progressBarInner, 0)
-			}
+            // Only show progress bar if AI is configured, otherwise hide or set to 0
+            if (this.ai.isConfigured() && maxContextTokens > 0) {
+                this.progressBar.style.display = "block";
+                const percentage = Math.min(100, (estimatedTokensFullHistory / maxContextTokens) * 100)
+                progressBarInner.style.width = `${percentage}%`
+                this.progressBar.setAttribute(
+                    "title",
+                    `Context: ${estimatedTokensFullHistory} / ${maxContextTokens} tokens (${Math.round(percentage)}%)`
+                )
+                this._updateProgressBarColor(progressBarInner, percentage)
+            } else {
+                this.progressBar.style.display = "none"; // Hide progress bar if not configured
+                progressBarInner.style.width = "0%";
+                this.progressBar.setAttribute("title", `AI not configured or max tokens unknown.`);
+                this._updateProgressBarColor(progressBarInner, 0); // Reset color
+            }
 		}
 		// Update AI Info Display (This is called by _updateAIInfoDisplay() directly, not here)
 	}
@@ -576,18 +599,19 @@ class AIManager {
 	// NEW: Method to update the AI info display element
 	_updateAIInfoDisplay() {
 		if (this.aiInfoDisplay && this.ai) {
-			const providerName = this.aiProvider;
-			// Safely access model name, fall back to default if ai or config is not ready
-			const modelName = this.ai.config?.model || this._settingsSchema.aiProvider.default;
-			
-			this.aiInfoDisplay.textContent = `AI: ${modelName}`;
-			this.aiInfoDisplay.setAttribute("title", `AI Provider: ${providerName}, Model: ${modelName}`);
+            if (this.ai.isConfigured()) {
+                const providerName = this.aiProvider;
+                const modelName = this.ai.config?.model || "Unknown Model"; // Fallback
+                this.aiInfoDisplay.textContent = `AI: ${modelName}`;
+                this.aiInfoDisplay.setAttribute("title", `AI Provider: ${providerName}, Model: ${modelName}`);
+            } else {
+                this.aiInfoDisplay.textContent = `AI: Not Configured`;
+                this.aiInfoDisplay.setAttribute("title", `AI Provider: ${this.aiProvider}, Status: Not Configured. Go to Settings.`);
+            }
 		} else if (this.aiInfoDisplay) {
 			// Fallback if ai hasn't been initialized yet or something went wrong
-			const providerName = this.aiProvider;
-			const modelName = this._settingsSchema.aiProvider.default;
-			this.aiInfoDisplay.textContent = `AI: ${modelName}`;
-			this.aiInfoDisplay.setAttribute("title", `AI Provider: ${providerName}, Model: ${modelName}`);
+            this.aiInfoDisplay.textContent = `AI: Loading...`;
+            this.aiInfoDisplay.setAttribute("title", `AI Provider: ${this.aiProvider}, Status: Loading or Error.`);
 		}
 	}
 
@@ -600,6 +624,7 @@ class AIManager {
 		// Also ensure context update is dispatched to refresh progress bar etc.,
 		// as model change can affect MAX_CONTEXT_TOKENS.
 		this._dispatchContextUpdate("settings_change_external");
+        this.historyManager.render(); // Re-render history to show/hide welcome message
 	}
 
 
@@ -615,8 +640,9 @@ class AIManager {
 			return;
 		}
 
-		const estimatedTokensFullHistory = this.ai.estimateTokens(this.historyManager.chatHistory)
-		const maxContextTokens = this.ai.MAX_CONTEXT_TOKENS
+		// Only calculate tokens if AI is configured, otherwise they are irrelevant
+		const estimatedTokensFullHistory = this.ai.isConfigured() ? this.ai.estimateTokens(this.historyManager.chatHistory) : 0;
+		const maxContextTokens = this.ai.isConfigured() ? this.ai.MAX_CONTEXT_TOKENS : 0;
 
 		const eventDetail = {
 			chatHistory: JSON.parse(JSON.stringify(this.historyManager.chatHistory)), // Deep copy for immutability
@@ -634,11 +660,12 @@ class AIManager {
 		this._setButtonsDisabledState(this._isProcessing);
 
 		// MODIFIED: Added setTimeout for scrolling to bottom after UI updates
-		if (this.conversationArea && !this.settingsPanel?.classList.contains("active")) {
-			setTimeout(() => {
-				this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
-			}, 0);
-		}
+		// removed autoscroll after ui update, it's jarring AF when deleting old items.
+		// if (this.conversationArea && !this.settingsPanel?.classList.contains("active")) {
+		// 	setTimeout(() => {
+		// 		this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+		// 	}, 0);
+		// }
 
 		this.panel.dispatchEvent(new CustomEvent("context-update", { detail: eventDetail }))
 	}
@@ -649,6 +676,20 @@ class AIManager {
 			console.warn("AI is currently processing another request. Please wait.")
 			return
 		}
+        // NEW: Check if AI is configured before proceeding with generation
+        if (!this.ai || !this.ai.isConfigured()) {
+            console.warn("AI is not configured. Cannot generate response.");
+            this.historyManager.addMessage({
+                type: "system_message",
+                content: `AI is not configured. Please set up your AI provider in the settings.`,
+                timestamp: Date.now(),
+            });
+            this._dispatchContextUpdate("generation_error_not_configured"); // Dispatch error type
+            this._isProcessing = false; // Release lock
+            this._setButtonsDisabledState(false); // Re-enable buttons
+            return;
+        }
+
 		this._isProcessing = true
 		this._setButtonsDisabledState(true) // Disable buttons immediately
 
@@ -835,11 +876,11 @@ class AIManager {
                 if (currentlyExpanded) {
                     pre.removeAttribute("expanded");
                     expandCollapseButton.icon = "unfold_more";
-                    expandCollapseButton.title = "Expand code block";
+                    expandCollapseButton.title = "Collapse code block";
                 } else {
                     pre.setAttribute("expanded", ""); // Set attribute without value
                     expandCollapseButton.icon = "unfold_less";
-                    expandCollapseButton.title = "Collapse code block";
+                    expandilmesi.title = "Collapse code block";
                 }
             });
 

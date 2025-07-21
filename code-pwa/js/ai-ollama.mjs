@@ -3,16 +3,14 @@ import systemPrompt from "./ollamaSystemPrompt.mjs"
 
 // Define default models in the new object format with estimated maxTokens
 const defaultModels = [
-    { value: "codegemma:7b", label: "CodeGemma 7b", maxTokens: 8192 }, 
-    { value: "codegemma:7b-code", label: "CodeGemma 7b Code", maxTokens: 8192 },
-    { value: "codegemma:7b-instruct", label: "CodeGemma 7b Instruct", maxTokens: 8192 },
-    { value: "codegemma:code", label: "CodeGemma Code", maxTokens: 8192 },
-    { value: "codegemma:assist", label: "CodeGemma Assist", maxTokens: 8192 },
-    { value: "gemma3:1b-it-qat", label: "Gemma 3 1b IT QAT", maxTokens: 8192 },
-    { value: "gemma3:4b-it-qat", label: "Gemma 3 4b IT QAT", maxTokens: 8192 },
-    // Add other common Ollama models you expect to list with estimated context lengths
-    // { value: "llama2:7b", label: "Llama2 7B", maxTokens: 4096 },
-    // { value: "mistral:7b", label: "Mistral 7B", maxTokens: 8192 },
+    { value: "", label: "Select a model", maxTokens: 8192 }, 
+    // { value: "codegemma:7b-code", label: "CodeGemma 7b Code", maxTokens: 8192 },
+    // { value: "codegemma:7b-instruct", label: "CodeGemma 7b Instruct", maxTokens: 8192 },
+    // { value: "codegemma:code", label: "CodeGemma Code", maxTokens: 8192 },
+    // { value: "codegemma:assist", label: "CodeGemma Assist", maxTokens: 8192 },
+    // { value: "gemma3:1b-it-qat", label: "Gemma 3 1b IT QAT", maxTokens: 8192 },
+    // { value: "gemma3:4b-it-qat", label: "Gemma 3 4b IT QAT", maxTokens: 8192 },
+    // // Add other common Ollama models you expect to list with estimated context lengths
 ];
 
 class Ollama extends AI {
@@ -20,9 +18,8 @@ class Ollama extends AI {
 		super();
 		this.config = {
 			server: "http://localhost:11434",
-			model: defaultModels[0].value, // default model
-			system: systemPrompt,
-			useOpenBuffers: false
+			model: "", //defaultModels[0].value, // default model
+			system: systemPrompt
 		};
 		this.context = null; // For /api/generate context (Ollama's internal context)
         // this.messages = []; // AIManager will now manage the full history
@@ -34,13 +31,18 @@ class Ollama extends AI {
             model: { 
                 type: "enum", 
                 label: "Model", 
-                default: defaultModels[0].value, 
+                default: "", // defaultModels[0].value, 
                 enum: defaultModels, // Initial enum uses the object format
                 lookupCallback: this._getAvailableModels.bind(this) 
             },
             system: { type: "string", label: "System Prompt", default: systemPrompt, multiline: true },
         };
 	}
+
+    isConfigured() {
+    	return this.config.server != "" && this.config.model != ""
+    }
+
 
     async _getAvailableModels() {
         // ... (No change - same as before) ...
@@ -83,7 +85,8 @@ class Ollama extends AI {
 
             const finalModels = Array.from(uniqueModelsMap.values());
             finalModels.sort((a,b) => a.label.localeCompare(b.label)); // Sort for consistent display
-
+			finalModels.sort((a,b)=>a==""?1:-1)
+			
             return finalModels;
         } catch (error) {
             console.error("Error fetching Ollama models:", error);
