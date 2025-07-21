@@ -145,7 +145,7 @@ const uiManager = {
 		iconTabBar.activeTab = filesTab;
 		sidebar.resizable = "right"
 		sidebar.minSize = 40
-		let sidebarWidth = 300
+		let sidebarWidth = 350
 
 		menu = document.querySelector("#menu")
 		if (menu == null) {
@@ -269,7 +269,7 @@ const uiManager = {
 			mainContent.style.transition = ""
 
 			void sidebar.offsetWidth
-			const minWidth = 300
+			const minWidth = 350
 			const maxWidth = window.innerWidth * 0.5; // 50% of window width
 			if(sidebar.offsetWidth > maxWidth) {
 				sidebar.style.width = maxWidth + "px"

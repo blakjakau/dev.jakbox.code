@@ -159,6 +159,9 @@
 
 	<ui-menu attachTo="#menu_project" onclick="(e)=>{ window.ui.execCommand(e) }">
 	    <ui-menu-item command="app:toggleFolders" icon="menu_open" keyTag="Alt+F">Toggle File List</ui-menu-item>
+	    <ui-menu-item command="app:show-ai" icon="developer_board" keyTag="Alt+A">Toggle AI Panel</ui-menu-item>
+	    <ui-menu-item command="app:show-scratchpad" icon="edit_note" keyTag="Alt+N">Toggle Notes Panel</ui-menu-item>
+	    <ui-menu-split></ui-menu-split>
 	    <ui-menu-item command="app:toggleSplitView" icon="vertical_split" keyTag="Alt+S">Toggle Split View</ui-menu-item>
 	    <ui-menu-split></ui-menu-split>
 	    <ui-menu-item id="menu_restore_folders" command="app:restoreFolders" icon="settings_backup_restore" keyTag="Alt+R">Restore</ui-menu-item>

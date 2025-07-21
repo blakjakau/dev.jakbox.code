@@ -1396,22 +1396,22 @@ const keyBinds = [
 			execCommandToggleSidebarPanel('folder');
 		},
 	},
-	{
-		target: "app",
-		name: "toggleFoldersSidebar",
-		bindKey: { win: "Alt+Shift+S", mac: "Option+Shift+S" },
-		exec: execCommandToggleFolders,
-	},
+	// {
+	// 	target: "app",
+	// 	name: "toggleFoldersSidebar",
+	// 	bindKey: { win: "Alt+Shift+S", mac: "Option+Shift+S" },
+	// 	exec: execCommandToggleFolders,
+	// },
 	{
 		target: "app",
 		name: "toggleSplitView",
-		bindKey: { win: "Alt+Shift+E", mac: "Option+Shift+E" },
+		bindKey: { win: "Alt+S", mac: "Option+S" },
 		exec: execCommandSplitView,
 	},
 	{
 		target: "app",
 		name: "show-scratchpad",
-		bindKey: { win: "Alt+S", mac: "Option+S" },
+		bindKey: { win: "Alt+N", mac: "Option+N" },
 		exec: () => {
 			execCommandToggleSidebarPanel('edit_note');
 		},

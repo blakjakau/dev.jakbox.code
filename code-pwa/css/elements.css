@@ -115,6 +115,7 @@ ui-button-counter {
 	user-select: none;
 	webkit-user-select: none;
 	box-sizing: border-box;
+	white-space: nowrap;
 }
 
 ui-button-counter {
