@@ -47,13 +47,6 @@
     max-height: 512px;
 }
 
-.button-container {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-
 .settings-button {
 	flex-grow:0;
 }
@@ -371,7 +364,7 @@ button:disabled,
 .button-container {
     display: flex;
     justify-content: space-between;
-    gap: 8px;
+    /*gap: 8px;*/
     align-items: center; /* Align items vertically */
 }
 
