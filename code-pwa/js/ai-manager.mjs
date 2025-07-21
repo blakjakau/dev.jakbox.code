@@ -75,6 +75,9 @@ class AIManager {
 		// If there's any initial history to display, render it
 		this.historyManager.render();
 		this._dispatchContextUpdate("init"); // NEW: Dispatch initial context state
+
+		// ADDITION: Listen for external setting changes (e.g., from main.mjs loading workspace config)
+		window.addEventListener('setting-changed', this._handleSettingChangedExternally.bind(this));
 	}
 
 	set editor(editor) {
@@ -135,7 +138,7 @@ class AIManager {
 		this.submitButton = this._createSubmitButton()
 		this.clearButton = this._createClearButton()
 
-		// MODIFIED: Removed direct text/attribute setting here.
+		// MODIFIED: Removed text/attribute setting here.
 		// The content will be managed by _updateAIInfoDisplay().
 		this.aiInfoDisplay = document.createElement("span");
 		this.aiInfoDisplay.classList.add("ai-info-display");
@@ -165,12 +168,7 @@ class AIManager {
 		promptArea.classList.add("prompt-area")
 		promptArea.placeholder = "Enter your prompt here..."
 
-		const resizePromptArea = () => {
-			promptArea.style.minHeight = "auto" // Reset min-height to allow shrinking
-			void promptArea.offsetHeight // Force reflow to get accurate scrollHeight
-			promptArea.style.minHeight = Math.min(360, promptArea.scrollHeight) + "px"
-		}
-
+		// MODIFIED: Moved the resize logic into a new method _resizePromptArea
 		promptArea.addEventListener("keydown", (e) => {
 			if (e.shiftKey && e.key === "Enter") {
 				return
@@ -186,7 +184,7 @@ class AIManager {
 				if (this.prompts.length > 0) {
 					this.promptIndex = Math.max(0, this.promptIndex - 1)
 					this.promptArea.value = this.prompts[this.promptIndex]
-					resizePromptArea()
+					this._resizePromptArea() // Call the new method
 				}
 				return
 			}
@@ -199,15 +197,24 @@ class AIManager {
 					} else {
 						this.promptArea.value = this.prompts[this.promptIndex]
 					}
-					resizePromptArea()
+					this._resizePromptArea() // Call the new method
 				}
 				return
 			}
 		})
 		promptArea.addEventListener("input", () => {
-			resizePromptArea()
+			this._resizePromptArea() // Call the new method
 		})
 		return promptArea
+	}
+
+	// NEW METHOD: Encapsulates prompt area resizing logic
+	_resizePromptArea() {
+		if (this.promptArea) {
+			this.promptArea.style.minHeight = "auto" // Reset min-height to allow shrinking
+			void this.promptArea.offsetHeight // Force reflow to get accurate scrollHeight
+			this.promptArea.style.minHeight = Math.min(360, this.promptArea.scrollHeight) + "px"
+		}
 	}
 
 	// NEW: Manual Summarize Button
@@ -584,6 +591,17 @@ class AIManager {
 		}
 	}
 
+	// ADDITION: Handler for 'setting-changed' events dispatched by AI provider instances
+	_handleSettingChangedExternally(event) {
+		// This event is fired by AI providers when their internal config changes,
+		// e.g., when main.mjs applies appConfig/workspaceConfig to the AI instance.
+		// We need to re-render the AI info display to reflect the new model.
+		this._updateAIInfoDisplay();
+		// Also ensure context update is dispatched to refresh progress bar etc.,
+		// as model change can affect MAX_CONTEXT_TOKENS.
+		this._dispatchContextUpdate("settings_change_external");
+	}
+
 
 	/**
 	 * Dispatches a custom 'context-update' event with the current chat state.
@@ -660,7 +678,10 @@ class AIManager {
 			this.promptIndex = this.prompts.length
 		}
 
+		// MODIFIED: Reset the promptArea height after submitting the prompt
 		this.promptArea.value = ""
+		this._resizePromptArea(); // Call the new resize method after clearing the value
+
 		this.panel.dispatchEvent(new CustomEvent("new-prompt", { detail: this.prompts }))
 
 		// NEW: Check for automatic summarization before processing the new prompt
@@ -831,3 +852,4 @@ class AIManager {
 }
 
 export default new AIManager()
+

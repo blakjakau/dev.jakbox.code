@@ -106,6 +106,13 @@
 .response-block pre {
     position: relative;
     padding-top: 24px;
+    max-height:16em;
+}
+
+.response-block pre[expanded] {
+    position: relative;
+    padding-top: 24px;
+    max-height:initial!important;
 }
 
 .code-buttons {
