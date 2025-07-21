@@ -734,12 +734,15 @@ class AIManager {
 		const callbacks = {
 			onUpdate: (fullResponse) => {
 				responseBlock.innerHTML = this.md.render(fullResponse)
+				// Ensure code block buttons are added even during update if content changes (e.g. for long streaming responses)
+				// though usually they're added once onDone. For this scenario, we might need a debounce or smarter check.
+				// For now, let's keep it simple and assume onDone is where final buttons are applied.
 				if (!this.userScrolled) {
 					this.conversationArea.scrollTop = this.conversationArea.scrollHeight
 				}
 			},
 			onDone: (fullResponse, contextRatioPercent) => {
-				this._addCodeBlockButtons(responseBlock)
+				this._addCodeBlockButtons(responseBlock) // Add buttons after final response is rendered
 
 				spinner.remove()
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
@@ -819,8 +822,31 @@ class AIManager {
 				}, 1000)
 			})
 
-			buttonContainer.append(copyButton)
+            // NEW: Expand/Collapse button
+            const expandCollapseButton = new Button();
+            expandCollapseButton.classList.add("code-button", "expand-collapse-button");
+            // Set initial state based on whether 'expanded' attribute is present (it won't be initially)
+            const isExpanded = pre.hasAttribute("expanded");
+            expandCollapseButton.icon = isExpanded ? "unfold_less" : "unfold_more";
+            expandCollapseButton.title = isExpanded ? "Collapse code block" : "Expand code block";
+
+            expandCollapseButton.on("click", () => {
+                const currentlyExpanded = pre.hasAttribute("expanded");
+                if (currentlyExpanded) {
+                    pre.removeAttribute("expanded");
+                    expandCollapseButton.icon = "unfold_more";
+                    expandCollapseButton.title = "Expand code block";
+                } else {
+                    pre.setAttribute("expanded", ""); // Set attribute without value
+                    expandCollapseButton.icon = "unfold_less";
+                    expandCollapseButton.title = "Collapse code block";
+                }
+            });
+
+
 			buttonContainer.append(insertButton)
+			buttonContainer.append(copyButton)
+            buttonContainer.append(expandCollapseButton) // Append the new button
 			pre.prepend(buttonContainer)
 		})
 	}
@@ -852,4 +878,3 @@ class AIManager {
 }
 
 export default new AIManager()
-
