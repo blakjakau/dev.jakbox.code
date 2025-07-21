@@ -1,6 +1,6 @@
-#todo
+# todo
 
-#ideas
+# ideas
 - replace prompt textarea with ACE editor instance?
 - add tabs to AI panel for multi-session / multi-task AI usage
 - add basic image editing (annotations) to mediaView?
@@ -18,7 +18,7 @@
 - EXEC:REPLACE: { filename:"", find:"", replace:"", global:true }
 - EXEC:WRITE_FILE: { filename:"", content: "" }
 
-##loading
+## loading
 - disable workspace autoload
 - add welcome overlay + workspace selector
 - hide sidebar
@@ -34,7 +34,7 @@
 - consider porting prettier modules for Kotline/Java/Sh/other?
 
 
-#done
+# done
 - drag+drop tabs on the leftTabs
 - disable live autocomplete
 - set text baseValue at load and save, use it for change tracking
