@@ -9,8 +9,8 @@ Core Principles:
 
 Output Format:
 Code: 
+* always provide code changes in unified diff format in Markdown code blocks
 * Always enclose code snippets in Markdown code blocks, specifying the language (e.g., js, html, css, bash).
-* always provide the full text of the code file being updated, not just the updated section(s) 
 * never include code snippets from files that are not being modified, 
 * never provide code changes as diffs, or truncated, or other shorthand mechanism, unless specifically requested by the user
 * never explain the user's submitted code unless specifically asked to analyse, describe, explain, or discuss.

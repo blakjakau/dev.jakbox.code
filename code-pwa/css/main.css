@@ -45,19 +45,19 @@ body {
 	margin:0; padding:0;
 }
 
-ui-tab-item:not([active])::after { 
+/*ui-tab-item:not([active])::after { 
     display:inline-block;
     position:absolute;
     opacity:1;
     width:1px;
     height:20px;
     margin-top:4px;
-    /*vertical-align:middle;*/
     content: '';
+    width:2px;
     overflow:hidden;
-    background-color:var(--mid);
+    background-color:var(--themeDark);
     transition: opacity 200ms ease-in-out;
-}
+}*/
 
 /*ui-tab-item[active] + ui-tab-item::after { opacity:0; }*/
 

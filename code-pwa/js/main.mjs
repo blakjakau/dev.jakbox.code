@@ -2,7 +2,7 @@ import prettier from "https://unpkg.com/prettier@2.4.1/esm/standalone.mjs"
 import parserBabel from "https://unpkg.com/prettier@2.4.1/esm/parser-babel.mjs"
 import parserHtml from "https://unpkg.com/prettier@2.4.1/esm/parser-html.mjs"
 import parserCss from "https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs"
-import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
+import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm" // Keep these imports
 
 import ui from './ui-main.mjs';
 import { ActionBar, Block, Button, ContentFill, CounterButton, Element, Effects, Effect, FileItem, FileList, Icon, Inline, Input, Inner, MediaView, Panel, Ripple, TabBar, TabItem, View, Menu, MenuItem, FileUploadList, actionBars, addStylesheet, buildPath, clone, isElement, isFunction, isNotNull, isset, readAndOrderDirectory, readAndOrderDirectoryRecursive, sortOnName } from './elements.mjs';
@@ -89,8 +89,11 @@ const workspace = {
 	folders: [],
 	files: [],
 	scratchpad: '',
-	promptHistory: [],
+	// REMOVED: promptHistory: [], // This will be stored per AI session now
     aiConfig: {},
+    // NEW: AI session metadata and active session ID
+    aiSessionsMetadata: [], // Array of {id, name, createdAt, lastModified}
+    activeAiSessionId: null, // The ID of the currently active AI session
 }
 
 // window.showSettings = ui.showSettings
@@ -294,8 +297,9 @@ const saveWorkspace = async () => {
 	workspace.openFolders = fileList.openFolders;
 	workspace.sidebarWidth = ui.sidebar.offsetWidth;
 	workspace.activeSidebarTab = ui.iconTabBar?.activeTab?.iconId;
-		workspace.promptHistory = ui.aiManager.promptHistory;
-	set(`workspace_${workspace.id}`, workspace);
+	// REMOVED: workspace.promptHistory = ui.aiManager.promptHistory; // No longer here
+    // AI sessions metadata is now stored directly in workspace (small footprint)
+	set(`workspace_${workspace.id}`, workspace); // This will save workspace.aiSessionsMetadata and workspace.activeAiSessionId
 }
 
 const updateWorkspaceSelectors = (() => {
@@ -374,13 +378,22 @@ const openWorkspace = (() => {
 			workspace.sidebarWidth = load.sidebarWidth || null;
 			workspace.activeSidebarTab = load.activeSidebarTab || null;
 			workspace.id = load.id || safeString(workspace.name)
-			workspace.promptHistory = load.promptHistory || [];
-			ui.aiManager.promptHistory = workspace.promptHistory;
+			// REMOVED: workspace.promptHistory = load.promptHistory || []; // Removed
+			// REMOVED: ui.aiManager.promptHistory = workspace.promptHistory; // Removed
             workspace.aiConfig = load.aiConfig || {};
-            workspace.chatHistory = load.chatHistory || [];
-            if (ui.aiManager.historyManager) {
-                ui.aiManager.historyManager.loadHistory(workspace.chatHistory, true);
+            // REMOVED: workspace.chatHistory = load.chatHistory || []; // Removed
+            // if (ui.aiManager.historyManager) {
+            //     ui.aiManager.historyManager.loadHistory(workspace.chatHistory, true);
+            // }
+
+            // NEW: Load AI session metadata and active session ID
+            workspace.aiSessionsMetadata = load.aiSessionsMetadata || [];
+            workspace.activeAiSessionId = load.activeAiSessionId || null;
+            if (ui.aiManager) {
+                // Pass the AI session metadata and active ID to the manager
+                ui.aiManager.loadSessions(workspace.aiSessionsMetadata, workspace.activeAiSessionId);
             }
+
             // After loading workspace, ensure aiManager is initialized with the correct provider's config
             // This assumes ui.aiManager.aiProvider is already set by ui.aiManager.loadSettings() in its init
             const currentProvider = ui.aiManager.aiProvider;
@@ -451,6 +464,10 @@ const openWorkspace = (() => {
 				workspace.id = "default"
 				workspace.files = []
 				workspace.folders = []
+				// NEW: Initialize empty AI session metadata
+                workspace.aiSessionsMetadata = [];
+                workspace.activeAiSessionId = null;
+                // AIManager will handle creating the first session when it gets loadSessions call
 				hideActions()
 				let item = document.createElement("ui-menu-item")
 				item.setAttribute("command", `app:workspaceOpen:default`)
@@ -742,7 +759,7 @@ const reloadFile = async (tab) => {
         tab.config.fileModified = false; // Clear the file modified flag
         tab.changed = false; // Clear unsaved changes flag
 
-        // If the reloaded tab is the active one, ensure the editor updates
+        // If the reloaded tab is the active tab, ensure the editor updates
         if (tab === currentTabs.activeTab) {
             currentEditor.setSession(tab.config.session);
             currentEditor.focus();
@@ -1464,6 +1481,14 @@ const keyBinds = [
 					// set(`workspace_${workspace.id}`console.warn("DELETE", workspace)
 					console.warn("DELETE", workspace)
 					del(`workspace_${workspace.id}`)
+                    
+                    // NEW: Also delete all associated AI sessions from IndexedDB
+                    // Note: This assumes `workspace.aiSessionsMetadata` holds all session IDs.
+                    for (const sessionMeta of workspace.aiSessionsMetadata) {
+                        await del(`ai-session-${sessionMeta.id}`);
+                    }
+                    // This is where a more robust orphaned session cleanup could happen if needed for truly lost sessions.
+
 					app.workspaces.splice(app.workspaces.indexOf(workspace.id), 1)
 
 					// reset to default
@@ -1508,6 +1533,9 @@ const keyBinds = [
 				workspace.folders = []
 				workspace.files = []
 				workspace.openFolders = [];
+                // NEW: Initialize empty AI session metadata for new workspace
+                workspace.aiSessionsMetadata = [];
+                workspace.activeAiSessionId = null;
 
 				// clear the leftTabs
 				while (leftTabs.tabs.length > 1) {
@@ -1624,29 +1652,41 @@ setTimeout(async () => {
     		ui.aiManager.focus()
     	}
     })
-    ui.aiManager.panel.addEventListener('new-prompt', (event) => {
-        workspace.promptHistory = event.detail;
-        saveWorkspace();
-    });
-    ui.aiManager.panel.addEventListener('context-update', (event) => {
-        if (event.detail.chatHistory) {
-            workspace.chatHistory = event.detail.chatHistory;
-            // Debounced save
-            clearTimeout(ui.aiManager.saveTimeout);
-            ui.aiManager.saveTimeout = setTimeout(saveWorkspace, 1000);
+    // REMOVED: ui.aiManager.panel.addEventListener('new-prompt', (event) => { /* ... */ });
+    // This is now handled within ai-manager for activeSession.promptHistory
+
+    ui.aiManager.panel.addEventListener('context-update', async (event) => {
+        const { aiSessionsMetadata, activeSessionData, type } = event.detail;
+
+        // 1. Update workspace metadata (lightweight save)
+        if (aiSessionsMetadata) {
+            workspace.aiSessionsMetadata = aiSessionsMetadata.sessions;
+            workspace.activeAiSessionId = aiSessionsMetadata.activeSessionId;
+            // Debounce workspace saves, as they can happen on session switch, rename, delete
+            clearTimeout(ui.aiManager.saveWorkspaceTimeout); 
+            ui.aiManager.saveWorkspaceTimeout = setTimeout(saveWorkspace, 1000); 
+        }
+
+        // 2. Save the full active session data to IndexedDB (on demand)
+        // This happens on message append, delete, summarization, or session switch
+        if (activeSessionData && activeSessionData.id) {
+            const sessionKey = `ai-session-${activeSessionData.id}`;
+            await set(sessionKey, activeSessionData);
+            console.debug(`AI session "${activeSessionData.name}" (${activeSessionData.id}) saved to IndexedDB.`);
         }
     });
+
     window.addEventListener('setting-changed', (event) => {
         const { settingsName, settings, useWorkspaceSettings } = event.detail;
         const providerName = settingsName.replace('Config', ''); // e.g., 'ollama' or 'gemini'
 
         if (useWorkspaceSettings) {
             workspace.aiConfig[providerName] = { ...settings };
-            if (app.aiConfig) delete app.aiConfig[providerName]; // Clear global settings for this provider if using workspace specific
+            if (app.aiConfig && app.aiConfig[providerName]) delete app.aiConfig[providerName]; // Clear global settings for this provider if using workspace specific
             saveWorkspace();
         } else {
             app.aiConfig[providerName] = { ...settings };
-            if (workspace.aiConfig) delete workspace.aiConfig[providerName]; // Clear workspace settings for this provider if using global
+            if (workspace.aiConfig && workspace.aiConfig[providerName]) delete workspace.aiConfig[providerName]; // Clear workspace settings for this provider if using global
             saveAppConfig();
         }
     });

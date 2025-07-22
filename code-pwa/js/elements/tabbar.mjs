@@ -1,3 +1,4 @@
+// File: tabbar.mjs
 import { Block } from './element.mjs';
 import { TabItem } from './tabitem.mjs';
 import { isFunction, buildPath } from './utils.mjs';
@@ -8,6 +9,7 @@ export class TabBar extends Block {
 	constructor(content) {
 		super()
 		this._tabs = []
+		this._exclusiveType = null
 		this.onEmpty = null;
 		this.splitViewDragEnabled = false;
 		this.on("mousewheel", (e) => {
@@ -113,6 +115,14 @@ export class TabBar extends Block {
 		this.defaultTab = null;
 	}
 
+	set exclusiveDropType(v) {
+		this._exclusiveType = v
+	}
+	
+	get exclusiveDropType() {
+		return this._exclusiveType
+	}
+
 	// Method to be called when the tab bar becomes empty
 	defaultTab() {
 		if (typeof this._defaultTab === 'function') {
@@ -132,6 +142,13 @@ export class TabBar extends Block {
 	async tabDrop(e) {
 		e.stopPropagation()
 		e.preventDefault()
+
+		if(this.exclusiveDropType != null && e.dataTransfer.getData("application/x-exclusive-drop-type") != null) {
+			if(this.exclusiveDropType != e.dataTransfer.getData("application/x-exclusive-drop-type")) {
+				console.debug("exclusive drop type not matched between ")
+				return
+			}
+		}
 
 		// Remove drop highlight from all tabs in this TabBar
 		for (const tab of this.children) {
@@ -324,8 +341,10 @@ export class TabBar extends Block {
 		const tab = new TabItem(config.name)
 		if (config.handle) tab.setAttribute("title", buildPath(config.handle))
 		tab.config = config
-		tab.id = `tab-${tabCounter++}`;
-		tab.setAttribute("id", `tab-${tabCounter++}`);
+		// CORRECTED: Increment tabCounter only once here
+		const newTabId = `tab-${tabCounter++}`; 
+		tab.id = newTabId;
+		tab.setAttribute("id", newTabId);
 		tab.tabBar = this
 		this._tabs.push(tab)
 		this.append(tab)

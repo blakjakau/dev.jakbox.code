@@ -104,9 +104,12 @@ const uiManager = {
 		const filesPanel = new SidebarPanel();
 		filesPanel.append(fileActions);
 		filesPanel.append(fileList);
-
+		// The AI Panel creation is delegated to aiManager.init(aiManagerPanel)
+        // Ensure aiManagerPanel exists for aiManager to append its UI
 		const aiManagerPanel = new SidebarPanel();
-		aiManager.init(aiManagerPanel);
+		aiManager.init(aiManagerPanel) 
+        // as we need global app/workspace config loaded before aiManager fully initializes.
+        // So this append happens here, but init() is external.
 
 		const scratchPanel = new SidebarPanel();
 		const scratchEditorElement = new Block();
@@ -126,8 +129,7 @@ const uiManager = {
 		sidebar.append(sidebarPanelsContainer);
 		sidebar.minSize = 240
 		sidebar.maxSize = 2440
-
-
+		
 		iconTabBar.on('tabs-updated', ({ detail }) => {
 			const tab = detail.tab;
 			const panels = sidebar.querySelectorAll('ui-sidebar-panel');
@@ -196,7 +198,8 @@ const uiManager = {
 		rightTabs.type = "tabs"
 		rightTabs.setAttribute("id", "rightTabs")
 		rightTabs.setAttribute("slim", "true")
-
+		
+		
 		statusbar = document.querySelector("#statusbar")
 		if (statusbar == null) {
 			statusbar = new ActionBar()
@@ -254,6 +257,13 @@ const uiManager = {
 		rightHolder.resizable = "left"
 		rightHolder.minSize = 0
 		rightHolder.maxSize = 2440
+		
+	
+		leftTabs.exclusiveDropType = "editor-tab"
+		rightTabs.exclusiveDropType = "editor-tab"
+		leftHolder.exclusiveDropType = "editor-tab"
+		rightHolder.exclusiveDropType = "editor-tab"
+
 		
 		sidebar.resizeListener((width)=>{
 			const maxWidth = window.innerWidth * 0.5; // 50% of window width
