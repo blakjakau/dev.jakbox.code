@@ -17,7 +17,7 @@ class AIManager {
 		}
 		this._settingsSchema = {
 			aiProvider: { type: "enum", label: "AI Provider", default: "ollama", enum: Object.keys(this.aiProviders) },
-			// NEW: Summarization settings
+			// Summarization settings
 			summarizeThreshold: { type: "number", label: "Summarize History When Context Reaches (%)", default: 85 },
 			summarizeTargetPercentage: { type: "number", label: "Percentage of Old History to Summarize", default: 50 },
 		}
@@ -32,16 +32,16 @@ class AIManager {
 		this.submitButton = null
 		this.md = window.markdownit()
 		this.settingsPanel = null
-		this._settingsForm = null // NEW: Reference to the settings form element
-		this._workspaceSettingsCheckbox = null // NEW: Reference to the checkbox
+		this._settingsForm = null // Reference to the settings form element
+		this._workspaceSettingsCheckbox = null // Reference to the checkbox
 		this.useWorkspaceSettings = false
 		this.userScrolled = false
-		this._isProcessing = false // NEW: Flag to track if AI is busy (generating or summarizing)
+		this._isProcessing = false // Flag to track if AI is busy (generating or summarizing)
 
-		// NEW: Reference to the AI info display element
+		// Reference to the AI info display element
 		this.aiInfoDisplay = null;
 
-		// NEW: Load summarization settings defaults
+		// Load summarization settings defaults
 		this.config = {
 			summarizeThreshold: this._settingsSchema.summarizeThreshold.default,
 			summarizeTargetPercentage: this._settingsSchema.summarizeTargetPercentage.default,
@@ -56,7 +56,7 @@ class AIManager {
 		this.ai = new this.aiProviders[this.aiProvider]();
 		await this.ai.init(); // Initialize with loaded settings
 
-		// NEW: Load summarization settings from storage, overriding defaults
+		// Load summarization settings from storage, overriding defaults
 		const storedSummarizeThreshold = localStorage.getItem("summarizeThreshold")
 		if (storedSummarizeThreshold !== null) {
 			this.config.summarizeThreshold = parseInt(storedSummarizeThreshold);
@@ -69,14 +69,14 @@ class AIManager {
 		this._createUI(); // Creates UI elements, including aiInfoDisplay
 		this._setupPanel();
 		
-		// NEW: Update the AI info display once UI elements are available and AI is initialized
+		// Update the AI info display once UI elements are available and AI is initialized
 		this._updateAIInfoDisplay();
 
 		// If there's any initial history to display, render it
 		this.historyManager.render();
-		this._dispatchContextUpdate("init"); // NEW: Dispatch initial context state
+		this._dispatchContextUpdate("init"); // Dispatch initial context state
 
-		// ADDITION: Listen for external setting changes (e.g., from main.mjs loading workspace config)
+		// Listen for external setting changes (e.g., from main.mjs loading workspace config)
 		window.addEventListener('setting-changed', this._handleSettingChangedExternally.bind(this));
 	}
 
@@ -134,18 +134,18 @@ class AIManager {
 		const spacer = new Block()
 		spacer.classList.add("spacer")
 
-		this.summarizeButton = this._createSummarizeButton() // NEW: Summarize button
+		this.summarizeButton = this._createSummarizeButton() // Summarize button
 		this.submitButton = this._createSubmitButton()
 		this.clearButton = this._createClearButton()
 
-		// MODIFIED: Removed text/attribute setting here.
+		// Removed text/attribute setting here.
 		// The content will be managed by _updateAIInfoDisplay().
 		this.aiInfoDisplay = document.createElement("span");
 		this.aiInfoDisplay.classList.add("ai-info-display");
 
 
 		buttonContainer.append(this.clearButton)
-		buttonContainer.append(this.summarizeButton) // NEW: Add summarize button
+		buttonContainer.append(this.summarizeButton) // Add summarize button
 		buttonContainer.append(this.aiInfoDisplay); // Element is created, but content will be set by _updateAIInfoDisplay()
 		buttonContainer.append(spacer)
 		buttonContainer.append(this.submitButton)
@@ -166,10 +166,10 @@ class AIManager {
 	_createPromptArea() {
 		const promptArea = document.createElement("textarea")
 		promptArea.classList.add("prompt-area")
-		// NEW: Update placeholder based on AI configuration
+		// Update placeholder based on AI configuration
 		this._updatePromptAreaPlaceholder(promptArea);
 
-		// MODIFIED: Moved the resize logic into a new method _resizePromptArea
+		// Moved the resize logic into a new method _resizePromptArea
 		promptArea.addEventListener("keydown", (e) => {
 			if (e.shiftKey && e.key === "Enter") {
 				return
@@ -231,7 +231,7 @@ class AIManager {
         }
     }
 
-	// NEW: Manual Summarize Button
+	// Manual Summarize Button
 	_createSummarizeButton() {
 		const summarizeButton = new Button("Summarize")
 		summarizeButton.icon = "compress" // Using a suitable icon
@@ -260,7 +260,7 @@ class AIManager {
 		return clearButton
 	}
 
-	// NEW: Helper to disable/enable relevant buttons
+	// Helper to disable/enable relevant buttons
 	_setButtonsDisabledState(disabled) {
         const isAIConfigured = this.ai && this.ai.isConfigured();
 
@@ -360,7 +360,7 @@ class AIManager {
 			}
 			aiProviderSelect.appendChild(option)
 		})
-		// MODIFIED: Changed listener to correctly update AI, add system message, and update UI display
+		// Changed listener to correctly update AI, add system message, and update UI display
 		aiProviderSelect.addEventListener("change", async () => {
 			const oldProviderName = this.aiProvider; // Store old provider name
 
@@ -388,13 +388,13 @@ class AIManager {
 			// --- END NEW CODE ---
 
 			this._renderSettingsForm() // Re-render settings for the new provider
-			this._updateAIInfoDisplay(); // NEW: Update the display element for the new AI/model
+			this._updateAIInfoDisplay(); // Update the display element for the new AI/model
             this.historyManager.render(); // Re-render history to show/hide welcome message
 		})
 		aiProviderLabel.appendChild(aiProviderSelect)
 		form.appendChild(aiProviderLabel)
 
-		// NEW: Render summarization settings
+		// Render summarization settings
 		const summarizeThresholdSetting = this._settingsSchema.summarizeThreshold
 		const summarizeThresholdLabel = document.createElement("label")
 		summarizeThresholdLabel.textContent = `${summarizeThresholdSetting.label}: `
@@ -500,13 +500,13 @@ class AIManager {
 					newSettings[key] = input.value
 				}
 			}
-			// NEW: Read new summarization settings
+			// Read new summarization settings
 			this.config.summarizeThreshold = parseInt(form.querySelector("#summarizeThreshold").value)
 			this.config.summarizeTargetPercentage = parseInt(form.querySelector("#summarizeTargetPercentage").value)
 			localStorage.setItem("summarizeThreshold", this.config.summarizeThreshold)
 			localStorage.setItem("summarizeTargetPercentage", this.config.summarizeTargetPercentage)
 
-			// MODIFIED: Pass `this.ai.settingsSource` to setOptions if it's available and relevant
+			// Pass `this.ai.settingsSource` to setOptions if it's available and relevant
 			this.ai.setOptions(
 				newSettings,
 				(errorMessage) => {
@@ -540,16 +540,16 @@ class AIManager {
 		// If settings panel is being hidden, re-render chat history to refresh any potential content/token changes
 		if (!this.settingsPanel.classList.contains("active")) {
 			this.historyManager.render() // Re-render history to show/hide welcome message
-			this._dispatchContextUpdate("settings_closed") // NEW: Dispatch on settings panel close
+			this._dispatchContextUpdate("settings_closed") // Dispatch on settings panel close
 		} else {
-			// NEW: If settings panel is being shown, re-render its content to reflect current values
+			// If settings panel is being shown, re-render its content to reflect current values
 			this._renderSettingsForm()
-			this._updateAIInfoDisplay(); // NEW: Ensure display is updated when panel opens
-			this._dispatchContextUpdate("settings_opened") // NEW: Dispatch on settings panel open
+			this._updateAIInfoDisplay(); // Ensure display is updated when panel opens
+			this._dispatchContextUpdate("settings_opened") // Dispatch on settings panel open
 		}
 	}
 
-	// NEW: Helper method to update progress bar color based on percentage
+	// Helper method to update progress bar color based on percentage
 	_updateProgressBarColor(progressBarInner, percentage) {
 		// Remove all color classes first
 		progressBarInner.classList.remove("threshold-yellow", "threshold-orange", "threshold-red")
@@ -566,7 +566,7 @@ class AIManager {
 	}
 
 	/**
-	 * NEW (FIX): Centralized method to update context-sensitive UI elements like the progress bar and AI info display.
+	 * Centralized method to update context-sensitive UI elements like the progress bar and AI info display.
 	 * This is now called directly by _dispatchContextUpdate.
 	 * @param {object} detail - The event detail object from _dispatchContextUpdate.
 	 */
@@ -596,7 +596,7 @@ class AIManager {
 		// Update AI Info Display (This is called by _updateAIInfoDisplay() directly, not here)
 	}
 
-	// NEW: Method to update the AI info display element
+	// Method to update the AI info display element
 	_updateAIInfoDisplay() {
 		if (this.aiInfoDisplay && this.ai) {
             if (this.ai.isConfigured()) {
@@ -615,7 +615,7 @@ class AIManager {
 		}
 	}
 
-	// ADDITION: Handler for 'setting-changed' events dispatched by AI provider instances
+	// Handler for 'setting-changed' events dispatched by AI provider instances
 	_handleSettingChangedExternally(event) {
 		// This event is fired by AI providers when their internal config changes,
 		// e.g., when main.mjs applies appConfig/workspaceConfig to the AI instance.
@@ -654,12 +654,12 @@ class AIManager {
 			...details,
 		}
 
-		// FIX: Directly update the AIManager's own UI (progress bar) before dispatching the event for external listeners.
+		// Directly update the AIManager's own UI (progress bar) before dispatching the event for external listeners.
 		this._updateContextUI(eventDetail);
 		// Also update button states, as context changes can affect summarization eligibility.
 		this._setButtonsDisabledState(this._isProcessing);
 
-		// MODIFIED: Added setTimeout for scrolling to bottom after UI updates
+		// Added setTimeout for scrolling to bottom after UI updates
 		// removed autoscroll after ui update, it's jarring AF when deleting old items.
 		// if (this.conversationArea && !this.settingsPanel?.classList.contains("active")) {
 		// 	setTimeout(() => {
@@ -672,11 +672,11 @@ class AIManager {
 
 	async generate() {
 		if (this._isProcessing) {
-			// NEW: Prevent multiple concurrent AI requests
+			// Prevent multiple concurrent AI requests
 			console.warn("AI is currently processing another request. Please wait.")
 			return
 		}
-        // NEW: Check if AI is configured before proceeding with generation
+        // Check if AI is configured before proceeding with generation
         if (!this.ai || !this.ai.isConfigured()) {
             console.warn("AI is not configured. Cannot generate response.");
             this.historyManager.addMessage({
@@ -696,7 +696,7 @@ class AIManager {
 		const userPrompt = this.promptArea.value.trim()
 
 		if (!userPrompt) {
-			this._isProcessing = false // NEW: Release lock if no prompt
+			this._isProcessing = false // Release lock if no prompt
 			this._setButtonsDisabledState(false)
 			return
 		}
@@ -719,13 +719,13 @@ class AIManager {
 			this.promptIndex = this.prompts.length
 		}
 
-		// MODIFIED: Reset the promptArea height after submitting the prompt
+		// Reset the promptArea height after submitting the prompt
 		this.promptArea.value = ""
 		this._resizePromptArea(); // Call the new resize method after clearing the value
 
 		this.panel.dispatchEvent(new CustomEvent("new-prompt", { detail: this.prompts }))
 
-		// NEW: Check for automatic summarization before processing the new prompt
+		// Check for automatic summarization before processing the new prompt
 		const estimatedTokensBeforeNewPrompt = this.ai.estimateTokens(this.historyManager.chatHistory)
 		const maxContextTokens = this.ai.MAX_CONTEXT_TOKENS
 		if (
@@ -740,10 +740,10 @@ class AIManager {
 			await this.historyManager.performSummarization() // Await summarization before continuing
 		}
 
-		// Step 1: Process prompt for @ tags, always using "chat" logic now.
+		// Process prompt for @ tags, always using "chat" logic now.
 		const { processedPrompt, contextItems } = await this.ai._getContextualPrompt(userPrompt, "chat")
 
-		// Step 2: Update internal chatHistory (AIManager is source of truth)
+		// Update internal chatHistory (AIManager is source of truth)
 		// Add new context files to history
 		contextItems.forEach((item) => this.historyManager.addContextFile(item))
 		// Add the user's processed prompt to history
@@ -795,10 +795,10 @@ class AIManager {
 					content: fullResponse,
 					timestamp: Date.now(),
 				})
-				this._dispatchContextUpdate("append_model") // NEW: Dispatch after model response
+				this._dispatchContextUpdate("append_model") // Dispatch after model response
 
-				this._isProcessing = false // NEW: Release lock
-				this._setButtonsDisabledState(false) // NEW: Re-enable buttons
+				this._isProcessing = false // Release lock
+				this._setButtonsDisabledState(false) // Re-enable buttons
 			},
 			onError: (error) => {
 				responseBlock.innerHTML = `Error: ${error.message}`
@@ -813,10 +813,10 @@ class AIManager {
 					content: `Error: ${error.message}`,
 					timestamp: Date.now(),
 				})
-				this._dispatchContextUpdate("append_error") // NEW: Dispatch after error
+				this._dispatchContextUpdate("append_error") // Dispatch after error
 
-				this._isProcessing = false // NEW: Release lock
-				this._setButtonsDisabledState(false) // NEW: Re-enable buttons
+				this._isProcessing = false // Release lock
+				this._setButtonsDisabledState(false) // Re-enable buttons
 			},
 			onContextRatioUpdate: (ratio) => {
 				// This callback is now redundant.
@@ -863,7 +863,7 @@ class AIManager {
 				}, 1000)
 			})
 
-            // NEW: Expand/Collapse button
+            // Expand/Collapse button
             const expandCollapseButton = new Button();
             expandCollapseButton.classList.add("code-button", "expand-collapse-button");
             // Set initial state based on whether 'expanded' attribute is present (it won't be initially)
@@ -906,7 +906,7 @@ class AIManager {
 		if (storedProvider && this.aiProviders[storedProvider]) {
 			this.aiProvider = storedProvider
 		}
-		// NEW: Load summarization settings
+		// Load summarization settings
 		const storedSummarizeThreshold = localStorage.getItem("summarizeThreshold")
 		if (storedSummarizeThreshold !== null) {
 			this.config.summarizeThreshold = parseInt(storedSummarizeThreshold)

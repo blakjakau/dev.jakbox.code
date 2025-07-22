@@ -1,65 +1,8 @@
 // ai-manager-history.mjs
 
 import { Block, Button } from "./elements.mjs"
+import DEFAULT_WELCOME_MESSAGE_MARKDOWN from "./ai-manager-setup-guide.mjs"
 export const MAX_RECENT_MESSAGES_TO_PRESERVE = 5
-
-// NEW: Define the default welcome message
-const DEFAULT_WELCOME_MESSAGE_MARKDOWN = `
-# Welcome to AI Integration!
-
-**To get started, please configure an AI provider in the settings panel.**
-
----
-
-## Getting Setup
-
-### Gemini AI Integration (Google)
-
-1.  **Get Your Gemini API Key:**
-    *   Visit [aistudio.google.com](https://aistudio.google.com/).
-    *   Sign in, then create or copy an API key. **Keep it secure!**
-2.  **Configure Gemini in the AI Panel:**
-    *   Open the AI Panel (AI icon in sidebar, or \`Alt+A\` / \`Option+A\`).
-    *   Click the **Settings** (gear) icon.
-    *   Select **Gemini** from the "AI Provider" dropdown.
-    *   Paste your API key into the "Gemini API Key" field.
-    *   Choose your desired Gemini model (e.g., Gemini Flash for speed, Gemini Pro for power).
-    *   Click **Save Settings**.
-
-### Ollama AI Integration (Local models)
-
-1.  **Download and Setup Ollama:**
-    *   Visit [ollama.com](https://ollama.com/).
-    *   Download and install Ollama for your operating system.
-    *   **Pull a Model:** Open your terminal and run \`ollama pull <model_name>\` (e.g., \`ollama pull codegemma:7b\`). See available models at [ollama.com/library](https://ollama.com/library).
-2.  **Configure Ollama in the AI Panel:**
-    *   Open the AI Panel (AI icon in sidebar, or \`Alt+A\` / \`Option+A\`).
-    *   Click the **Settings** (gear) icon.
-    *   Select **Ollama** from the "AI Provider" dropdown.
-    *   Ensure the "Ollama Server" address is correct (default is \`http://localhost:11434\`).
-    *   Choose the Ollama model you downloaded (e.g., \`codegemma:7b\`).
-    *   Click **Save Settings**.
-
----
-
-## Using the AI Panel
-
-Once set up, use the AI panel for your coding needs:
-
-*   **Prompting:** Type your questions or instructions in the text area at the bottom. Press **Enter** to send. Use **Shift+Enter** for new lines.
-*   **Including Code/Files:**
-    *   Type \`@code\` or \`@current\` to include the code from your active editor pane (file content or selection).
-    *   Type \`@open\` to include all currently open files.
-    *   *(These tags are processed and appear as separate context items in your chat history).*
-*   **History & Context Management:**
-    *   Your conversation history appears above the prompt area.
-    *   A **progress bar** indicates context window usage. It will change color (yellow, orange, red) as the limit is approached.
-    *   The AI can **automatically summarize** older conversation parts to stay within the context limit. You can also manually trigger summarization using the **Summarize** button (compress icon).
-    *   **Delete prompts** (and their corresponding AI responses) using the trash icon next to your prompt in the history.
-*   **Clearing:** Click **Clear** to reset the AI's memory and start a fresh conversation.
-
-You're all set! Start chatting with AI for coding help, explanations, and more.
-`;
 
 class AIManagerHistory {
 	constructor(aiManager) {
@@ -113,7 +56,7 @@ class AIManagerHistory {
 		if (Array.isArray(history)) {
 			this.chatHistory = history
 			this.render()
-			// NEW: Dispatch an update to ensure the UI (progress bar, etc.) reflects the loaded state.
+			// Dispatch an update to ensure the UI (progress bar, etc.) reflects the loaded state.
 			this.manager._dispatchContextUpdate("history_loaded")
 			
 			if(autoScroll) {
@@ -125,7 +68,7 @@ class AIManagerHistory {
 		}
 	}
 
-    // NEW: Method to display the default welcome message
+    // Method to display the default welcome message
     _showDefaultWelcomeMessage() {
         if (this.conversationArea) {
             this.conversationArea.innerHTML = this._defaultWelcomeMessageHtml;
@@ -136,7 +79,7 @@ class AIManagerHistory {
 		if (!this.conversationArea) return
 		this.conversationArea.innerHTML = "" // Clear existing UI
 
-        // NEW: Check if chat history is empty AND AI is not configured
+        // Check if chat history is empty AND AI is not configured
         // Assuming this.manager.ai.isConfigured() exists and indicates setup status
         if ((!this.manager.ai || !this.manager.ai.isConfigured())) {
             this._showDefaultWelcomeMessage();
@@ -220,7 +163,7 @@ class AIManagerHistory {
 	}
 
 	/**
-	 * NEW: Handles the deletion of a file context item from the history.
+	 * Handles the deletion of a file context item from the history.
 	 * @param {string} fileId - The unique ID of the file context item to remove.
 	 */
 	_handleDeleteFileContextItem(fileId) {
@@ -270,7 +213,7 @@ class AIManagerHistory {
 		fileBlock.append(header)
 		wrapperBlock.append(fileBlock)
 
-		// NEW: Add a remove button instead of copy/insert
+		// Add a remove button instead of copy/insert
 		const removeButton = new Button()
 		removeButton.icon = "delete"
 		removeButton.title = "Remove file from context"
@@ -286,7 +229,7 @@ class AIManagerHistory {
 			console.warn("AI is currently processing or summarizing. Please wait.")
 			return
 		}
-        // NEW: Do not summarize if AI is not configured
+        // Do not summarize if AI is not configured
         if (!this.manager.ai || !this.manager.ai.isConfigured()) {
             console.warn("AI is not configured. Cannot perform summarization.");
             this.addMessage({
@@ -302,7 +245,7 @@ class AIManagerHistory {
 		this.manager._setButtonsDisabledState(true)
 
 		try {
-			// Step 1: Find the starting point of the actual conversation, skipping all initial file contexts.
+			// Find the starting point of the actual conversation, skipping all initial file contexts.
 			const firstConversationIndex = this.chatHistory.findIndex((msg) => msg.type !== "file_context")
 
 			// If there's no conversation yet (e.g., only files have been added), we can't summarize.
@@ -311,15 +254,15 @@ class AIManagerHistory {
 				return // Exit gracefully. The 'finally' block will re-enable buttons.
 			}
 
-			// Step 2: Create a contiguous block of the entire conversation to date.
+			// Create a contiguous block of the entire conversation to date.
 			// This block is guaranteed to start with a user/model message.
 			const conversationBlock = this.chatHistory.slice(firstConversationIndex)
 
-			// Step 3: From this block, get only the messages that are part of the dialogue (user/model).
+			// From this block, get only the messages that are part of the dialogue (user/model).
 			// This neatly filters out any UI-only 'system_message' entries that might be inside the block.
 			const eligibleMessages = conversationBlock.filter((msg) => msg.type === "user" || msg.type === "model")
 
-			// Step 4: Determine how many of the OLDEST eligible messages we should summarize.
+			// Determine how many of the OLDEST eligible messages we should summarize.
 			const targetPercentage = this.manager.config.summarizeTargetPercentage / 100
 			const totalEligible = eligibleMessages.length
 
@@ -336,7 +279,7 @@ class AIManagerHistory {
 				return
 			}
 
-			// Step 5: Identify the exact block in the original history that needs to be replaced.
+			// Identify the exact block in the original history that needs to be replaced.
 			// We do this by finding the index of the Nth eligible message within our conversationBlock.
 			let eligibleCount = 0
 			let endIndexInConversationBlock = -1
@@ -363,7 +306,7 @@ class AIManagerHistory {
 			const summarizationPrompt = `Please summarize the following conversation very concisely, focusing on key topics, questions, and outcomes. Do not add any new information or conversational filler. Just the summary.\n\n${summarizationPromptContent}`
 			const internalMessagesForAI = [{ role: "user", content: summarizationPrompt }]
 
-			// Step 6: Perform the AI call using the original promise/callback structure.
+			// Perform the AI call using the original promise/callback structure.
 			let summaryResponse = ""
 			await new Promise((resolve, reject) => {
 				this.ai.chat(internalMessagesForAI, {
@@ -375,7 +318,7 @@ class AIManagerHistory {
 				})
 			})
 
-			// Step 7: If we got a summary, replace the old history with the new summary.
+			// If we got a summary, replace the old history with the new summary.
 			if (summaryResponse) {
 				const summaryMessage = {
 					role: "model",

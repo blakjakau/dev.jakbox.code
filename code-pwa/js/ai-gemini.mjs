@@ -1,6 +1,6 @@
 // ai-gemini.mjs
-
 import AI from './ai.mjs';
+import systemPrompt from "./geminiSystemPrompt.mjs"
 
 class Gemini extends AI {
     constructor() {
@@ -9,7 +9,7 @@ class Gemini extends AI {
             apiKey: "",
             model: "", 
             server: "https://generativelanguage.googleapis.com", 
-            system: "You are a helpful AI assistant.",
+            system: systemPrompt,
         };
         this.MAX_CONTEXT_TOKENS = 32768; 
 
@@ -22,7 +22,7 @@ class Gemini extends AI {
                 default: "gemini-2.5-flash", 
                 lookupCallback: this._getAvailableModels.bind(this) 
             },
-            system: { type: "string", label: "System Prompt", default: "You are a helpful AI assistant.", multiline: true },
+            system: { type: "string", label: "System Prompt", default: systemPrompt, multiline: true },
         };
     }
 

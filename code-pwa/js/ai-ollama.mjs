@@ -4,13 +4,12 @@ import systemPrompt from "./ollamaSystemPrompt.mjs"
 // Define default models in the new object format with estimated maxTokens
 const defaultModels = [
     { value: "", label: "Select a model", maxTokens: 8192 }, 
+    // // Add other common Ollama models you expect to list with estimated context lengths
     // { value: "codegemma:7b-code", label: "CodeGemma 7b Code", maxTokens: 8192 },
     // { value: "codegemma:7b-instruct", label: "CodeGemma 7b Instruct", maxTokens: 8192 },
     // { value: "codegemma:code", label: "CodeGemma Code", maxTokens: 8192 },
-    // { value: "codegemma:assist", label: "CodeGemma Assist", maxTokens: 8192 },
     // { value: "gemma3:1b-it-qat", label: "Gemma 3 1b IT QAT", maxTokens: 8192 },
     // { value: "gemma3:4b-it-qat", label: "Gemma 3 4b IT QAT", maxTokens: 8192 },
-    // // Add other common Ollama models you expect to list with estimated context lengths
 ];
 
 class Ollama extends AI {
@@ -22,7 +21,6 @@ class Ollama extends AI {
 			system: systemPrompt
 		};
 		this.context = null; // For /api/generate context (Ollama's internal context)
-        // this.messages = []; // AIManager will now manage the full history
         this.MAX_CONTEXT_TOKENS = 0; // This will be dynamically set by _queryModelCapability
         this.contextUsed = 0; // For /api/generate context usage percentage
 
@@ -45,7 +43,6 @@ class Ollama extends AI {
 
 
     async _getAvailableModels() {
-        // ... (No change - same as before) ...
         try {
             const tagsEndpoint = `${this.config.server}/api/tags`;
             const response = await fetch(tagsEndpoint);
@@ -100,7 +97,6 @@ class Ollama extends AI {
 	}
 
 	async _queryModelCapability() {
-		// ... (No change - same as before) ...
         try {
 			const showEndpoint = `${this.config.server}/api/show`;
 			const response = await fetch(showEndpoint, {
@@ -367,7 +363,6 @@ class Ollama extends AI {
     }
 
     async refreshModels() {
-        // ... (No change - same as before) ...
         this._settingsSchema.model.enum = await this._getAvailableModels();
     }
 }

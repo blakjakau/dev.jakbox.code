@@ -1,15 +1,28 @@
 # todo
 
-# ideas
+## fixes
+- filelist activity indicators (line wrapping)
+
+## ideas
 - replace prompt textarea with ACE editor instance?
 - add tabs to AI panel for multi-session / multi-task AI usage
 - add basic image editing (annotations) to mediaView?
+- add context menu for tabs (right-click > rename, delete)
+- expand context menu for files (right-click > rename, delete, move?)
+- add markdown previews (tab or sidebar, live updated?)
+- add code highlighting to markdown (for AI response and preview tab)
+- embed MDN or similar doc source in sidebar
+- 
 
 ## terminal integration
-- add a web terminal emulator
+- add a terminal emulator
+- https://xtermjs.org/ (only available via npm) can provide frontend
 - build a standalone (localhost) SSH proxy in node
-- other possiblities with a proxy? (more complex read ops, etc?)
-- run the gemini CLI tool inside the editor?
+- proxy to be a binary download (see build process in dev.jakbox.static)
+- other possiblities with a proxy app 
+- - more complex read/find ops
+- - file ops independant of FileSystemAPI?
+
 
 ## tool integration
 - code merges based on diff format
@@ -32,7 +45,6 @@
 - look at polyfilling file access https://github.com/jimmywarting/native-file-system-adapter/
 - add "delete file" in filelist context menu?
 - consider porting prettier modules for Kotline/Java/Sh/other?
-
 
 # done
 - drag+drop tabs on the leftTabs
