@@ -19,6 +19,8 @@ export class EditorHolder extends Panel {
 			// console.log(this.id, event.type, this.dragCounter, event)
         }
 
+		
+
         this.on("dragenter", (e) => {
             if (e.dataTransfer.types.includes("application/x-tab-item")) {
             	this.dragLogging(e)
@@ -49,10 +51,19 @@ export class EditorHolder extends Panel {
 
         this.on("drop", async (e) => {
             e.preventDefault();
+            
+            
             this.dragCounter = 0;
             this.dragLogging(event)
             this.classList.remove("drag-over");
 
+            if(this.exclusiveDropType != null && e.dataTransfer.getData("application/x-exclusive-drop-type") != null) {
+				if(this.exclusiveDropType != e.dataTransfer.getData("application/x-exclusive-drop-type")) {
+					console.debug("exclusive drop type not matched between ")
+					return
+				}
+			}
+			
             const tabId = e.dataTransfer.getData("application/x-tab-item");
             const tab = document.getElementById(tabId);
 
