@@ -1,10 +1,10 @@
 // ai-manager.mjs
 // Styles for this module are located in css/ai-manager.css
-import { Block, Button, Icon } from "./elements.mjs"
+import { Block, Button, Icon, TabBar, TabItem } from "./elements.mjs" // Added TabBar, TabItem
 import Ollama from "./ai-ollama.mjs" 
 import Gemini from "./ai-gemini.mjs"
 import AIManagerHistory, { MAX_RECENT_MESSAGES_TO_PRESERVE } from "./ai-manager-history.mjs"
-import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm" // NEW: Import idb-keyval
+import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
 
 const MAX_PROMPT_HISTORY = 50 // This is now PER-SESSION
 
@@ -22,9 +22,6 @@ class AIManager {
 			summarizeThreshold: { type: "number", label: "Summarize History When Context Reaches (%)", default: 85 },
 			summarizeTargetPercentage: { type: "number", label: "Percentage of Old History to Summarize", default: 50 },
 		}
-
-		// REMOVED: this.prompts = [] // This will be part of activeSession
-		// REMOVED: this.promptIndex = -1 // This will be part of activeSession
 
 		this.historyManager = new AIManagerHistory(this)
 
@@ -55,6 +52,10 @@ class AIManager {
 		this.activeSession = null; // The full active session object {id, name, messages, promptInput, promptHistory}
 		this.promptIndex = -1; // Index for the current session's prompt history (Ctrl+Up/Down)
 
+		// NEW: Session TabBar properties
+		this.sessionTabBar = null;
+		this.newSessionButton = null;
+
 		this.saveWorkspaceTimeout = null; // For debouncing workspace saves from _dispatchContextUpdate
 	}
 
@@ -76,18 +77,13 @@ class AIManager {
 			this.config.summarizeTargetPercentage = parseInt(storedSummarizeTargetPercentage);
 		}
 
-		this._createUI(); // Creates UI elements, including aiInfoDisplay and session controls
+		this._createUI();
 		this._setupPanel();
 		
-		// Note: Initial session loading (and history rendering) is now handled
-		// by `loadSessions` which `main.mjs` calls after workspace loads.
-		
-		// Update the AI info display once UI elements are available and AI is initialized
 		this._updateAIInfoDisplay();
-
-		// Listen for external setting changes (e.g., from main.mjs loading workspace config)
 		window.addEventListener('setting-changed', this._handleSettingChangedExternally.bind(this));
 	}
+
 
 	set editor(editor) {
 		this.ai.editor = editor
@@ -105,46 +101,36 @@ class AIManager {
 		this.panel.setAttribute("id", "ai-panel")
 	}
 
-	_createUI() {
-		// NEW: Session Controls container
-		this.sessionControls = new Block();
-		this.sessionControls.classList.add('ai-session-controls');
+_createUI() {
+		// --- Session TabBar UI ---
+		const sessionTabContainer = new Block();
+		sessionTabContainer.classList.add('ai-session-tab-container');
 
-		this.sessionListSelect = document.createElement('select'); // Dropdown for switching
-		this.sessionListSelect.classList.add('ai-session-select');
-		this.sessionListSelect.addEventListener('change', (e) => this.switchSession(e.target.value));
+		this.sessionTabBar = new TabBar();
+		this.sessionTabBar.setAttribute('slim', '');
+		this.sessionTabBar.classList.add('tabs-inverted');
 
-		this.newSessionButton = new Button("New Chat");
+		// This is the core of the new logic. The TabBar handles the UI change,
+		// and we just handle the data change in response.
+		this.sessionTabBar.click = (e) => this.switchSession(e.tab.config.id);
+		this.sessionTabBar.close = (e) => this.deleteSession(e.tab.config.id, e.tab);
+
+		this.newSessionButton = new Button("");
 		this.newSessionButton.icon = "add_comment";
+		this.newSessionButton.title = "New Chat";
+		this.newSessionButton.classList.add('new-session-button');
 		this.newSessionButton.on('click', () => this.createNewSession());
 
-		this.renameSessionButton = new Button(""); // Rename current session
-		this.renameSessionButton.icon = "edit";
-		this.renameSessionButton.title = "Rename current chat";
-		this.renameSessionButton.classList.add('rename-session-button');
-		this.renameSessionButton.on('click', () => this.renameCurrentSession());
+		sessionTabContainer.append(this.sessionTabBar, this.newSessionButton);
 
-		this.deleteSessionButton = new Button(""); // Delete current session
-		this.deleteSessionButton.icon = "delete";
-		this.deleteSessionButton.title = "Delete current chat";
-		this.deleteSessionButton.classList.add('delete-session-button');
-		this.deleteSessionButton.on('click', () => this.deleteCurrentSession());
-        
-        // Append session controls to their container
-		this.sessionControls.append(this.sessionListSelect, this.newSessionButton, this.renameSessionButton, this.deleteSessionButton);
-		// this.panel.append(this.sessionControls); // REMOVED: Moved appending later
+		// --- Other UI Elements ---
+		this.conversationArea = this._createConversationArea();
+		const promptContainer = this._createPromptContainer();
+		this.settingsPanel = this._createSettingsPanel();
 
-		this.conversationArea = this._createConversationArea()
-		const promptContainer = this._createPromptContainer()
-		this.settingsPanel = this._createSettingsPanel() // Settings panel is created, but not populated yet
-		this.panel.append(this.conversationArea)
-		this.panel.append(this.sessionControls); // NEW POSITION: Append session controls here
-		this.panel.append(this.settingsPanel)
-		this.panel.append(promptContainer)
-
-		this._updateSessionUI(); // Initial update of session controls (might be empty initially)
+		this.panel.append(this.conversationArea, this.settingsPanel, sessionTabContainer, promptContainer);
 	}
-
+	
 	_createConversationArea() {
 		const conversationArea = new Block()
 		conversationArea.classList.add("conversation-area")
@@ -327,11 +313,14 @@ class AIManager {
 			this.summarizeButton.disabled = disabled || !canSummarize
 		}
 
-        // Disable session management buttons while processing, or if no session
-        const hasSessions = this.allSessionMetadata.length > 0;
-        if (this.sessionListSelect) this.sessionListSelect.disabled = disabled || !hasSessions;
-        if (this.deleteSessionButton) this.deleteSessionButton.disabled = disabled || this.allSessionMetadata.length <= 1; // Cannot delete last session
-        if (this.renameSessionButton) this.renameSessionButton.disabled = disabled || !hasSessions;
+		// Disable session management buttons while processing
+		if (this.newSessionButton) this.newSessionButton.disabled = disabled;
+		if (this.sessionTabBar) {
+			this.sessionTabBar.querySelectorAll('ui-tab-item').forEach(tab => {
+				tab.close.style.pointerEvents = disabled ? 'none' : 'auto';
+				tab.style.pointerEvents = disabled ? 'none' : 'auto';
+			});
+		}
 
 
         this._updatePromptAreaPlaceholder(); // Update prompt area disabled state
@@ -664,178 +653,164 @@ class AIManager {
 	}
 
 	/**
-	 * NEW: Manages initial session loading and switching. Called by main.mjs on workspace load.
-	 * @param {Array<Object>} aiSessionsMetadata - Array of lightweight session objects from workspace.
-	 * @param {string|null} activeSessionId - ID of the last active session.
+	 * Manages initial session loading, populates the UI, and activates the correct session.
 	 */
 	async loadSessions(aiSessionsMetadata = [], activeSessionId = null) {
 		this.allSessionMetadata = aiSessionsMetadata;
-		this.activeSessionId = activeSessionId;
+		
+		// 1. Create the tab UI elements from the metadata.
+		this._populateInitialTabs();
 
-		// Ensure at least one session exists, create if not
-		if (!this.allSessionMetadata.length || !this.allSessionMetadata.some(s => s.id === this.activeSessionId)) {
-			// If no sessions, or active session is missing, create a new one
-			await this.createNewSession(); 
-		} else {
-			// Load the existing active session
-			await this.switchSession(this.activeSessionId); 
+		let idToActivate = activeSessionId;
+
+		// 2. Determine which session to activate.
+		// If the intended active session doesn't exist in the metadata, fall back to the most recent.
+		if (!this.allSessionMetadata.some(s => s.id === idToActivate)) {
+			const sortedSessions = [...this.allSessionMetadata].sort((a, b) => b.lastModified - a.lastModified);
+			idToActivate = sortedSessions.length > 0 ? sortedSessions[0].id : null;
 		}
-		this._updateSessionUI(); // Refresh the dropdown etc.
-		this._updateAIInfoDisplay(); // Update display for current AI/model
-		this._dispatchContextUpdate("sessions_loaded"); // Dispatch for initial state
+
+		// 3. Activate the chosen session or create a new one.
+		if (idToActivate) {
+			const tabToActivate = this.sessionTabBar.tabs.find(t => t.config.id === idToActivate);
+			if (tabToActivate) {
+				// Clicking the tab programmatically triggers the whole cascade correctly:
+				// TabBar sets its active state -> our click handler calls switchSession -> data loads.
+				tabToActivate.click(); 
+			}
+		} else {
+			// If no sessions exist at all, create one.
+			await this.createNewSession();
+		}
 	}
 
+    /**
+     * Populates the TabBar with tabs from the metadata.
+     * This is only for the initial setup.
+     */
+    _populateInitialTabs() {
+        const sortedSessions = [...this.allSessionMetadata].sort((a, b) => b.lastModified - a.lastModified);
+        sortedSessions.forEach(meta => {
+            const tab = this.sessionTabBar.add({ name: meta.name, id: meta.id });
+            tab.on('dblclick', () => this.renameCurrentSession());
+        });
+    }
+
 	/**
-	 * NEW: Creates a new AI chat session.
+	 * Creates a new session, adds its tab to the UI, and activates it by simulating a click.
 	 */
 	async createNewSession() {
-		const newId = `ai-session-${crypto.randomUUID()}`; // Generate a unique ID
+		const newId = `ai-session-${crypto.randomUUID()}`;
 		const newName = `Chat ${this.allSessionMetadata.length + 1}`;
 		const newSessionData = {
-			id: newId,
-			name: newName,
-			createdAt: Date.now(),
-			lastModified: Date.now(),
-			messages: [],
-			promptInput: "", // Stores the last typed input for this session
-			promptHistory: [], // Stores Ctrl+Up/Down history for this session
+			id: newId, name: newName, createdAt: Date.now(), lastModified: Date.now(),
+			messages: [], promptInput: "", promptHistory: [],
 		};
 
-		await set(`ai-session-${newId}`, newSessionData); // Save full session to IndexedDB
+		await set(`ai-session-${newId}`, newSessionData);
+		this.allSessionMetadata.push({ id: newId, name: newName, createdAt: newSessionData.createdAt, lastModified: newSessionData.lastModified });
 
-		this.allSessionMetadata.push({ // Add metadata to the local array (for workspace save)
-			id: newId,
-			name: newName,
-			createdAt: newSessionData.createdAt,
-			lastModified: newSessionData.lastModified,
-		});
-		
-		await this.switchSession(newId); // Switch to the new session immediately
-		return newId;
+		// Add the tab to the UI.
+        const newTab = this.sessionTabBar.add({ name: newName, id: newId });
+        newTab.on('dblclick', () => this.renameCurrentSession());
+
+        // Activate it using the component's own mechanism.
+        newTab.click();
 	}
 
 	/**
-	 * NEW: Switches to a different AI chat session.
-	 * @param {string} sessionId - The ID of the session to switch to.
+	 * SIMPLIFIED: Switches session DATA. The UI state is already handled by the TabBar component.
 	 */
 	async switchSession(sessionId) {
-		if (this.activeSessionId === sessionId) return; // Already on this session
+		// If we are already on this session, do nothing.
+		// The TabBar might fire a click on an already-active tab.
+		if (this.activeSessionId === sessionId) return;
 
-		// 1. Save the state of the *current* active session (if any)
+		// Save the state of the *current* active session (if any)
 		if (this.activeSession && this.activeSession.id) {
-			this.activeSession.promptInput = this.promptArea.value; // Capture current prompt input
-			// Update metadata's lastModified for saving to workspace
+			this.activeSession.promptInput = this.promptArea.value;
 			const currentSessionMeta = this.allSessionMetadata.find(s => s.id === this.activeSession.id);
-			if (currentSessionMeta) {
-				currentSessionMeta.lastModified = Date.now();
-			}
-			await set(`ai-session-${this.activeSession.id}`, this.activeSession); // Save full object to IndexedDB
-			console.debug(`Saved active session "${this.activeSession.name}" (${this.activeSession.id}) before switching.`);
+			if (currentSessionMeta) currentSessionMeta.lastModified = Date.now();
+			await set(`ai-session-${this.activeSession.id}`, this.activeSession);
 		}
 
-		// 2. Load the new session from IndexedDB
+		// Load the new session's data
 		const newSessionData = await get(`ai-session-${sessionId}`);
 		if (!newSessionData) {
-			console.error(`Session with ID ${sessionId} not found in IndexedDB. Creating a new one.`);
-			// Fallback: If session not found, create a new one instead of failing
-			await this.createNewSession(); 
-			return; // Exit as createNewSession will handle the switch
+			// This is a recovery case. The tab exists but data is gone.
+			console.error(`Data for session ID ${sessionId} not found!`);
+			const staleTab = this.sessionTabBar.tabs.find(t => t.config.id === sessionId);
+			if(staleTab) this.deleteSession(sessionId, staleTab); // Trigger a proper delete.
+			return; // Abort this switch.
 		}
 
+		// Update manager's state
 		this.activeSession = newSessionData;
 		this.activeSessionId = sessionId;
 		
-		// 3. Update UI elements based on the new session's data
-		this.historyManager.loadSessionMessages(this.activeSession.messages); // Pass messages to history manager
-		this.promptArea.value = this.activeSession.promptInput || ""; // Restore prompt input
-		this.promptIndex = (this.activeSession.promptHistory?.length || 0); // Reset prompt index to end of history
-		this._resizePromptArea(); // Adjust prompt area height
-
-		this._updateSessionUI(); // Refresh the session selector UI to show active session
-		this._dispatchContextUpdate("session_switched"); // Inform main.mjs to save workspace metadata
+		// Update the rest of the UI based on the new data
+		this.historyManager.loadSessionMessages(this.activeSession.messages);
+		this.promptArea.value = this.activeSession.promptInput || "";
+		this.promptIndex = (this.activeSession.promptHistory?.length || 0);
+		this._resizePromptArea();
+        this._setButtonsDisabledState(this._isProcessing);
+		this._dispatchContextUpdate("session_switched");
 	}
 
 	/**
-	 * NEW: Deletes the currently active AI chat session.
+	 * Deletes a session and tells the TabBar to remove its UI tab.
+	 * The TabBar will then automatically activate another tab, triggering our switchSession handler.
 	 */
-	async deleteCurrentSession() {
-		if (!this.activeSession || this.allSessionMetadata.length <= 1) {
+	async deleteSession(sessionId, tab) {
+		if (this.allSessionMetadata.length <= 1) {
 			alert("Cannot delete the last remaining chat session.");
 			return;
 		}
-
-		if (!confirm(`Are you sure you want to delete the chat "${this.activeSession.name}"? This action cannot be undone.`)) {
+		const sessionMeta = this.allSessionMetadata.find(s => s.id === sessionId);
+		if (!confirm(`Are you sure you want to delete the chat "${sessionMeta.name}"?`)) {
 			return;
 		}
-
-		const deletedId = this.activeSession.id;
-		await del(`ai-session-${deletedId}`); // Delete from IndexedDB
-
-		// Remove from the metadata array that workspace saves
-		this.allSessionMetadata = this.allSessionMetadata.filter(s => s.id !== deletedId);
-
-		// Determine which session to switch to (e.g., the first available)
-		const newActiveSessionId = this.allSessionMetadata.length > 0 ? this.allSessionMetadata[0].id : null;
 		
-		if (newActiveSessionId) {
-			await this.switchSession(newActiveSessionId);
-		} else {
-			// This case should not happen due to the length check, but as a safeguard
-			await this.createNewSession(); 
-		}
-		this._dispatchContextUpdate("session_deleted"); // Inform main.mjs to save workspace metadata
+		// Delete data
+		await del(`ai-session-${sessionId}`);
+		this.allSessionMetadata = this.allSessionMetadata.filter(s => s.id !== sessionId);
+
+		// Remove UI element. The TabBar component handles activating the next tab and firing its click event.
+		this.sessionTabBar.remove(tab);
+		
+		this._dispatchContextUpdate("session_deleted");
 	}
 
 	/**
-	 * NEW: Renames the currently active AI chat session.
+	 * Renames the current session and updates the specific tab's text via its property.
 	 */
 	async renameCurrentSession() {
 		if (!this.activeSession) return;
 		const newName = prompt("Enter new chat name:", this.activeSession.name);
+
 		if (newName && newName.trim() !== "") {
-			this.activeSession.name = newName.trim();
-			// Update metadata in the array
+            const trimmedName = newName.trim();
+			
+			// Update data
+			this.activeSession.name = trimmedName;
 			const meta = this.allSessionMetadata.find(s => s.id === this.activeSession.id);
 			if (meta) {
-				meta.name = newName.trim();
-				meta.lastModified = Date.now(); // Also update timestamp on rename
+				meta.name = trimmedName;
+				meta.lastModified = Date.now();
 			}
-			// Save full session to IndexedDB immediately (it's active)
 			await set(`ai-session-${this.activeSession.id}`, this.activeSession);
-			this._updateSessionUI(); // Refresh UI
-			this._dispatchContextUpdate("session_renamed"); // Inform main.mjs to save workspace metadata
+
+            // Update the UI via the component's API
+            const tabToRename = this.sessionTabBar.tabs.find(t => t.config.id === this.activeSessionId);
+            if (tabToRename) {
+                tabToRename.name = trimmedName; // This uses the TabItem's setter
+            }
+
+			this._dispatchContextUpdate("session_renamed");
 		}
 	}
 
-	/**
-	 * NEW: Updates the session selection UI (dropdown) based on current sessions.
-	 */
-	_updateSessionUI() {
-		this.sessionListSelect.innerHTML = ""; // Clear existing options
-
-		// Sort sessions by lastModified (most recent first) for a consistent list
-		const sortedSessions = [...this.allSessionMetadata].sort((a, b) => b.lastModified - a.lastModified);
-
-		if (sortedSessions.length > 0) {
-			sortedSessions.forEach(meta => {
-				const option = document.createElement('option');
-				option.value = meta.id;
-				option.textContent = meta.name;
-				if (meta.id === this.activeSessionId) {
-					option.selected = true;
-				}
-				this.sessionListSelect.appendChild(option);
-			});
-			this.sessionControls.style.display = 'flex'; // Show controls if sessions exist
-			this.deleteSessionButton.disabled = sortedSessions.length <= 1; // Disable delete if only one session
-			this.renameSessionButton.disabled = false;
-		} else {
-			// Should not happen if init correctly calls createNewSession when no sessions exist.
-			// But as a fallback, hide controls if for some reason no sessions are present.
-			this.sessionControls.style.display = 'none'; 
-		}
-		this._setButtonsDisabledState(this._isProcessing); // Ensure button states are correct after UI update
-	}
+	// The old _updateSessionUI method is no longer needed and has been removed.
 
 
 	/**
@@ -1108,10 +1083,6 @@ class AIManager {
 			pre.prepend(buttonContainer)
 		})
 	}
-
-	// REMOVED: promptHistory getter/setter. Now managed via activeSession.promptHistory
-	// set promptHistory(history) { /* ... */ }
-	// get promptHistory() { /* ... */ }
 
 	async loadSettings() {
 		const storedProvider = localStorage.getItem("aiProvider")

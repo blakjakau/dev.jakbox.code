@@ -1,5 +1,6 @@
 /* ai-manager.css */
-#ai-panel {
+#ai-panel[active] {
+    display: flex; /* Ensure flexbox is used */
     flex-direction: column;
     position: relative;
     height: 100%;
@@ -35,13 +36,12 @@
 
 
 .prompt-container {
-    position: sticky;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    /* position: sticky; */ /* This can cause layout issues with flexbox; flex handles this better */
+    /* bottom: 0; */
+    /*padding-top: 8px;*/
     padding-bottom: 8px;
     background-color: var(--background-color);
-    border-top: 1px solid var(--themeDark);
+    /*border-top: 1px solid var(--themeDark);*/
     display: flex;
     flex-direction: column;
 }
@@ -58,11 +58,17 @@
     color: var(--button-text-color);
     font-family: var(--font-family);
     padding: 8px;
-    /* Removed `resize: vertical;` as it's overridden by `resize: none;` */
-    resize: none; /* Keep this if JavaScript handles resizing exclusively */
+    resize: none; 
     overflow-y: auto;
     max-height: 512px;
 }
+
+.prompt-area:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background-color: rgba(0, 0, 0, 0.15);
+}
+
 
 .settings-button {
 	flex-grow:0;
@@ -135,6 +141,7 @@
     gap: 4px;
     opacity: 0;
     transition: opacity 0.2s ease-in-out;
+    z-index: 1; /* Ensure buttons are on top of code content */
 }
 
 .response-block pre:hover .code-buttons {
@@ -195,6 +202,7 @@
     opacity: 0; 
     transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
     box-shadow: 0 1px 3px rgba(0,0,0,0.5); 
+    z-index: 1;
 }
 
 .delete-history-button:hover {
@@ -279,9 +287,9 @@
   transition: height 333ms;
 }
 
-.progress-bar:hover {
-	height: 12px;	
-}
+/*.progress-bar:hover {*/
+/*	height: 12px;	*/
+/*}*/
 
 .progress-bar-inner {
   height: 100%;
@@ -353,7 +361,8 @@ button:disabled,
 .theme-button:disabled,
 .clear-button:disabled,
 .settings-button:disabled,
-.delete-history-button:disabled { 
+.delete-history-button:disabled,
+.new-session-button:disabled { 
     opacity: 0.6;
     cursor: not-allowed;
     pointer-events: none;
@@ -379,3 +388,53 @@ button:disabled,
 .settings-button {
     order: -1; 
 }
+
+/* --- SESSION TABBAR STYLES (MODIFIED) --- */
+.ai-session-tab-container {
+    display: flex;
+    align-items: flex-end; 
+    background-color: var(--background-color);
+    padding: 0px 4px 0 4px; 
+    gap: 4px;
+    border-top: 3px solid var(--themeDark); /* Swapped from border-bottom */
+    flex-shrink: 0;
+}
+
+.ai-session-tab-container > ui-tabbar {
+    flex-grow: 1; 
+}
+
+.ai-session-tab-container .new-session-button {
+    flex-shrink: 0;
+    margin-bottom: 0; /* Remove bottom margin */
+    height: 32px;
+    min-height: 32px;
+    line-height: 32px;
+}
+
+.ai-session-tab-container .new-session-button:hover {
+    background-color: rgba(0,0,0,0.25);
+}
+
+/* "Inverted" tabs are now styled to sit on top of the prompt area */
+ui-tabbar.tabs-inverted[slim] > ui-tab-item {
+    margin-top: 0;
+    margin-bottom: 0; /* Sits flush with the bottom of the container */
+    border-radius: 0 0 8px 8px; /* Rounded TOP corners */
+}
+
+/* Override to ensure bottom corners are square */
+ui-tabbar.tabs-inverted[slim] > ui-tab-item,
+ui-tabbar.tabs-inverted[slim] > ui-tab-item[active] {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    /*background: var(--dark); */
+    /*color: var(--button-text-color);*/
+}
+
+ui-tabbar.tabs-inverted[slim] > ui-tab-item[active] {
+	/*background: var(--themeDark);*/
+ /*   color: var(--light);*/
+}
+
+/* ... (rest of CSS) ... */
