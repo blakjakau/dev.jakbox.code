@@ -1,3 +1,4 @@
+// File: tabbar.mjs
 import { Block } from './element.mjs';
 import { TabItem } from './tabitem.mjs';
 import { isFunction, buildPath } from './utils.mjs';
@@ -324,8 +325,10 @@ export class TabBar extends Block {
 		const tab = new TabItem(config.name)
 		if (config.handle) tab.setAttribute("title", buildPath(config.handle))
 		tab.config = config
-		tab.id = `tab-${tabCounter++}`;
-		tab.setAttribute("id", `tab-${tabCounter++}`);
+		// CORRECTED: Increment tabCounter only once here
+		const newTabId = `tab-${tabCounter++}`; 
+		tab.id = newTabId;
+		tab.setAttribute("id", newTabId);
 		tab.tabBar = this
 		this._tabs.push(tab)
 		this.append(tab)

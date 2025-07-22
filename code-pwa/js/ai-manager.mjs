@@ -120,8 +120,9 @@ _createUI() {
 		this.newSessionButton.title = "New Chat";
 		this.newSessionButton.classList.add('new-session-button');
 		this.newSessionButton.on('click', () => this.createNewSession());
-
-		sessionTabContainer.append(this.sessionTabBar, this.newSessionButton);
+		
+		this.sessionTabBar.append(this.newSessionButton)
+		sessionTabContainer.append(this.sessionTabBar);
 
 		// --- Other UI Elements ---
 		this.conversationArea = this._createConversationArea();
@@ -766,10 +767,17 @@ _createUI() {
 			alert("Cannot delete the last remaining chat session.");
 			return;
 		}
+
 		const sessionMeta = this.allSessionMetadata.find(s => s.id === sessionId);
-		if (!confirm(`Are you sure you want to delete the chat "${sessionMeta.name}"?`)) {
-			return;
-		}
+        // Find the full session data to check its message count
+        const fullSessionData = await get(`ai-session-${sessionId}`);
+
+        // Only ask for confirmation if the session has a history AND it's not the only session left
+        if (fullSessionData?.messages?.length > 0) {
+            if (!confirm(`Are you sure you want to delete the chat "${sessionMeta.name}"? This chat has history.`)) {
+                return;
+            }
+        }
 		
 		// Delete data
 		await del(`ai-session-${sessionId}`);
