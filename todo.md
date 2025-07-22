@@ -12,7 +12,7 @@
 - add markdown previews (tab or sidebar, live updated?)
 - add code highlighting to markdown (for AI response and preview tab)
 - embed MDN or similar doc source in sidebar
-- 
+- add click handlers on the status bar current path atoms to show files panel (if not already showing) and expand the paths to it (if not already showing)
 
 ## terminal integration
 - add a terminal emulator
@@ -24,20 +24,20 @@
 - - file ops independant of FileSystemAPI?
 
 
-## AI tool integration?
-- code merges based on diff format>
+## tool integration
+- code merges based on diff format
 - find/replace commands
 - EXEC:READ_FILE: { filename:"" }
 - EXEC:REPLACE: { filename:"", find:"", replace:"", global:true }
 - EXEC:WRITE_FILE: { filename:"", content: "" }
 
-## app loading
+## loading
 - disable workspace autoload
 - add welcome overlay + workspace selector
 - hide sidebar
 - disable defaultTab() call (untiled doc)
 
-## older (from main.js)
+##older (from main.js)
 - move ace settings panel into a tabbed modal with other application settings
 - implement @lookup in omnibox
 - add keyboard navigation to menus
