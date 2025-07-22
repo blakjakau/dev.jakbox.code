@@ -1,11 +1,12 @@
 // ai-manager.mjs
 // Styles for this module are located in css/ai-manager.css
 import { Block, Button, Icon } from "./elements.mjs"
-import Ollama from "./ai-ollama.mjs" // Assuming this file exists and has isConfigured()
-import Gemini from "./ai-gemini.mjs" // Assuming this file exists and has isConfigured()
+import Ollama from "./ai-ollama.mjs" 
+import Gemini from "./ai-gemini.mjs"
 import AIManagerHistory, { MAX_RECENT_MESSAGES_TO_PRESERVE } from "./ai-manager-history.mjs"
+import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm" // NEW: Import idb-keyval
 
-const MAX_PROMPT_HISTORY = 50
+const MAX_PROMPT_HISTORY = 50 // This is now PER-SESSION
 
 class AIManager {
 	constructor() {
@@ -22,8 +23,9 @@ class AIManager {
 			summarizeTargetPercentage: { type: "number", label: "Percentage of Old History to Summarize", default: 50 },
 		}
 
-		this.prompts = [] // Stores raw user prompt strings for history navigation (Ctrl+Up/Down)
-		this.promptIndex = -1 // -1 indicates no prompt from history is currently displayed
+		// REMOVED: this.prompts = [] // This will be part of activeSession
+		// REMOVED: this.promptIndex = -1 // This will be part of activeSession
+
 		this.historyManager = new AIManagerHistory(this)
 
 		this.panel = null
@@ -46,6 +48,14 @@ class AIManager {
 			summarizeThreshold: this._settingsSchema.summarizeThreshold.default,
 			summarizeTargetPercentage: this._settingsSchema.summarizeTargetPercentage.default,
 		}
+
+		// NEW: Session Management Properties
+		this.allSessionMetadata = []; // Array of {id, name, createdAt, lastModified} - used for UI list
+		this.activeSessionId = null; // ID of the currently active session
+		this.activeSession = null; // The full active session object {id, name, messages, promptInput, promptHistory}
+		this.promptIndex = -1; // Index for the current session's prompt history (Ctrl+Up/Down)
+
+		this.saveWorkspaceTimeout = null; // For debouncing workspace saves from _dispatchContextUpdate
 	}
 
 	async init(panel) {
@@ -66,15 +76,14 @@ class AIManager {
 			this.config.summarizeTargetPercentage = parseInt(storedSummarizeTargetPercentage);
 		}
 
-		this._createUI(); // Creates UI elements, including aiInfoDisplay
+		this._createUI(); // Creates UI elements, including aiInfoDisplay and session controls
 		this._setupPanel();
+		
+		// Note: Initial session loading (and history rendering) is now handled
+		// by `loadSessions` which `main.mjs` calls after workspace loads.
 		
 		// Update the AI info display once UI elements are available and AI is initialized
 		this._updateAIInfoDisplay();
-
-		// If there's any initial history to display, render it
-		this.historyManager.render();
-		this._dispatchContextUpdate("init"); // Dispatch initial context state
 
 		// Listen for external setting changes (e.g., from main.mjs loading workspace config)
 		window.addEventListener('setting-changed', this._handleSettingChangedExternally.bind(this));
@@ -97,12 +106,43 @@ class AIManager {
 	}
 
 	_createUI() {
+		// NEW: Session Controls container
+		this.sessionControls = new Block();
+		this.sessionControls.classList.add('ai-session-controls');
+
+		this.sessionListSelect = document.createElement('select'); // Dropdown for switching
+		this.sessionListSelect.classList.add('ai-session-select');
+		this.sessionListSelect.addEventListener('change', (e) => this.switchSession(e.target.value));
+
+		this.newSessionButton = new Button("New Chat");
+		this.newSessionButton.icon = "add_comment";
+		this.newSessionButton.on('click', () => this.createNewSession());
+
+		this.renameSessionButton = new Button(""); // Rename current session
+		this.renameSessionButton.icon = "edit";
+		this.renameSessionButton.title = "Rename current chat";
+		this.renameSessionButton.classList.add('rename-session-button');
+		this.renameSessionButton.on('click', () => this.renameCurrentSession());
+
+		this.deleteSessionButton = new Button(""); // Delete current session
+		this.deleteSessionButton.icon = "delete";
+		this.deleteSessionButton.title = "Delete current chat";
+		this.deleteSessionButton.classList.add('delete-session-button');
+		this.deleteSessionButton.on('click', () => this.deleteCurrentSession());
+        
+        // Append session controls to their container
+		this.sessionControls.append(this.sessionListSelect, this.newSessionButton, this.renameSessionButton, this.deleteSessionButton);
+		// this.panel.append(this.sessionControls); // REMOVED: Moved appending later
+
 		this.conversationArea = this._createConversationArea()
 		const promptContainer = this._createPromptContainer()
 		this.settingsPanel = this._createSettingsPanel() // Settings panel is created, but not populated yet
 		this.panel.append(this.conversationArea)
+		this.panel.append(this.sessionControls); // NEW POSITION: Append session controls here
 		this.panel.append(this.settingsPanel)
 		this.panel.append(promptContainer)
+
+		this._updateSessionUI(); // Initial update of session controls (might be empty initially)
 	}
 
 	_createConversationArea() {
@@ -138,8 +178,6 @@ class AIManager {
 		this.submitButton = this._createSubmitButton()
 		this.clearButton = this._createClearButton()
 
-		// Removed text/attribute setting here.
-		// The content will be managed by _updateAIInfoDisplay().
 		this.aiInfoDisplay = document.createElement("span");
 		this.aiInfoDisplay.classList.add("ai-info-display");
 
@@ -182,23 +220,25 @@ class AIManager {
 			}
 			if (e.ctrlKey && e.key === "ArrowUp") {
 				e.preventDefault()
-				if (this.prompts.length > 0) {
+				// Use active session's prompt history
+				if (this.activeSession?.promptHistory && this.activeSession.promptHistory.length > 0) {
 					this.promptIndex = Math.max(0, this.promptIndex - 1)
-					this.promptArea.value = this.prompts[this.promptIndex]
-					this._resizePromptArea() // Call the new method
+					this.promptArea.value = this.activeSession.promptHistory[this.promptIndex]
+					this._resizePromptArea()
 				}
 				return
 			}
 			if (e.ctrlKey && e.key === "ArrowDown") {
 				e.preventDefault()
-				if (this.prompts.length > 0) {
-					this.promptIndex = Math.min(this.prompts.length - 1, this.promptIndex + 1)
-					if (this.promptIndex === this.prompts.length) {
+				// Use active session's prompt history
+				if (this.activeSession?.promptHistory && this.activeSession.promptHistory.length > 0) {
+					this.promptIndex = Math.min(this.activeSession.promptHistory.length, this.promptIndex + 1) // Allow going one past history for empty
+					if (this.promptIndex === this.activeSession.promptHistory.length) {
 						this.promptArea.value = ""
 					} else {
-						this.promptArea.value = this.prompts[this.promptIndex]
+						this.promptArea.value = this.activeSession.promptHistory[this.promptIndex]
 					}
-					this._resizePromptArea() // Call the new method
+					this._resizePromptArea()
 				}
 				return
 			}
@@ -265,7 +305,7 @@ class AIManager {
         const isAIConfigured = this.ai && this.ai.isConfigured();
 
 		if (this.submitButton) this.submitButton.disabled = disabled || !isAIConfigured;
-		if (this.clearButton) this.clearButton.disabled = disabled; // Clear is always enabled
+		if (this.clearButton) this.clearButton.disabled = disabled || !this.activeSession?.messages?.length; // Clear is disabled if no messages
 		
 		// Also disable all history delete buttons while processing
 		if(this.conversationArea) {
@@ -273,9 +313,10 @@ class AIManager {
 		}
 
 		if (this.summarizeButton) {
-			const eligibleMessages = this.historyManager.chatHistory.filter(
+			// Check activeSession exists before accessing its messages
+			const eligibleMessages = this.activeSession?.messages?.filter(
 				(msg) => msg.type === "user" || msg.type === "model"
-			)
+			) || []; // Default to empty array if no active session or messages
 
 			// NEW, more accurate condition:
 			// Summarization is only possible if the number of messages we can potentially summarize
@@ -285,6 +326,14 @@ class AIManager {
 
 			this.summarizeButton.disabled = disabled || !canSummarize
 		}
+
+        // Disable session management buttons while processing, or if no session
+        const hasSessions = this.allSessionMetadata.length > 0;
+        if (this.sessionListSelect) this.sessionListSelect.disabled = disabled || !hasSessions;
+        if (this.deleteSessionButton) this.deleteSessionButton.disabled = disabled || this.allSessionMetadata.length <= 1; // Cannot delete last session
+        if (this.renameSessionButton) this.renameSessionButton.disabled = disabled || !hasSessions;
+
+
         this._updatePromptAreaPlaceholder(); // Update prompt area disabled state
 	}
 
@@ -318,14 +367,12 @@ class AIManager {
 			toggleInputs(this.useWorkspaceSettings)
 		})
 
-		// Do NOT call renderSettingsForm() here. It will be called when the panel is shown.
-
 		settingsPanel.appendChild(form)
 		return settingsPanel
 	}
 
 	/**
-	 * NEW: Private method to render the settings form content.
+	 * Private method to render the settings form content.
 	 * This is called whenever the settings panel is made visible.
 	 */
 	async _renderSettingsForm() {
@@ -372,7 +419,6 @@ class AIManager {
 			this.ai = newAIInstance;
 			await this.ai.init(); // Initialize the new AI with its settings
 
-			// --- NEW CODE: Add system message on provider switch ---
 			// Check if the provider actually changed and we have a valid new AI instance
 			if (oldProviderName !== this.aiProvider && this.ai) {
 				// Add a system message to the history to inform the user about the AI provider change
@@ -385,8 +431,6 @@ class AIManager {
 				// but we can also dispatch explicitly to ensure AI status UI is updated.
 				this._dispatchContextUpdate("ai_provider_switched");
 			}
-			// --- END NEW CODE ---
-
 			this._renderSettingsForm() // Re-render settings for the new provider
 			this._updateAIInfoDisplay(); // Update the display element for the new AI/model
             this.historyManager.render(); // Re-render history to show/hide welcome message
@@ -418,7 +462,6 @@ class AIManager {
 		summarizeTargetPercentageInput.value = this.config.summarizeTargetPercentage
 		summarizeTargetPercentageLabel.appendChild(summarizeTargetPercentageInput)
 		form.appendChild(summarizeTargetPercentageLabel)
-		// END NEW
 
 		// Render AI-specific settings
 		const options = await this.ai.getOptions()
@@ -506,7 +549,6 @@ class AIManager {
 			localStorage.setItem("summarizeThreshold", this.config.summarizeThreshold)
 			localStorage.setItem("summarizeTargetPercentage", this.config.summarizeTargetPercentage)
 
-			// Pass `this.ai.settingsSource` to setOptions if it's available and relevant
 			this.ai.setOptions(
 				newSettings,
 				(errorMessage) => {
@@ -532,7 +574,6 @@ class AIManager {
 		})
 		form.appendChild(saveButton)
 	}
-
 
 	toggleSettingsPanel() {
 		this.conversationArea.classList.toggle("hidden")
@@ -593,7 +634,7 @@ class AIManager {
                 this._updateProgressBarColor(progressBarInner, 0); // Reset color
             }
 		}
-		// Update AI Info Display (This is called by _updateAIInfoDisplay() directly, not here)
+		// AI Info Display is updated by _updateAIInfoDisplay() directly.
 	}
 
 	// Method to update the AI info display element
@@ -617,116 +658,281 @@ class AIManager {
 
 	// Handler for 'setting-changed' events dispatched by AI provider instances
 	_handleSettingChangedExternally(event) {
-		// This event is fired by AI providers when their internal config changes,
-		// e.g., when main.mjs applies appConfig/workspaceConfig to the AI instance.
-		// We need to re-render the AI info display to reflect the new model.
 		this._updateAIInfoDisplay();
-		// Also ensure context update is dispatched to refresh progress bar etc.,
-		// as model change can affect MAX_CONTEXT_TOKENS.
 		this._dispatchContextUpdate("settings_change_external");
         this.historyManager.render(); // Re-render history to show/hide welcome message
+	}
+
+	/**
+	 * NEW: Manages initial session loading and switching. Called by main.mjs on workspace load.
+	 * @param {Array<Object>} aiSessionsMetadata - Array of lightweight session objects from workspace.
+	 * @param {string|null} activeSessionId - ID of the last active session.
+	 */
+	async loadSessions(aiSessionsMetadata = [], activeSessionId = null) {
+		this.allSessionMetadata = aiSessionsMetadata;
+		this.activeSessionId = activeSessionId;
+
+		// Ensure at least one session exists, create if not
+		if (!this.allSessionMetadata.length || !this.allSessionMetadata.some(s => s.id === this.activeSessionId)) {
+			// If no sessions, or active session is missing, create a new one
+			await this.createNewSession(); 
+		} else {
+			// Load the existing active session
+			await this.switchSession(this.activeSessionId); 
+		}
+		this._updateSessionUI(); // Refresh the dropdown etc.
+		this._updateAIInfoDisplay(); // Update display for current AI/model
+		this._dispatchContextUpdate("sessions_loaded"); // Dispatch for initial state
+	}
+
+	/**
+	 * NEW: Creates a new AI chat session.
+	 */
+	async createNewSession() {
+		const newId = `ai-session-${crypto.randomUUID()}`; // Generate a unique ID
+		const newName = `Chat ${this.allSessionMetadata.length + 1}`;
+		const newSessionData = {
+			id: newId,
+			name: newName,
+			createdAt: Date.now(),
+			lastModified: Date.now(),
+			messages: [],
+			promptInput: "", // Stores the last typed input for this session
+			promptHistory: [], // Stores Ctrl+Up/Down history for this session
+		};
+
+		await set(`ai-session-${newId}`, newSessionData); // Save full session to IndexedDB
+
+		this.allSessionMetadata.push({ // Add metadata to the local array (for workspace save)
+			id: newId,
+			name: newName,
+			createdAt: newSessionData.createdAt,
+			lastModified: newSessionData.lastModified,
+		});
+		
+		await this.switchSession(newId); // Switch to the new session immediately
+		return newId;
+	}
+
+	/**
+	 * NEW: Switches to a different AI chat session.
+	 * @param {string} sessionId - The ID of the session to switch to.
+	 */
+	async switchSession(sessionId) {
+		if (this.activeSessionId === sessionId) return; // Already on this session
+
+		// 1. Save the state of the *current* active session (if any)
+		if (this.activeSession && this.activeSession.id) {
+			this.activeSession.promptInput = this.promptArea.value; // Capture current prompt input
+			// Update metadata's lastModified for saving to workspace
+			const currentSessionMeta = this.allSessionMetadata.find(s => s.id === this.activeSession.id);
+			if (currentSessionMeta) {
+				currentSessionMeta.lastModified = Date.now();
+			}
+			await set(`ai-session-${this.activeSession.id}`, this.activeSession); // Save full object to IndexedDB
+			console.debug(`Saved active session "${this.activeSession.name}" (${this.activeSession.id}) before switching.`);
+		}
+
+		// 2. Load the new session from IndexedDB
+		const newSessionData = await get(`ai-session-${sessionId}`);
+		if (!newSessionData) {
+			console.error(`Session with ID ${sessionId} not found in IndexedDB. Creating a new one.`);
+			// Fallback: If session not found, create a new one instead of failing
+			await this.createNewSession(); 
+			return; // Exit as createNewSession will handle the switch
+		}
+
+		this.activeSession = newSessionData;
+		this.activeSessionId = sessionId;
+		
+		// 3. Update UI elements based on the new session's data
+		this.historyManager.loadSessionMessages(this.activeSession.messages); // Pass messages to history manager
+		this.promptArea.value = this.activeSession.promptInput || ""; // Restore prompt input
+		this.promptIndex = (this.activeSession.promptHistory?.length || 0); // Reset prompt index to end of history
+		this._resizePromptArea(); // Adjust prompt area height
+
+		this._updateSessionUI(); // Refresh the session selector UI to show active session
+		this._dispatchContextUpdate("session_switched"); // Inform main.mjs to save workspace metadata
+	}
+
+	/**
+	 * NEW: Deletes the currently active AI chat session.
+	 */
+	async deleteCurrentSession() {
+		if (!this.activeSession || this.allSessionMetadata.length <= 1) {
+			alert("Cannot delete the last remaining chat session.");
+			return;
+		}
+
+		if (!confirm(`Are you sure you want to delete the chat "${this.activeSession.name}"? This action cannot be undone.`)) {
+			return;
+		}
+
+		const deletedId = this.activeSession.id;
+		await del(`ai-session-${deletedId}`); // Delete from IndexedDB
+
+		// Remove from the metadata array that workspace saves
+		this.allSessionMetadata = this.allSessionMetadata.filter(s => s.id !== deletedId);
+
+		// Determine which session to switch to (e.g., the first available)
+		const newActiveSessionId = this.allSessionMetadata.length > 0 ? this.allSessionMetadata[0].id : null;
+		
+		if (newActiveSessionId) {
+			await this.switchSession(newActiveSessionId);
+		} else {
+			// This case should not happen due to the length check, but as a safeguard
+			await this.createNewSession(); 
+		}
+		this._dispatchContextUpdate("session_deleted"); // Inform main.mjs to save workspace metadata
+	}
+
+	/**
+	 * NEW: Renames the currently active AI chat session.
+	 */
+	async renameCurrentSession() {
+		if (!this.activeSession) return;
+		const newName = prompt("Enter new chat name:", this.activeSession.name);
+		if (newName && newName.trim() !== "") {
+			this.activeSession.name = newName.trim();
+			// Update metadata in the array
+			const meta = this.allSessionMetadata.find(s => s.id === this.activeSession.id);
+			if (meta) {
+				meta.name = newName.trim();
+				meta.lastModified = Date.now(); // Also update timestamp on rename
+			}
+			// Save full session to IndexedDB immediately (it's active)
+			await set(`ai-session-${this.activeSession.id}`, this.activeSession);
+			this._updateSessionUI(); // Refresh UI
+			this._dispatchContextUpdate("session_renamed"); // Inform main.mjs to save workspace metadata
+		}
+	}
+
+	/**
+	 * NEW: Updates the session selection UI (dropdown) based on current sessions.
+	 */
+	_updateSessionUI() {
+		this.sessionListSelect.innerHTML = ""; // Clear existing options
+
+		// Sort sessions by lastModified (most recent first) for a consistent list
+		const sortedSessions = [...this.allSessionMetadata].sort((a, b) => b.lastModified - a.lastModified);
+
+		if (sortedSessions.length > 0) {
+			sortedSessions.forEach(meta => {
+				const option = document.createElement('option');
+				option.value = meta.id;
+				option.textContent = meta.name;
+				if (meta.id === this.activeSessionId) {
+					option.selected = true;
+				}
+				this.sessionListSelect.appendChild(option);
+			});
+			this.sessionControls.style.display = 'flex'; // Show controls if sessions exist
+			this.deleteSessionButton.disabled = sortedSessions.length <= 1; // Disable delete if only one session
+			this.renameSessionButton.disabled = false;
+		} else {
+			// Should not happen if init correctly calls createNewSession when no sessions exist.
+			// But as a fallback, hide controls if for some reason no sessions are present.
+			this.sessionControls.style.display = 'none'; 
+		}
+		this._setButtonsDisabledState(this._isProcessing); // Ensure button states are correct after UI update
 	}
 
 
 	/**
 	 * Dispatches a custom 'context-update' event with the current chat state.
+	 * This now also includes the metadata for workspace and full data for the active session.
 	 * @param {string} type - The type of update (e.g., 'append_user', 'summarize', 'clear', 'settings_change').
-	 * @param {object} [details={}] - Additional details relevant to the update type (e.g., summaryDetails).
+	 * @param {object} [details={}] - Additional details relevant to the update type.
 	 */
 	_dispatchContextUpdate(type, details = {}) {
-		// Ensure ai and historyManager are available before proceeding
-		if (!this.ai || !this.historyManager) {
-			console.warn("Attempted to dispatch context update before AI or History Manager was ready.");
+		// Ensure ai, historyManager, and activeSession are available
+		if (!this.ai || !this.historyManager || !this.activeSession) {
+			console.warn("Attempted to dispatch context update before AI, History Manager, or active session was ready.");
 			return;
 		}
 
-		// Only calculate tokens if AI is configured, otherwise they are irrelevant
-		const estimatedTokensFullHistory = this.ai.isConfigured() ? this.ai.estimateTokens(this.historyManager.chatHistory) : 0;
+		// Calculate tokens based on the active session's messages
+		const estimatedTokensFullHistory = this.ai.isConfigured() ? this.ai.estimateTokens(this.activeSession.messages) : 0;
 		const maxContextTokens = this.ai.isConfigured() ? this.ai.MAX_CONTEXT_TOKENS : 0;
 
 		const eventDetail = {
-			chatHistory: JSON.parse(JSON.stringify(this.historyManager.chatHistory)), // Deep copy for immutability
 			aiProvider: this.aiProvider,
 			runMode: "chat", // Always chat mode now
 			estimatedTokensFullHistory: estimatedTokensFullHistory,
 			maxContextTokens: maxContextTokens,
 			type: type,
+			// NEW: Pass the metadata for workspace and a deep copy of the full active session for IndexedDB save
+			aiSessionsMetadata: {
+				activeSessionId: this.activeSessionId,
+				sessions: JSON.parse(JSON.stringify(this.allSessionMetadata)) // Deep copy to prevent mutation issues
+			},
+			activeSessionData: JSON.parse(JSON.stringify(this.activeSession)), // Deep copy of active session
 			...details,
-		}
+		};
 
-		// Directly update the AIManager's own UI (progress bar) before dispatching the event for external listeners.
+		// Directly update the AIManager's own UI (progress bar) before dispatching
 		this._updateContextUI(eventDetail);
-		// Also update button states, as context changes can affect summarization eligibility.
 		this._setButtonsDisabledState(this._isProcessing);
-
-		// Added setTimeout for scrolling to bottom after UI updates
-		// removed autoscroll after ui update, it's jarring AF when deleting old items.
-		// if (this.conversationArea && !this.settingsPanel?.classList.contains("active")) {
-		// 	setTimeout(() => {
-		// 		this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
-		// 	}, 0);
-		// }
 
 		this.panel.dispatchEvent(new CustomEvent("context-update", { detail: eventDetail }))
 	}
 
 	async generate() {
 		if (this._isProcessing) {
-			// Prevent multiple concurrent AI requests
 			console.warn("AI is currently processing another request. Please wait.")
 			return
 		}
-        // Check if AI is configured before proceeding with generation
-        if (!this.ai || !this.ai.isConfigured()) {
-            console.warn("AI is not configured. Cannot generate response.");
+        // Check if AI is configured and activeSession exists before proceeding with generation
+        if (!this.ai || !this.ai.isConfigured() || !this.activeSession) {
+            console.warn("AI is not configured or no active session. Cannot generate response.");
             this.historyManager.addMessage({
                 type: "system_message",
-                content: `AI is not configured. Please set up your AI provider in the settings.`,
+                content: `AI is not configured or no active session. Please set up your AI provider in the settings or create a new chat.`,
                 timestamp: Date.now(),
             });
-            this._dispatchContextUpdate("generation_error_not_configured"); // Dispatch error type
-            this._isProcessing = false; // Release lock
-            this._setButtonsDisabledState(false); // Re-enable buttons
+            this._dispatchContextUpdate("generation_error_not_configured");
+            this._isProcessing = false;
+            this._setButtonsDisabledState(false);
             return;
         }
 
 		this._isProcessing = true
-		this._setButtonsDisabledState(true) // Disable buttons immediately
+		this._setButtonsDisabledState(true)
 
 		const userPrompt = this.promptArea.value.trim()
 
 		if (!userPrompt) {
-			this._isProcessing = false // Release lock if no prompt
+			this._isProcessing = false
 			this._setButtonsDisabledState(false)
 			return
 		}
 
-		const lastPrompt = this.prompts.length > 0 ? this.prompts[this.prompts.length - 1].trim() : null
+		// Use the active session's prompt history
+		const activePromptHistory = this.activeSession.promptHistory;
+		const lastPrompt = activePromptHistory.length > 0 ? activePromptHistory[activePromptHistory.length - 1].trim() : null;
 
 		if (lastPrompt && lastPrompt === userPrompt) {
-			console.log("Skipping adding duplicate contiguous prompt to history.")
-			this.promptIndex = this.prompts.length
+			console.log("Skipping adding duplicate contiguous prompt to history.");
+			this.promptIndex = activePromptHistory.length; // Keep index at end
 		} else {
-			this.prompts.push(userPrompt)
-
-			while (this.prompts.length > MAX_PROMPT_HISTORY) {
-				this.prompts.shift()
+			activePromptHistory.push(userPrompt);
+			while (activePromptHistory.length > MAX_PROMPT_HISTORY) {
+				activePromptHistory.shift();
 				if (this.promptIndex > 0) {
-					this.promptIndex--
+					this.promptIndex--;
 				}
 			}
-
-			this.promptIndex = this.prompts.length
+			this.promptIndex = activePromptHistory.length; // Set index to end after adding
 		}
 
 		// Reset the promptArea height after submitting the prompt
 		this.promptArea.value = ""
-		this._resizePromptArea(); // Call the new resize method after clearing the value
+		this._resizePromptArea();
 
-		this.panel.dispatchEvent(new CustomEvent("new-prompt", { detail: this.prompts }))
+		// No longer dispatch "new-prompt" globally, prompt history is per-session
 
 		// Check for automatic summarization before processing the new prompt
-		const estimatedTokensBeforeNewPrompt = this.ai.estimateTokens(this.historyManager.chatHistory)
+		const estimatedTokensBeforeNewPrompt = this.ai.estimateTokens(this.activeSession.messages)
 		const maxContextTokens = this.ai.MAX_CONTEXT_TOKENS
 		if (
 			maxContextTokens > 0 &&
@@ -743,15 +949,25 @@ class AIManager {
 		// Process prompt for @ tags, always using "chat" logic now.
 		const { processedPrompt, contextItems } = await this.ai._getContextualPrompt(userPrompt, "chat")
 
-		// Update internal chatHistory (AIManager is source of truth)
-		// Add new context files to history
-		contextItems.forEach((item) => this.historyManager.addContextFile(item))
-		// Add the user's processed prompt to history
-		this.historyManager.addMessage({ role: "user", type: "user", content: processedPrompt, timestamp: Date.now() })
+		// Update active session's messages
+		contextItems.forEach((item) => this.activeSession.messages.push({
+			type: "file_context",
+			id: item.id,
+			filename: item.filename,
+			language: item.language,
+			content: item.content,
+			timestamp: Date.now(),
+		}));
+		this.activeSession.messages.push({ role: "user", type: "user", content: processedPrompt, timestamp: Date.now() });
+
+		// Update lastModified timestamp for the session
+		this.activeSession.lastModified = Date.now();
+		// Save the active session to IndexedDB immediately after adding user prompt and context
+		await set(`ai-session-${this.activeSession.id}`, this.activeSession);
 
 		// Render updated history in UI and dispatch event
-		this.historyManager.render()
-		this._dispatchContextUpdate("append_user")
+		this.historyManager.render();
+		this._dispatchContextUpdate("append_user"); // This will also save workspace metadata
 
 		// Prepare placeholder for AI response and spinner
 		const responseBlock = new Block()
@@ -775,54 +991,54 @@ class AIManager {
 		const callbacks = {
 			onUpdate: (fullResponse) => {
 				responseBlock.innerHTML = this.md.render(fullResponse)
-				// Ensure code block buttons are added even during update if content changes (e.g. for long streaming responses)
-				// though usually they're added once onDone. For this scenario, we might need a debounce or smarter check.
-				// For now, let's keep it simple and assume onDone is where final buttons are applied.
 				if (!this.userScrolled) {
 					this.conversationArea.scrollTop = this.conversationArea.scrollHeight
 				}
 			},
-			onDone: (fullResponse, contextRatioPercent) => {
+			onDone: async (fullResponse, contextRatioPercent) => { // Mark async to await set
 				this._addCodeBlockButtons(responseBlock) // Add buttons after final response is rendered
 
 				spinner.remove()
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
 
-				// Add AI response to chatHistory for persistence
-				this.historyManager.addMessage({
+				// Add AI response to activeSession's messages for persistence
+				this.activeSession.messages.push({
 					role: "model",
 					type: "model",
 					content: fullResponse,
 					timestamp: Date.now(),
 				})
+				// Update lastModified timestamp and save the active session
+				this.activeSession.lastModified = Date.now();
+				await set(`ai-session-${this.activeSession.id}`, this.activeSession);
+				
 				this._dispatchContextUpdate("append_model") // Dispatch after model response
 
 				this._isProcessing = false // Release lock
 				this._setButtonsDisabledState(false) // Re-enable buttons
 			},
-			onError: (error) => {
+			onError: async (error) => { // Mark async to await set
 				responseBlock.innerHTML = `Error: ${error.message}`
 				console.error(`Error calling ${this.ai.config.model} API:`, error)
 				spinner.remove()
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
 
-				// Optional: Add error message to chatHistory if you want it persistent
-				this.historyManager.addMessage({
+				this.activeSession.messages.push({
 					role: "error",
 					type: "error",
 					content: `Error: ${error.message}`,
 					timestamp: Date.now(),
 				})
-				this._dispatchContextUpdate("append_error") // Dispatch after error
+				// Update lastModified timestamp and save the active session
+				this.activeSession.lastModified = Date.now();
+				await set(`ai-session-${this.activeSession.id}`, this.activeSession);
 
-				this._isProcessing = false // Release lock
-				this._setButtonsDisabledState(false) // Re-enable buttons
+				this._dispatchContextUpdate("append_error")
+
+				this._isProcessing = false
+				this._setButtonsDisabledState(false)
 			},
-			onContextRatioUpdate: (ratio) => {
-				// This callback is now redundant.
-				// The progress bar will be updated whenever the context changes via _dispatchContextUpdate.
-				// We can keep it here for compatibility if AI providers still call it, but it does nothing.
-			},
+			onContextRatioUpdate: (ratio) => { /* ... */ },
 		}
 
 		// Always use the chat method.
@@ -880,7 +1096,8 @@ class AIManager {
                 } else {
                     pre.setAttribute("expanded", ""); // Set attribute without value
                     expandCollapseButton.icon = "unfold_less";
-                    expandilmesi.title = "Collapse code block";
+                    // Corrected typo
+                    expandCollapseButton.title = "Collapse code block";
                 }
             });
 
@@ -892,14 +1109,9 @@ class AIManager {
 		})
 	}
 
-	set promptHistory(history) {
-		this.prompts = history
-		this.promptIndex = history.length
-	}
-
-	get promptHistory() {
-		return this.prompts
-	}
+	// REMOVED: promptHistory getter/setter. Now managed via activeSession.promptHistory
+	// set promptHistory(history) { /* ... */ }
+	// get promptHistory() { /* ... */ }
 
 	async loadSettings() {
 		const storedProvider = localStorage.getItem("aiProvider")

@@ -7,7 +7,7 @@ export const MAX_RECENT_MESSAGES_TO_PRESERVE = 5
 class AIManagerHistory {
 	constructor(aiManager) {
 		this.manager = aiManager // Reference to the main AIManager
-		this.chatHistory = []
+		// REMOVED: this.chatHistory = [] // History is now owned by AIManager's activeSession
 		
 		if(window.markdownit) {
 			this.md = window.markdownit()
@@ -24,47 +24,72 @@ class AIManagerHistory {
 		return this.manager.conversationArea
 	}
 
+	// NEW: Getter to always return the messages of the currently active session
+	get chatHistory() {
+		return this.manager.activeSession?.messages || [];
+	}
+
 	clear() {
-		this.chatHistory = []
-		this.ai.clearContext()
-		this.manager._dispatchContextUpdate("clear")
-		this.render() // Call render after clearing and dispatching update
+		if (this.manager.activeSession) {
+			this.manager.activeSession.messages = []; // Clear the active session's messages
+			this.manager.activeSession.promptInput = ""; // Clear its current prompt input
+			this.manager.activeSession.promptHistory = []; // Clear its command history
+			this.manager.promptArea.value = ""; // Clear the UI prompt area
+			this.manager.promptIndex = -1; // Reset prompt history index
+			this.manager._resizePromptArea(); // Resize prompt area after clearing
+		}
+		this.render(); // Re-render to show empty state/welcome message
+		this.manager._dispatchContextUpdate("clear_active_session"); // Dispatch update to save changes
 	}
 
 	addMessage(message) {
-		this.chatHistory.push(message)
-		this.render()
-		// Dispatching update will be handled by AIManager after calling this
+		// AIManager's `generate` method now directly adds messages to `manager.activeSession.messages`.
+		// This method is now primarily for adding system messages (e.g., AI provider switch).
+		// It simply pushes the message and then calls render.
+		if (this.manager.activeSession) {
+			this.manager.activeSession.messages.push(message);
+		}
+		this.render();
+		// The dispatch is handled by AIManager's `generate` or `_dispatchContextUpdate` after message addition.
 	}
 
 	addContextFile(item) {
-		// Remove invalidated copies of the same file first
-		this.chatHistory = this.chatHistory.filter(
-			(oldItem) => !(oldItem.type === "file_context" && oldItem.id === item.id)
-		)
-		this.chatHistory.push({
-			type: "file_context",
-			id: item.id,
-			filename: item.filename,
-			language: item.language,
-			content: item.content,
-			timestamp: Date.now(),
-		})
+		// This method is conceptually no longer needed here as AIManager.generate
+		// directly adds context files to manager.activeSession.messages.
+		// If you intend for it to be callable, it should modify `this.manager.activeSession.messages`.
+		// For clarity, let's assume `AIManager.generate` directly handles it.
+		console.warn("AIManagerHistory.addContextFile should ideally not be called directly. Context files are managed by AIManager.");
+		if (this.manager.activeSession) {
+			// Remove invalidated copies of the same file first if re-adding
+			this.manager.activeSession.messages = this.manager.activeSession.messages.filter(
+				(oldItem) => !(oldItem.type === "file_context" && oldItem.id === item.id)
+			);
+			this.manager.activeSession.messages.push({
+				type: "file_context",
+				id: item.id,
+				filename: item.filename,
+				language: item.language,
+				content: item.content,
+				timestamp: Date.now(),
+			});
+			this.render();
+			// No dispatch here, it will be part of the generate flow's overall dispatch.
+		}
 	}
 
-	loadHistory(history, autoScroll=false) {
-		if (Array.isArray(history)) {
-			this.chatHistory = history
-			this.render()
-			// Dispatch an update to ensure the UI (progress bar, etc.) reflects the loaded state.
-			this.manager._dispatchContextUpdate("history_loaded")
-			
-			if(autoScroll) {
-				setTimeout(()=>{
-					console.debug("auto scroll timeout")
-					this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
-				}, 250)
-			}
+	// RENAMED: from loadHistory to loadSessionMessages, as it loads for the active session.
+	loadSessionMessages(messagesArray, autoScroll=false) {
+		// This method is now solely responsible for telling the UI to render
+		// the messages of the *newly active* session. `this.chatHistory` getter
+		// already points to the correct place.
+		this.render();
+		// Dispatch an update to ensure the UI (progress bar, etc.) reflects the loaded state.
+		this.manager._dispatchContextUpdate("session_messages_loaded");
+		
+		if(autoScroll) {
+			setTimeout(()=>{
+				this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+			}, 250)
 		}
 	}
 
@@ -80,14 +105,15 @@ class AIManagerHistory {
 		this.conversationArea.innerHTML = "" // Clear existing UI
 
         // Check if chat history is empty AND AI is not configured
-        // Assuming this.manager.ai.isConfigured() exists and indicates setup status
-        if ((!this.manager.ai || !this.manager.ai.isConfigured())) {
+        // If no active session OR active session has no messages AND AI is not configured
+        if ((!this.manager.activeSession || this.chatHistory.length === 0) && (!this.manager.ai || !this.manager.ai.isConfigured())) {
             this._showDefaultWelcomeMessage();
             return; // Stop rendering actual history if welcome message is shown
         }
 
+        // If history is empty but AI is configured, just show empty chat, no welcome guide
         if (this.chatHistory.length === 0) {
-            return; // Stop rendering actual history if welcome message is shown
+            return; 
         }
 
 		// Use a standard for loop to get index access
@@ -118,7 +144,7 @@ class AIManagerHistory {
 
 					this.conversationArea.append(wrapper)
 				} else {
-					// Render user prompt without a delete button (it's the last message)
+					// Render user prompt without a delete button (it's the last message, or not part of a pair)
 					const messageBlock = new Block()
 					messageBlock.classList.add("prompt-pill")
 					messageBlock.innerHTML = this.md.render(message.content)
@@ -148,35 +174,39 @@ class AIManagerHistory {
 
 	/**
 	 * Handles the deletion of a user prompt and its subsequent model response.
-	 * @param {number} userPromptIndex - The index in chatHistory of the user prompt to remove.
+	 * Directly modifies the active session's messages.
+	 * @param {number} userPromptIndex - The index in the active session's messages of the user prompt to remove.
 	 */
 	_handleDeleteHistoryItem(userPromptIndex) {
+		if (!this.manager.activeSession) return;
 		// We are guaranteed that a model response exists at the next index
 		// because the delete button is only rendered when this is true.
-		this.chatHistory.splice(userPromptIndex, 2) // Removes 2 items: the user prompt and the model response
+		this.manager.activeSession.messages.splice(userPromptIndex, 2); // Removes 2 items
 
-		// Re-render the UI to reflect the change
-		this.render()
+		// Update lastModified timestamp for the session
+		this.manager.activeSession.lastModified = Date.now();
 
-		// Dispatch an update so the AIManager can update the progress bar and button states
-		this.manager._dispatchContextUpdate("delete_item")
+		this.render(); // Re-render the UI to reflect the change
+		this.manager._dispatchContextUpdate("delete_item"); // Dispatch update to save changes
 	}
 
 	/**
 	 * Handles the deletion of a file context item from the history.
+	 * Directly modifies the active session's messages.
 	 * @param {string} fileId - The unique ID of the file context item to remove.
 	 */
 	_handleDeleteFileContextItem(fileId) {
+		if (!this.manager.activeSession) return;
 		// Filter out the specific file context item by its unique ID
-		this.chatHistory = this.chatHistory.filter(
+		this.manager.activeSession.messages = this.manager.activeSession.messages.filter(
 			(item) => !(item.type === "file_context" && item.id === fileId)
 		);
 
-		// Re-render the UI to reflect the change
-		this.render();
+		// Update lastModified timestamp for the session
+		this.manager.activeSession.lastModified = Date.now();
 
-		// Dispatch an update so the AIManager can update the progress bar
-		this.manager._dispatchContextUpdate("delete_item");
+		this.render(); // Re-render the UI to reflect the change
+		this.manager._dispatchContextUpdate("delete_item"); // Dispatch update to save changes
 	}
 
 	_appendFileContextUI(fileContext) {
@@ -204,12 +234,6 @@ class AIManagerHistory {
 		fileSizeSpan.textContent = ` (${sizeText})`
 		filenameText.appendChild(fileSizeSpan)
 
-		// Removed the timestampSpan section entirely
-		// const timestampSpan = document.createElement("span")
-		// timestampSpan.classList.add("timestamp")
-		// timestampSpan.textContent = new Date(fileContext.timestamp).toLocaleTimeString()
-		// header.appendChild(timestampSpan)
-
 		fileBlock.append(header)
 		wrapperBlock.append(fileBlock)
 
@@ -229,24 +253,26 @@ class AIManagerHistory {
 			console.warn("AI is currently processing or summarizing. Please wait.")
 			return
 		}
-        // Do not summarize if AI is not configured
-        if (!this.manager.ai || !this.manager.ai.isConfigured()) {
-            console.warn("AI is not configured. Cannot perform summarization.");
+        // Do not summarize if AI is not configured or no active session
+        if (!this.manager.ai || !this.manager.ai.isConfigured() || !this.manager.activeSession) {
+            console.warn("AI is not configured or no active session. Cannot perform summarization.");
             this.addMessage({
                 type: "system_message",
-                content: `AI is not configured. Cannot perform summarization. Please set up your AI provider in the settings.`,
+                content: `AI is not configured or no active session. Cannot perform summarization. Please set up your AI provider in the settings or create a new chat.`,
                 timestamp: Date.now(),
             });
             return;
         }
 
-
 		this.manager._isProcessing = true
 		this.manager._setButtonsDisabledState(true)
 
 		try {
+			// All operations now directly on this.manager.activeSession.messages.
+            const conversationMessages = this.manager.activeSession.messages;
+            
 			// Find the starting point of the actual conversation, skipping all initial file contexts.
-			const firstConversationIndex = this.chatHistory.findIndex((msg) => msg.type !== "file_context")
+			const firstConversationIndex = conversationMessages.findIndex((msg) => msg.type !== "file_context")
 
 			// If there's no conversation yet (e.g., only files have been added), we can't summarize.
 			if (firstConversationIndex === -1) {
@@ -256,7 +282,7 @@ class AIManagerHistory {
 
 			// Create a contiguous block of the entire conversation to date.
 			// This block is guaranteed to start with a user/model message.
-			const conversationBlock = this.chatHistory.slice(firstConversationIndex)
+			const conversationBlock = conversationMessages.slice(firstConversationIndex)
 
 			// From this block, get only the messages that are part of the dialogue (user/model).
 			// This neatly filters out any UI-only 'system_message' entries that might be inside the block.
@@ -338,7 +364,9 @@ class AIManagerHistory {
 				const spliceStartIndex = firstConversationIndex
 				const spliceCount = actualMessagesToReplace.length
 
-				this.chatHistory.splice(spliceStartIndex, spliceCount, summaryMessage, systemMessage)
+				// Modify the active session's messages directly
+				this.manager.activeSession.messages.splice(spliceStartIndex, spliceCount, summaryMessage, systemMessage)
+				this.manager.activeSession.lastModified = Date.now(); // Update last modified timestamp for the session
 
 				this.render()
 				this.manager._dispatchContextUpdate("summarize", {
@@ -347,7 +375,7 @@ class AIManagerHistory {
 			}
 		} catch (error) {
 			console.error("Error during summarization:", error)
-			this.addMessage({
+			this.addMessage({ // Use addMessage as it will then trigger render
 				type: "system_message",
 				content: `Error during summarization: ${error.message}`,
 				timestamp: Date.now(),
@@ -360,7 +388,9 @@ class AIManagerHistory {
 	}
 
 	prepareMessagesForAI() {
-		let prunableHistory = [...this.chatHistory]
+		// Now directly use the active session's messages
+		let prunableHistory = [...(this.manager.activeSession?.messages || [])]; 
+		
 		prunableHistory = prunableHistory.filter(
 			(msg) => msg.type !== "system_message" && msg.role !== "temp_ai_response"
 		)
