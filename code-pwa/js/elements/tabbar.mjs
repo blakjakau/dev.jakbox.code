@@ -9,6 +9,7 @@ export class TabBar extends Block {
 	constructor(content) {
 		super()
 		this._tabs = []
+		this._exclusiveType = null
 		this.onEmpty = null;
 		this.splitViewDragEnabled = false;
 		this.on("mousewheel", (e) => {
@@ -114,6 +115,14 @@ export class TabBar extends Block {
 		this.defaultTab = null;
 	}
 
+	set exclusiveDropType(v) {
+		this._exclusiveType = v
+	}
+	
+	get exclusiveDropType() {
+		return this._exclusiveType
+	}
+
 	// Method to be called when the tab bar becomes empty
 	defaultTab() {
 		if (typeof this._defaultTab === 'function') {
@@ -133,6 +142,13 @@ export class TabBar extends Block {
 	async tabDrop(e) {
 		e.stopPropagation()
 		e.preventDefault()
+
+		if(this.exclusiveDropType != null && e.dataTransfer.getData("application/x-exclusive-drop-type") != null) {
+			if(this.exclusiveDropType != e.dataTransfer.getData("application/x-exclusive-drop-type")) {
+				console.debug("exclusive drop type not matched between ")
+				return
+			}
+		}
 
 		// Remove drop highlight from all tabs in this TabBar
 		for (const tab of this.children) {

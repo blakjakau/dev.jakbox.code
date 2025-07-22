@@ -103,12 +103,13 @@ class AIManager {
 
 _createUI() {
 		// --- Session TabBar UI ---
-		const sessionTabContainer = new Block();
-		sessionTabContainer.classList.add('ai-session-tab-container');
+		// const sessionTabContainer = new Block();
+		// sessionTabContainer.classList.add('ai-session-tab-container');
 
 		this.sessionTabBar = new TabBar();
 		this.sessionTabBar.setAttribute('slim', '');
 		this.sessionTabBar.classList.add('tabs-inverted');
+		this.sessionTabBar.exclusiveDropType = "ai-tab"
 
 		// This is the core of the new logic. The TabBar handles the UI change,
 		// and we just handle the data change in response.
@@ -122,14 +123,14 @@ _createUI() {
 		this.newSessionButton.on('click', () => this.createNewSession());
 		
 		this.sessionTabBar.append(this.newSessionButton)
-		sessionTabContainer.append(this.sessionTabBar);
+		// sessionTabContainer.append(this.sessionTabBar);
 
 		// --- Other UI Elements ---
 		this.conversationArea = this._createConversationArea();
 		const promptContainer = this._createPromptContainer();
 		this.settingsPanel = this._createSettingsPanel();
 
-		this.panel.append(this.conversationArea, this.settingsPanel, sessionTabContainer, promptContainer);
+		this.panel.append(this.conversationArea, this.settingsPanel, this.sessionTabBar, promptContainer);
 	}
 	
 	_createConversationArea() {
@@ -750,7 +751,7 @@ _createUI() {
 		this.activeSessionId = sessionId;
 		
 		// Update the rest of the UI based on the new data
-		this.historyManager.loadSessionMessages(this.activeSession.messages);
+		this.historyManager.loadSessionMessages(this.activeSession.messages, true);
 		this.promptArea.value = this.activeSession.promptInput || "";
 		this.promptIndex = (this.activeSession.promptHistory?.length || 0);
 		this._resizePromptArea();

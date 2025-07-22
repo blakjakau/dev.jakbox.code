@@ -27,6 +27,10 @@ export class TabItem extends Button {
 			e.dataTransfer.effectAllowed = "move"
 			e.dataTransfer.setData("text/plain", this.getAttribute("id"))
 			e.dataTransfer.setData("application/x-tab-item", this.getAttribute("id"))
+			
+			if(this.parentElement.exclusiveDropType != null) {
+				e.dataTransfer.setData("application/x-exclusive-drop-type", this.parentElement.exclusiveDropType)
+			} 
 
 			this.parentElement.animating = true
 			this.parentElement.setAttribute("dragging", "true")

@@ -416,8 +416,19 @@ button:disabled,
     background-color: rgba(0,0,0,0.25);
 }
 
+ui-tabbar.tabs-inverted {
+	display: flex;
+    overflow-x: auto;
+    box-sizing: border-box;
+    border-top: 3px solid var(--themeDark);
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.5);
+    z-index: 2;
+}
+
+
 /* "Inverted" tabs are now styled to sit on top of the prompt area */
 ui-tabbar.tabs-inverted[slim] > ui-tab-item {
+
     margin-top: 0;
     margin-bottom: 0; /* Sits flush with the bottom of the container */
     border-radius: 0 0 8px 8px; /* Rounded TOP corners */

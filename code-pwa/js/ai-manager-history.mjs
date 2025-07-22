@@ -89,7 +89,7 @@ class AIManagerHistory {
 		if(autoScroll) {
 			setTimeout(()=>{
 				this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
-			}, 250)
+			}, 50)
 		}
 	}
 
