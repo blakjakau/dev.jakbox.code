@@ -5,6 +5,7 @@ import Ollama from "./ai-ollama.mjs"
 import Gemini from "./ai-gemini.mjs"
 import AIManagerHistory, { MAX_RECENT_MESSAGES_TO_PRESERVE } from "./ai-manager-history.mjs"
 import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
+import DiffHandler from "./tools/diff-handler.mjs" // Import DiffHandler
 
 const MAX_PROMPT_HISTORY = 50 // This is now PER-SESSION
 
@@ -24,6 +25,7 @@ class AIManager {
 		}
 
 		this.historyManager = new AIManagerHistory(this)
+		
 
 		this.panel = null
 		this.promptArea = null
@@ -31,6 +33,8 @@ class AIManager {
 		this.submitButton = null
 		this.md = window.markdownit()
 		this.settingsPanel = null
+		this.contextStaleNotice = null; // New element for context currency check
+		this._contextStaleResolve = null; // To resolve/reject the context stale promise
 		this._settingsForm = null // Reference to the settings form element
 		this._workspaceSettingsCheckbox = null // Reference to the checkbox
 		this.useWorkspaceSettings = false
@@ -157,8 +161,11 @@ _createUI() {
 		this.promptArea = this._createPromptArea()
 		
 		const buttonContainer = new Block()
-		buttonContainer.classList.add("button-container")
-		
+		buttonContainer.classList.add("button-container");
+
+		// NEW: Context Stale Notice Bar
+		this.contextStaleNotice = this._createContextStaleNotice();
+
 		const spacer = new Block()
 		spacer.classList.add("spacer")
 
@@ -184,6 +191,7 @@ _createUI() {
 		buttonContainer.append(settingsButton) // Append settings button to the right
 
 		promptContainer.append(this.promptArea)
+		promptContainer.append(this.contextStaleNotice); // Add the new notice bar here
 		promptContainer.append(buttonContainer)
 
 		return promptContainer
@@ -287,6 +295,41 @@ _createUI() {
 		this._setButtonsDisabledState(this._isProcessing) // Initial state
 		return clearButton
 	}
+
+	/**
+	 * NEW METHOD: Creates the UI element for displaying context currency warnings.
+	 */
+	_createContextStaleNotice() {
+		const noticeBar = document.createElement("div");
+		noticeBar.classList.add("notice-bar", "context-stale-notice");
+		noticeBar.style.display = "none"; // Hidden by default
+		noticeBar.innerHTML = `
+			<span class="message">Some files in the chat context have changed or are no longer available.</span>
+			<button class="update-button">Update Context</button>
+			<button class="keep-old-button">Keep Old</button>
+		`;
+
+		noticeBar.querySelector(".update-button").addEventListener("click", () => {
+			if (this._contextStaleResolve) {
+				this._contextStaleResolve(true); // User chose to update
+				this._hideContextStaleNotice();
+			}
+		});
+
+		noticeBar.querySelector(".keep-old-button").addEventListener("click", () => {
+			if (this._contextStaleResolve) {
+				this._contextStaleResolve(false); // User chose to keep old
+				this._hideContextStaleNotice();
+			}
+		});
+		return noticeBar;
+	}
+
+	_showContextStaleNotice(message) {
+		this.contextStaleNotice.querySelector(".message").textContent = message;
+		this.contextStaleNotice.style.display = "flex";
+	}
+	_hideContextStaleNotice() { this.contextStaleNotice.style.display = "none"; }
 
 	// Helper to disable/enable relevant buttons
 	_setButtonsDisabledState(disabled) {
@@ -932,6 +975,17 @@ _createUI() {
 
 		// Process prompt for @ tags, always using "chat" logic now.
 		const { processedPrompt, contextItems } = await this.ai._getContextualPrompt(userPrompt, "chat")
+		
+		// NEW: Check for stale context files and handle user interaction
+		await this._checkForStaleContextFiles(); // This will block if user interaction is needed
+
+		// NEW: Remove any existing context items for the same files being added in this turn
+		if (contextItems.length > 0) {
+			const newFileIds = new Set(contextItems.map(item => item.id));
+			this.activeSession.messages = this.activeSession.messages.filter(msg => 
+				!(msg.type === "file_context" && newFileIds.has(msg.id))
+			);
+		}
 
 		// Update active session's messages
 		contextItems.forEach((item) => this.activeSession.messages.push({
@@ -942,7 +996,12 @@ _createUI() {
 			content: item.content,
 			timestamp: Date.now(),
 		}));
-		this.activeSession.messages.push({ role: "user", type: "user", content: processedPrompt, timestamp: Date.now() });
+		
+		if(processedPrompt) {
+			this.activeSession.messages.push({ role: "user", type: "user", content: processedPrompt, timestamp: Date.now() });
+		}
+
+		// The `processedPrompt` is the cleaned prompt after @-tags. Add it as the user's message.
 
 		// Update lastModified timestamp for the session
 		this.activeSession.lastModified = Date.now();
@@ -975,15 +1034,18 @@ _createUI() {
 		const callbacks = {
 			onUpdate: (fullResponse) => {
 				responseBlock.innerHTML = this.md.render(fullResponse)
+                // NEW: _addCodeBlockButtons will now also handle diff rendering for streaming updates
+                this._addCodeBlockButtons(responseBlock) 
 				if (!this.userScrolled) {
 					this.conversationArea.scrollTop = this.conversationArea.scrollHeight
 				}
 			},
 			onDone: async (fullResponse, contextRatioPercent) => { // Mark async to await set
-				this._addCodeBlockButtons(responseBlock) // Add buttons after final response is rendered
-
 				spinner.remove()
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
+
+                responseBlock.innerHTML = this.md.render(fullResponse) // Final render
+				this._addCodeBlockButtons(responseBlock) // Add buttons after final response is rendered
 
 				// Add AI response to activeSession's messages for persistence
 				this.activeSession.messages.push({
@@ -1025,36 +1087,70 @@ _createUI() {
 			onContextRatioUpdate: (ratio) => { /* ... */ },
 		}
 
+		
 		// Always use the chat method.
-		const messagesForAI = this.historyManager.prepareMessagesForAI()
-		this.ai.chat(messagesForAI, callbacks)
+		if(processedPrompt) {
+			const messagesForAI = this.historyManager.prepareMessagesForAI()
+			this.ai.chat(messagesForAI, callbacks)
+		} else {
+			// Scenario: Context items were added, but no user prompt was given.
+			// In this case, we don't call the AI, but acknowledge the context addition.
+			this.historyManager.addMessage({
+				type: "system_message",
+				content: `Files added to context for future reference.`,
+				timestamp: Date.now(),
+			});
+	
+			// Update lastModified timestamp for the session
+			this.activeSession.lastModified = Date.now();
+			// Save the active session to IndexedDB immediately after adding user prompt and context
+			await set(`ai-session-${this.activeSession.id}`, this.activeSession);
+	
+			// Render updated history in UI and dispatch event
+			this.historyManager.render();
+			this._dispatchContextUpdate("files_added_to_context");
+	
+			this._isProcessing = false; // Release lock
+			this._setButtonsDisabledState(false); // Re-enable buttons
+	
+			return; // Exit the function as AI chat is not needed.
+		}
 	}
 
 	_addCodeBlockButtons(responseBlock) {
 		const preElements = responseBlock.querySelectorAll("pre")
 		preElements.forEach((pre) => {
+            // Check if buttons are already added to this <pre> element
+            if (pre.querySelector('.code-buttons')) {
+                return; // Skip if buttons already exist
+            }
+
+			const codeElement = pre.querySelector("code") // Get the code element inside pre
+
 			const buttonContainer = new Block()
 			buttonContainer.classList.add("code-buttons")
 
+			// Common buttons for all code blocks
 			const copyButton = new Button()
 			copyButton.classList.add("code-button")
 			copyButton.icon = "content_copy"
 			copyButton.title = "Copy code"
 			copyButton.on("click", () => {
-				const code = pre.querySelector("code").innerText
+				const code = codeElement ? codeElement.innerText : pre.innerText; // Use codeElement if exists
 				navigator.clipboard.writeText(code)
 				copyButton.icon = "done"
 				setTimeout(() => {
 					copyButton.icon = "content_copy"
 				}, 1000)
 			})
+			buttonContainer.append(copyButton);
 
 			const insertButton = new Button()
 			insertButton.classList.add("code-button")
 			insertButton.icon = "input"
 			insertButton.title = "Insert into editor"
 			insertButton.on("click", () => {
-				const code = pre.querySelector("code").innerText
+				const code = codeElement ? codeElement.innerText : pre.innerText; // Use codeElement if exists
 				const event = new CustomEvent("insert-snippet", { detail: code })
 				window.dispatchEvent(event)
 				insertButton.icon = "done"
@@ -1062,37 +1158,257 @@ _createUI() {
 					insertButton.icon = "input"
 				}, 1000)
 			})
+			buttonContainer.append(insertButton);
 
             // Expand/Collapse button
             const expandCollapseButton = new Button();
             expandCollapseButton.classList.add("code-button", "expand-collapse-button");
-            // Set initial state based on whether 'expanded' attribute is present (it won't be initially)
-            const isExpanded = pre.hasAttribute("expanded");
-            expandCollapseButton.icon = isExpanded ? "unfold_less" : "unfold_more";
-            expandCollapseButton.title = isExpanded ? "Collapse code block" : "Expand code block";
+
+            const codeContent = codeElement ? codeElement.innerText : pre.innerText;
+            const lineCount = codeContent.split('\n').length;
+            const codeLanguage = codeElement ? Array.from(codeElement.classList).find(cls => cls.startsWith('language-'))?.substring(9) : '';
+
+            // Determine initial state and button visibility
+            if (lineCount < 30) {
+                pre.setAttribute("expanded", ""); // Apply expanded state
+                expandCollapseButton.style.display = "none"; // Hide button
+            } else if (codeLanguage === "diff") {
+                pre.setAttribute("expanded", ""); // Apply expanded state for diffs
+                expandCollapseButton.icon = "unfold_less";
+                expandCollapseButton.title = "Collapse code block";
+            } else {
+                pre.setAttribute("collapsed", ""); // Apply collapsed state by default
+                expandCollapseButton.icon = "unfold_more";
+                expandCollapseButton.title = "Expand code block";
+            }
 
             expandCollapseButton.on("click", () => {
-                const currentlyExpanded = pre.hasAttribute("expanded");
-                if (currentlyExpanded) {
-                    pre.removeAttribute("expanded");
-                    expandCollapseButton.icon = "unfold_more";
+                if (pre.hasAttribute("collapsed")) {
+                    pre.removeAttribute("collapsed");
+                    // Default state (30em)
+                    expandCollapseButton.icon = "unfold_more"; // Still "unfold_more" to go to expanded next
+                    expandCollapseButton.title = "Expand code block";
+                } else if (!pre.hasAttribute("expanded")) {
+                    // Currently in default (30em) state, go to expanded
+                    pre.setAttribute("expanded", "");
+                    expandCollapseButton.icon = "unfold_less";
                     expandCollapseButton.title = "Collapse code block";
                 } else {
-                    pre.setAttribute("expanded", ""); // Set attribute without value
-                    expandCollapseButton.icon = "unfold_less";
-                    // Corrected typo
-                    expandCollapseButton.title = "Collapse code block";
+                    // Currently expanded, go to collapsed
+                    pre.removeAttribute("expanded");
+                    pre.setAttribute("collapsed", "");
+                    expandCollapseButton.icon = "unfold_more";
+                    expandCollapseButton.title = "Expand code block";
                 }
             });
-
-
-			buttonContainer.append(insertButton)
-			buttonContainer.append(copyButton)
             buttonContainer.append(expandCollapseButton) // Append the new button
+
+
+            // NEW: Diff specific handling
+            if (codeElement && codeElement.classList.contains('language-diff')) {
+                const originalDiffString = codeElement.textContent; // Get the raw diff content
+
+                // Render the diff using DiffHandler and replace the pre's innerHTML
+                const renderedDiffHtml = DiffHandler.renderStateless(originalDiffString, 'html');
+                // Create a temporary div to parse the HTML and extract the inner content
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = renderedDiffHtml;
+                const newPreContent = tempDiv.querySelector('.diff-output')?.innerHTML || '';
+                
+                if (newPreContent) {
+                	// pre.tagName = "ui-block"
+                    pre.innerHTML = newPreContent; // Replace with styled diff content
+                    pre.classList.add('diff-output'); // Add a class for specific styling
+                    // Store the original raw diff string on the pre element for the apply button
+                    pre.dataset.originalDiffContent = originalDiffString; 
+                } else {
+                    console.warn("DiffHandler.renderStateless returned unexpected output for diff block.");
+                }
+
+                // Add "Apply Diff" button
+                const applyDiffButton = new Button();
+                applyDiffButton.classList.add("code-button");
+                applyDiffButton.icon = "merge"; // Suitable icon for applying changes
+                applyDiffButton.title = "Apply diff to file";
+                applyDiffButton.on("click", async () => {
+                    const rawDiff = pre.dataset.originalDiffContent;
+                    if (!rawDiff) {
+                        alert("Error: Could not retrieve original diff content to apply.");
+                        return;
+                    }
+
+                    // Extract target path from diff header (e.g., +++ b/path/to/file)
+                    const targetPathMatch = rawDiff.match(/^\+\+\+ b\/(.+)$/m);
+                    if (!targetPathMatch || !targetPathMatch[1]) {
+                        alert("Error: Could not determine target file path from diff header. Ensure the diff starts with '+++ b/filename'.");
+                        return;
+                    }
+                    const targetPath = targetPathMatch[1];
+
+                    // --- NEW LOGIC START ---
+                    // 1. Find the ORIGINAL content from the chat history (what the AI saw)
+                    let originalContentFromContext = null;
+                    // Iterate backward to get the MOST RECENT context entry for this file
+                    for (let i = this.activeSession.messages.length - 1; i >= 0; i--) {
+                        const msg = this.activeSession.messages[i];
+                        if (msg.type === "file_context" && msg.filename === targetPath) {
+                            originalContentFromContext = msg.content;
+                            break;
+                        }
+                    }
+
+                    if (!originalContentFromContext) {
+                        alert(`Error: The original content for "${targetPath}" was not found in this chat session's context history. Cannot apply diff.`);
+                        return;
+                    }
+                    // --- NEW LOGIC END ---
+
+                    // 2. Find the LIVE editor tab using the AI's helper
+                    const tabToUpdate = await this.ai._getTabSessionByPath(targetPath);
+                    if (!tabToUpdate) {
+                        alert(`Error: File "${targetPath}" is not currently open in the editor. Please open the file to apply the diff.`);
+                        return;
+                    }
+
+                    // 3. Apply the diff using DiffHandler, using content from history
+                    const newFileContentFromDiff = DiffHandler.applyStatelessFuzzy(originalContentFromContext, rawDiff);
+
+                    if (newFileContentFromDiff === null) {
+                        alert(`Failed to apply diff to "${targetPath}". There might be a content mismatch with the file as it was originally sent to AI. Please review the diff manually.`);
+                        console.error("Diff application failed:", { originalContentFromContext, rawDiff });
+                    } else {
+                    	
+                    	// 4. Update the live file content in the editor
+                        tabToUpdate.config.session.setValue(newFileContentFromDiff);
+                        
+                        // applyCodeDiffToAceSession(tabToUpdate.config.session, tabToUpdate.config.session.getValue(), newFileContentFromDiff);
+                        
+                        // IMPORTANT: DO NOT call session.markClean() here.
+                        // setValue marks it dirty, which is correct because it's not saved to disk yet.
+                        // The user should manually save after applying.
+
+                        // Provide visual feedback
+                        applyDiffButton.icon = "done"; 
+                        applyDiffButton.title = "Diff applied successfully!";
+                        setTimeout(() => {
+                            applyDiffButton.icon = "merge";
+                            applyDiffButton.title = "Apply diff to file";
+                        }, 2000);
+                        // Add a system message to chat history for persistent feedback
+                        this.historyManager.addMessage({
+                            type: "system_message",
+                            content: `Diff successfully applied to **${targetPath}**. Remember to save the file.`,
+                            timestamp: Date.now(),
+                        });
+                    }
+                });
+                buttonContainer.append(applyDiffButton);
+            }
+
 			pre.prepend(buttonContainer)
 		})
 	}
 
+	/**
+	 * NEW METHOD: Updates or removes stale file context messages in the active session.
+	 * @param {Array<Object>} staleFileContexts - Array of objects containing { message, liveContent, tabInfo }.
+	 */
+	_updateStaleContextFiles(staleFileContexts) {
+		if (!this.activeSession) return;
+
+		// Create a new array for messages to avoid issues with splice while iterating
+		let updatedMessages = [...this.activeSession.messages];
+		let changesMade = false;
+
+		for (const staleItem of staleFileContexts) {
+			const messageIndex = updatedMessages.findIndex(msg =>
+				msg.type === "file_context" && msg.id === staleItem.message.id
+			);
+
+			if (messageIndex !== -1) {
+				if (staleItem.liveContent !== null) {
+					updatedMessages[messageIndex].content = staleItem.liveContent;
+				} else {
+					updatedMessages.splice(messageIndex, 1); // Remove if file is no longer available
+				}
+				changesMade = true;
+			}
+		}
+		if (changesMade) {
+			this.activeSession.messages = updatedMessages;
+			this.activeSession.lastModified = Date.now(); // Update last modified timestamp
+			this.historyManager.render(); // Re-render the UI
+			this._dispatchContextUpdate("context_files_updated"); // Dispatch event
+		}
+	}
+	
+	/**
+	 * NEW METHOD: Checks if any file context messages in the current session are stale
+	 * (i.e., their content no longer matches the live file on disk).
+	 * If stale files are found, it presents a confirmation dialog to the user.
+	 * Returns a Promise that resolves when the user has made a choice.
+	 */
+	async _checkForStaleContextFiles() {
+		if (!this.activeSession) return;
+
+		const staleFileContexts = [];
+		for (const message of this.activeSession.messages) {
+			if (message.type === "file_context" && message.filename) {
+				try {
+					const tabInfo = await this.ai._getTabSessionByPath(message.filename);
+					if (tabInfo && tabInfo.config.session) {
+						const liveContent = tabInfo.config.session.getValue();
+						if (liveContent !== message.content) {
+							staleFileContexts.push({
+								message,
+								liveContent,
+								tabInfo,
+							});
+						}
+					} else {
+						// File is no longer open or available, mark as stale for removal/update
+						staleFileContexts.push({
+							message,
+							liveContent: null, // Indicates file not found/open
+							tabInfo: null,
+						});
+					}
+				} catch (e) {
+					console.warn(`Error checking currency for file ${message.filename}:`, e);
+					// Consider it stale if an error occurs fetching live content
+					staleFileContexts.push({
+						message,
+						liveContent: null,
+						tabInfo: null,
+					});
+				}
+			}
+		}
+
+		if (staleFileContexts.length > 0) {
+			this._setButtonsDisabledState(true); // Disable main buttons during interaction
+			this._isProcessing = true; // Keep processing flag true
+
+			let message = `**${staleFileContexts.length} file(s)** in this chat's context have changed or are no longer open.`;
+			if (staleFileContexts.some(f => f.liveContent !== null)) {
+				message += ` Would you like to update the context with the latest versions?`;
+			} else {
+				message += ` They will be removed from context if you continue.`;
+			}
+			
+			this._showContextStaleNotice(message);
+
+			const userChoice = await new Promise(resolve => {
+				this._contextStaleResolve = resolve;
+			});
+
+			if (userChoice) { // User chose to update
+				this._updateStaleContextFiles(staleFileContexts);
+			}
+			// If userChoice is false, do nothing; the old context will be used.
+		}
+	}
+	
 	async loadSettings() {
 		const storedProvider = localStorage.getItem("aiProvider")
 		if (storedProvider && this.aiProviders[storedProvider]) {

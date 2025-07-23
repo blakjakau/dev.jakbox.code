@@ -90,20 +90,12 @@ export default class AI {
 		return;
 	}
 
+    // Existing _readOpenBuffers (no change needed as _getTabSessionByPath is more direct for apply diff)
     async _readOpenBuffers() {
         const openFilesContent = [];
-        const allTabs = [];
+        const allTabs = this._getAllOpenTabs(); // Use the new helper
 
-        if (window.ui && window.ui.leftTabs && window.ui.leftTabs.tabs) {
-            allTabs.push(...window.ui.leftTabs.tabs);
-        }
-        if (window.ui && window.ui.rightTabs && window.ui.rightTabs.tabs) {
-            allTabs.push(...window.ui.rightTabs.tabs);
-        }
-        
-        const uniqueTabs = [...new Map(allTabs.map(tab => [tab.config.path, tab])).values()];
-
-        for (const tabInfo of uniqueTabs) {
+        for (const tabInfo of allTabs) {
             try {
                 if (!tabInfo.config || !tabInfo.config.session) continue;
 
@@ -129,6 +121,36 @@ export default class AI {
             }
         }
         return openFilesContent;
+    }
+
+    // NEW METHOD: Helper to get all open tabs regardless of pane
+    _getAllOpenTabs() {
+        const allTabs = [];
+        if (window.ui && window.ui.leftTabs && window.ui.leftTabs.tabs) {
+            allTabs.push(...window.ui.leftTabs.tabs);
+        }
+        if (window.ui && window.ui.rightTabs && window.ui.rightTabs.tabs) {
+            allTabs.push(...window.ui.rightTabs.tabs);
+        }
+        // Ensure uniqueness by path, preferring left over right if path duplicates
+        const uniqueTabsMap = new Map();
+        for (const tab of allTabs) {
+            if (tab.config && tab.config.path && !uniqueTabsMap.has(tab.config.path)) {
+                uniqueTabsMap.set(tab.config.path, tab);
+            }
+        }
+        return Array.from(uniqueTabsMap.values());
+    }
+
+    // NEW METHOD: Finds an open tab's full info object by its file path
+    async _getTabSessionByPath(targetPath) {
+        const openTabs = this._getAllOpenTabs();
+        for (const tabInfo of openTabs) {
+            if (tabInfo.config && tabInfo.config.name === targetPath && tabInfo.config.session) {
+                return tabInfo; // Return the full tabInfo object (which contains config.session)
+            }
+        }
+        return null;
     }
 
 	/**
@@ -202,6 +224,10 @@ export default class AI {
             // Clean up all tags for chat mode after processing
             if (runMode === "chat") {
                 processedPrompt = processedPrompt.replace(/@(code|current|open)/ig, "");
+            }
+            // If after processing tags, the prompt is just whitespace, set a default message
+            if (runMode === "chat" && processedPrompt.trim() === "" && contextItems.length > 0) {
+                // do nothing!
             }
 		}
         processedPrompt = processedPrompt.trim(); // Clean up any extra whitespace from replacements

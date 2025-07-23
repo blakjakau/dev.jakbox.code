@@ -35,6 +35,108 @@
 }
 
 
+
+/* Add to css/ai-manager.css */
+
+/* Overall container for rendered diffs */
+.conversation-area .response-block .diff-output {
+    background-color: rgba(0,0,0,0.25); /* A neutral background, maybe slightly darker than main chat area */
+    padding: 8px;
+    border-radius: var(--border-radius-sm);
+    /*font-family: var(--font-family-monospace);*/
+    font-size: var(--font-size-sm);
+    overflow-x: auto; /* Allow horizontal scrolling for wide diff lines */
+    white-space: pre; /* Preserve whitespace for diff format */
+    margin-top: 8px;
+    margin-bottom: 8px;
+    border: 1px solid var(--theme-border-color);
+    line-height: 1.4; /* Improve readability */
+    color: var(--theme-text-color); /* Default text color */
+    font-family: roboto mono;
+}
+
+/* Header lines (--- a/, +++ b/, @@) */
+.conversation-area .response-block .diff-output .header {
+    color: var(--theme-text-color-light); /* Lighter text for metadata */
+    background-color: var(--theme-block-background); /* Distinct background for header */
+    /*padding: 2px 4px;*/
+    border-bottom: 1px dashed var(--theme-border-color);
+    /*margin-bottom: 4px;*/
+    font-weight: bold;
+}
+
+/* Added lines */
+.conversation-area .response-block .diff-output .add {
+	font-weight:bold;
+    color: var(--green); /* Bright green for additions */
+    background-color: rgba(0, 128, 0, 0.2); /* Darken for better contrast */
+}
+
+/* Removed lines */
+.conversation-area .response-block .diff-output .remove {
+	font-weight:bold;
+    color: var(--red); /* Bright red for removals */
+    background-color: rgba(128, 0, 0, 0.2); /* Darken for better contrast */
+}
+
+/* Context (neutral) lines */
+.conversation-area .response-block .diff-output .neutral {
+    color: var(--theme-text-color); /* Standard text color */
+}
+
+/* Ensure the leading +, -, and space characters are visually consistent */
+.conversation-area .response-block .diff-output .add::before {
+    /*content: "+";*/
+    color: var(--green);
+    margin-right: 4px; /* Space between sign and content */
+}
+.conversation-area .response-block .diff-output .remove::before {
+    /*content: "-";*/
+    color: var(--red);
+    margin-right: 4px;
+}
+.conversation-area .response-block .diff-output .neutral::before {
+    /*content: " "; */
+    margin-right: 4px;
+}
+
+/* Improve button placement and visibility */
+.conversation-area .response-block .code-buttons {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    gap: 4px;
+    z-index: 1; /* Ensure buttons are above code content */
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.2s ease-in-out;
+}
+
+.conversation-area .response-block pre:hover .code-buttons {
+    opacity: 1; /* Show on hover */
+}
+
+.conversation-area .response-block .code-button {
+    background-color: var(--theme-block-background);
+    border: 1px solid var(--theme-border-color);
+    color: var(--theme-text-color);
+    padding: 4px 8px;
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+}
+
+.conversation-area .response-block .code-button:hover {
+    background-color: var(--theme-accent-hover);
+    color: var(--theme-accent-color);
+}
+/* Ensure the pre element is positioned relatively for absolute button positioning */
+.conversation-area .response-block pre {
+    position: relative;
+}
+
+
+
 .prompt-container {
     /* position: sticky; */ /* This can cause layout issues with flexbox; flex handles this better */
     /* bottom: 0; */
@@ -120,10 +222,15 @@
 .response-block pre {
     position: relative;
     padding-top: 24px;
-    max-height:16em; 
+    max-height: 30em; /* Default max-height */
     overflow-y: auto; 
     margin-top: 8px;
     margin-bottom: 8px;
+}
+
+.response-block pre[collapsed] {
+    max-height: 16em; /* Collapsed state */
+    overflow-y: auto;
 }
 
 .response-block pre[expanded] {
@@ -377,6 +484,29 @@ button:disabled,
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 150px; 
+}
+
+.context-stale-notice {
+    background-color: var(--dark); 
+    color: #fff; 
+    padding: 6px;
+    display: flex;
+    justify-content: space-between; 
+    align-items: center;
+    gap: 6px; 
+    z-index: 1000; 
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); 
+    border-radius: 5px; 
+    border: 1px solid var(--theme);
+	margin: 8px 0; /* Add margin to separate from prompt area */
+}
+
+.context-stale-notice .message {
+    flex-grow: 1; 
+    text-align: center;
+}
+.context-stale-notice button {
+    padding: 4px 10px;
 }
 
 .button-container {
