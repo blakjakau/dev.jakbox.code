@@ -30,6 +30,7 @@ class AIManager {
 		this.panel = null
 		this.promptArea = null
 		this.conversationArea = null
+		this.chatContainer = null;
 		this.fileBar = null; // NEW: for file context chips
 		this.submitButton = null
 		this.md = window.markdownit()
@@ -122,25 +123,30 @@ class AIManager {
 		this.newSessionButton.on('click', () => this.createNewSession());
 		
 		this.sessionTabBar.append(this.newSessionButton)
+		
+		// --- NEW FileBar and Context Progress Bar ---
+		const fileBarContainer = new Block();
+		fileBarContainer.classList.add('ai-filebar-container');
 
-		// --- NEW FileBar for context files ---
 		this.fileBar = new FileBar();
 		this.fileBar.classList.add('ai-file-context-bar');
 		// Listen for requests to remove a file, originating from a chip's close button
 		this.fileBar.on('file-remove-request', (e) => {
 			this.historyManager._handleDeleteFileContextItem(e.detail.fileId);
 		});
+		this.progressBar = this._createProgressBar();
+		fileBarContainer.append(this.fileBar, this.progressBar);
 
 		// --- Other UI Elements ---
 		this.conversationArea = this._createConversationArea();
 		const promptContainer = this._createPromptContainer();
 		this.settingsPanel = this._createSettingsPanel();
 
-		const chatContainer = new Block();
-		chatContainer.classList.add('ai-chat-container');
-		chatContainer.append(this.fileBar, this.conversationArea);
+		this.chatContainer = new Block();
+		this.chatContainer.classList.add('ai-chat-container');
+		this.chatContainer.append(fileBarContainer, this.conversationArea);
 
-		this.panel.append(chatContainer, this.settingsPanel, this.sessionTabBar, promptContainer);
+		this.panel.append(this.chatContainer, this.settingsPanel, this.sessionTabBar, promptContainer);
 	}
 	
 	_createConversationArea() {
@@ -149,20 +155,21 @@ class AIManager {
 		return conversationArea
 	}
 
-	_createPromptContainer() {
-		const promptContainer = new Block()
-		promptContainer.classList.add("prompt-container")
-
-		this.progressBar = document.createElement("div")
-		this.progressBar.classList.add("progress-bar")
-		this.progressBar.setAttribute("title", "Context window utilization")
-		this.progressBar.style.display = "block" // Now always visible
-
+	_createProgressBar() {
+		const progressBar = document.createElement("div")
+		progressBar.classList.add("progress-bar")
+		progressBar.setAttribute("title", "Context window utilization")
+		progressBar.style.display = "block" // Now always visible
 
 		const progressBarInner = document.createElement("div")
 		progressBarInner.classList.add("progress-bar-inner")
-		this.progressBar.appendChild(progressBarInner)
-		promptContainer.appendChild(this.progressBar)
+		progressBar.appendChild(progressBarInner)
+		return progressBar;
+	}
+
+	_createPromptContainer() {
+		const promptContainer = new Block()
+		promptContainer.classList.add("prompt-container")
 
 		this.promptArea = this._createPromptArea()
 		
@@ -616,7 +623,7 @@ class AIManager {
 	}
 
 	toggleSettingsPanel() {
-		this.conversationArea.classList.toggle("hidden")
+		this.chatContainer.classList.toggle("hidden")
 		this.settingsPanel.classList.toggle("active")
 		// If settings panel is being hidden, re-render chat history to refresh any potential content/token changes
 		if (!this.settingsPanel.classList.contains("active")) {
