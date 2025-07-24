@@ -747,9 +747,9 @@ _createUI() {
 	async createNewSession() {
 		const newId = `ai-session-${crypto.randomUUID()}`;
 		const newName = `Chat ${this.allSessionMetadata.length + 1}`;
-		const newSessionData = {
+		const newSessionData = { // Initialize with scrollTop 0 for new sessions
 			id: newId, name: newName, createdAt: Date.now(), lastModified: Date.now(),
-			messages: [], promptInput: "", promptHistory: [],
+			messages: [], promptInput: "", promptHistory: [], scrollTop: 0,
 		};
 
 		await set(`ai-session-${newId}`, newSessionData);
@@ -774,6 +774,7 @@ _createUI() {
 		// Save the state of the *current* active session (if any)
 		if (this.activeSession && this.activeSession.id) {
 			this.activeSession.promptInput = this.promptArea.value;
+			this.activeSession.scrollTop = this.conversationArea.scrollTop; // Save current scroll position
 			const currentSessionMeta = this.allSessionMetadata.find(s => s.id === this.activeSession.id);
 			if (currentSessionMeta) currentSessionMeta.lastModified = Date.now();
 			await set(`ai-session-${this.activeSession.id}`, this.activeSession);
@@ -794,7 +795,11 @@ _createUI() {
 		this.activeSessionId = sessionId;
 		
 		// Update the rest of the UI based on the new data
-		this.historyManager.loadSessionMessages(this.activeSession.messages, true);
+		// Do NOT auto-scroll to bottom. Instead, restore saved scroll position.
+		this.historyManager.loadSessionMessages(this.activeSession.messages, false); 
+		// Restore scroll position after content has been rendered
+		// A small timeout ensures the DOM has updated before setting scroll.
+		setTimeout(() => { this.conversationArea.scrollTop = this.activeSession.scrollTop || 0; }, 0); 
 		this.promptArea.value = this.activeSession.promptInput || "";
 		this.promptIndex = (this.activeSession.promptHistory?.length || 0);
 		this._resizePromptArea();
@@ -988,17 +993,24 @@ _createUI() {
 		}
 
 		// Update active session's messages
-		contextItems.forEach((item) => this.activeSession.messages.push({
-			type: "file_context",
-			id: item.id,
-			filename: item.filename,
-			language: item.language,
-			content: item.content,
-			timestamp: Date.now(),
-		}));
+		contextItems.forEach((item) => {
+			const contextMessage = {
+				type: "file_context",
+				id: item.id, // This is the unique path
+				filename: item.filename,
+				language: item.language,
+				content: item.content,
+				timestamp: Date.now(),
+			};
+			this.activeSession.messages.push(contextMessage);
+			this.historyManager.appendMessageElement(contextMessage); // Dynamically append
+		});
 		
+		let userMessage = null;
 		if(processedPrompt) {
-			this.activeSession.messages.push({ role: "user", type: "user", content: processedPrompt, timestamp: Date.now() });
+			userMessage = { role: "user", type: "user", content: processedPrompt, timestamp: Date.now(), id: crypto.randomUUID() };
+			this.activeSession.messages.push(userMessage);
+			this.historyManager.appendMessageElement(userMessage); // Dynamically append
 		}
 
 		// The `processedPrompt` is the cleaned prompt after @-tags. Add it as the user's message.
@@ -1009,12 +1021,14 @@ _createUI() {
 		await set(`ai-session-${this.activeSession.id}`, this.activeSession);
 
 		// Render updated history in UI and dispatch event
-		this.historyManager.render();
+		// this.historyManager.render(); // NO LONGER NEEDED, using dynamic appends
 		this._dispatchContextUpdate("append_user"); // This will also save workspace metadata
 
 		// Prepare placeholder for AI response and spinner
+		const modelMessageId = crypto.randomUUID(); // Pre-generate ID for the upcoming model response
 		const responseBlock = new Block()
 		responseBlock.classList.add("response-block")
+		responseBlock.dataset.messageId = modelMessageId; // Assign ID for future reference
 		this.conversationArea.append(responseBlock)
 
 		const spinner = new Block()
@@ -1044,17 +1058,20 @@ _createUI() {
 				spinner.remove()
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
 
-                responseBlock.innerHTML = this.md.render(fullResponse) // Final render
+				responseBlock.innerHTML = this.md.render(fullResponse) // Final render
 				this._addCodeBlockButtons(responseBlock) // Add buttons after final response is rendered
 
 				// Add AI response to activeSession's messages for persistence
-				this.activeSession.messages.push({
+				const modelMessage = {
+					id: modelMessageId, // Use the pre-generated ID
 					role: "model",
 					type: "model",
 					content: fullResponse,
 					timestamp: Date.now(),
-				})
+				};
+				this.activeSession.messages.push(modelMessage);
 				// Update lastModified timestamp and save the active session
+				this.historyManager.addInteractionToLastUserMessage(userMessage); // Add delete button to user prompt
 				this.activeSession.lastModified = Date.now();
 				await set(`ai-session-${this.activeSession.id}`, this.activeSession);
 				
@@ -1069,13 +1086,16 @@ _createUI() {
 				spinner.remove()
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
 
-				this.activeSession.messages.push({
+				const errorMessage = {
+					id: modelMessageId, // Use the pre-generated ID for the block
 					role: "error",
 					type: "error",
 					content: `Error: ${error.message}`,
 					timestamp: Date.now(),
-				})
+				};
+				this.activeSession.messages.push(errorMessage);
 				// Update lastModified timestamp and save the active session
+				// No interaction added for errors.
 				this.activeSession.lastModified = Date.now();
 				await set(`ai-session-${this.activeSession.id}`, this.activeSession);
 
@@ -1108,7 +1128,7 @@ _createUI() {
 	
 			// Render updated history in UI and dispatch event
 			this.historyManager.render();
-			this._dispatchContextUpdate("files_added_to_context");
+			// this._dispatchContextUpdate("files_added_to_context");
 	
 			this._isProcessing = false; // Release lock
 			this._setButtonsDisabledState(false); // Re-enable buttons
