@@ -852,3 +852,25 @@ ui-sidebar-panel {
 ui-sidebar-panel[active] {
 	display: block;
 }
+
+ui-filechip {
+	background-color: var(--dark);
+	border: 1px solid var(--theme);
+	color: var(--theme);
+	padding: 1px 4px 1px 8px;
+	border-radius: 16px;
+	font-size: 1em;
+	display: inline-flex;
+	align-items: center;
+	line-height: 1.4;
+	gap: 4px;
+	cursor: pointer;
+	transition: background-color 0.2s;
+}
+
+ui-filechip:hover {
+	background-color: var(--themeDark);
+	color: var(--light);
+}
+
+ui-filechip > ui-icon[close] { font-size: 1.1em; line-height: 1; }

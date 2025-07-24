@@ -521,26 +521,6 @@ button:disabled,
 	overflow-y: auto;
 }
 
-ui-filechip {
-	background-color: var(--dark);
-	border: 1px solid var(--theme);
-	color: var(--theme);
-	padding: 2px 4px 2px 8px;
-	border-radius: 16px;
-	font-size: 0.8em;
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	cursor: pointer;
-	transition: background-color 0.2s;
-}
-
-ui-filechip:hover {
-	background-color: var(--themeDark);
-	color: var(--light);
-}
-
-ui-filechip > ui-icon[close] { font-size: 1.2em; line-height: 1; }
 
 .context-stale-notice .message {
     flex-grow: 1; 

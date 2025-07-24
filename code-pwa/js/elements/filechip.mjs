@@ -17,7 +17,7 @@ export class FileChip extends Button {
         this._close = new Icon();
         this._close.innerHTML = "close";
         this._close.setAttribute("close", "close");
-        this._close.setAttribute("size", "tiny");
+        // this._close.setAttribute("size", "tiny");
 
         this.append(textElement, this._close);
 
