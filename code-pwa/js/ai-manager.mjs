@@ -24,7 +24,6 @@ class AIManager {
 			summarizeTargetPercentage: { type: "number", label: "Percentage of Old History to Summarize", default: 50 },
 		}
 
-		this.historyManager = new AIManagerHistory(this)
 		
 
 		this.panel = null
@@ -33,7 +32,23 @@ class AIManager {
 		this.chatContainer = null;
 		this.fileBar = null; // NEW: for file context chips
 		this.submitButton = null
-		this.md = window.markdownit()
+		// Initialize markdown-it with highlight.js for code highlighting
+		this.md = window.markdownit({ // hljs is available globally via <script> tag
+			highlight: function (str, lang) {
+				// if (lang && lang === 'diff') {
+				// 	// Return original string for 'diff' language; DiffHandler will process it later.
+				// 	// Returning '' prevents markdown-it from wrapping it in <code>, allowing DiffHandler to replace pre.innerHTML.
+				// 	return ''; 
+				// }
+				if (lang && hljs.getLanguage(lang)) {
+					return hljs.highlight(str, { language: lang, ignoreIllegals: true }).value;
+				}
+				return ''; // use external default escaping (raw string wrapped in <code>)
+			}
+		});
+		
+		this.historyManager = new AIManagerHistory(this)
+		
 		this.settingsPanel = null
 		this.contextStaleNotice = null; // New element for context currency check
 		this._contextStaleResolve = null; // To resolve/reject the context stale promise

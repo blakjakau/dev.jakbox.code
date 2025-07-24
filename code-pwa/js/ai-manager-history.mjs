@@ -10,7 +10,7 @@ class AIManagerHistory {
 		// REMOVED: this.chatHistory = [] // History is now owned by AIManager's activeSession
 		
 		if(window.markdownit) {
-			this.md = window.markdownit()
+			this.md = aiManager.md
 	        // Pre-render the welcome message HTML
 	        this._defaultWelcomeMessageHtml = this.md.render(DEFAULT_WELCOME_MESSAGE_MARKDOWN);
 		}
