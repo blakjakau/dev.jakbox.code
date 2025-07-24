@@ -1,6 +1,6 @@
 // ai-manager.mjs
 // Styles for this module are located in css/ai-manager.css
-import { Block, Button, Icon, TabBar, TabItem } from "./elements.mjs" // Added TabBar, TabItem
+import { Block, Button, Icon, TabBar, TabItem, FileBar } from "./elements.mjs"
 import Ollama from "./ai-ollama.mjs" 
 import Gemini from "./ai-gemini.mjs"
 import AIManagerHistory, { MAX_RECENT_MESSAGES_TO_PRESERVE } from "./ai-manager-history.mjs"
@@ -30,6 +30,7 @@ class AIManager {
 		this.panel = null
 		this.promptArea = null
 		this.conversationArea = null
+		this.fileBar = null; // NEW: for file context chips
 		this.submitButton = null
 		this.md = window.markdownit()
 		this.settingsPanel = null
@@ -105,18 +106,12 @@ class AIManager {
 		this.panel.setAttribute("id", "ai-panel")
 	}
 
-_createUI() {
+	_createUI() {
 		// --- Session TabBar UI ---
-		// const sessionTabContainer = new Block();
-		// sessionTabContainer.classList.add('ai-session-tab-container');
-
 		this.sessionTabBar = new TabBar();
 		this.sessionTabBar.setAttribute('slim', '');
 		this.sessionTabBar.classList.add('tabs-inverted');
 		this.sessionTabBar.exclusiveDropType = "ai-tab"
-
-		// This is the core of the new logic. The TabBar handles the UI change,
-		// and we just handle the data change in response.
 		this.sessionTabBar.click = (e) => this.switchSession(e.tab.config.id);
 		this.sessionTabBar.close = (e) => this.deleteSession(e.tab.config.id, e.tab);
 
@@ -127,14 +122,25 @@ _createUI() {
 		this.newSessionButton.on('click', () => this.createNewSession());
 		
 		this.sessionTabBar.append(this.newSessionButton)
-		// sessionTabContainer.append(this.sessionTabBar);
+
+		// --- NEW FileBar for context files ---
+		this.fileBar = new FileBar();
+		this.fileBar.classList.add('ai-file-context-bar');
+		// Listen for requests to remove a file, originating from a chip's close button
+		this.fileBar.on('file-remove-request', (e) => {
+			this.historyManager._handleDeleteFileContextItem(e.detail.fileId);
+		});
 
 		// --- Other UI Elements ---
 		this.conversationArea = this._createConversationArea();
 		const promptContainer = this._createPromptContainer();
 		this.settingsPanel = this._createSettingsPanel();
 
-		this.panel.append(this.conversationArea, this.settingsPanel, this.sessionTabBar, promptContainer);
+		const chatContainer = new Block();
+		chatContainer.classList.add('ai-chat-container');
+		chatContainer.append(this.fileBar, this.conversationArea);
+
+		this.panel.append(chatContainer, this.settingsPanel, this.sessionTabBar, promptContainer);
 	}
 	
 	_createConversationArea() {
@@ -1003,7 +1009,8 @@ _createUI() {
 				timestamp: Date.now(),
 			};
 			this.activeSession.messages.push(contextMessage);
-			this.historyManager.appendMessageElement(contextMessage); // Dynamically append
+			// NEW: Add context files to the file bar instead of the main chat area
+			this.fileBar.add(contextMessage);
 		});
 		
 		let userMessage = null;

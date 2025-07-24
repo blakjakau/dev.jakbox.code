@@ -38,6 +38,7 @@ class AIManagerHistory {
 			this.manager.promptIndex = -1; // Reset prompt history index
 			this.manager._resizePromptArea(); // Resize prompt area after clearing
 		}
+		this.manager.fileBar.clear(); // Clear the file context bar
 		this.render(); // Re-render to show empty state/welcome message
 		this.manager._dispatchContextUpdate("clear_active_session"); // Dispatch update to save changes
 	}
@@ -66,12 +67,28 @@ class AIManagerHistory {
     }
 
 	/**
+	 * Populates the FileBar with chips representing file_context messages.
+	 */
+	populateFileBar() {
+		if (!this.manager.fileBar) return;
+		this.manager.fileBar.clear();
+		for (const message of this.chatHistory) {
+			if (message.type === 'file_context') {
+				this.manager.fileBar.add(message);
+			}
+		}
+	}
+
+	/**
 	 * The main render method, used when loading a full session history.
 	 * Clears the existing UI and rebuilds it from the current chatHistory.
 	 */
 	render() {
 		if (!this.conversationArea) return
 		this.conversationArea.innerHTML = "" // Clear existing UI
+
+		// Populate the file context bar separately
+		this.populateFileBar();
 
         // Check if chat history is empty AND AI is not configured
         // If no active session OR active session has no messages AND AI is not configured
@@ -88,9 +105,10 @@ class AIManagerHistory {
 		// Use the new element factory for each message in the history
 		for (let i = 0; i < this.chatHistory.length; i++) {
 			const message = this.chatHistory[i];
-			const element = this._createMessageElement(message, i);
-			if (element) {
-				this.conversationArea.append(element);
+			// Skip file_context messages as they are in the fileBar
+			if (message.type !== 'file_context') {
+				const element = this._createMessageElement(message, i);
+				if (element) this.conversationArea.append(element);
 			}
 		}
 	}
@@ -169,10 +187,6 @@ class AIManagerHistory {
 				this.manager._addCodeBlockButtons(element);
 			}
 
-		} else if (message.type === "file_context") {
-			element = this._createFileContextElement(message);
-			// _createFileContextElement already sets the data-message-id
-
 		} else if (message.type === "system_message") {
 			element = new Block();
 			element.classList.add("system-message-block");
@@ -236,11 +250,8 @@ class AIManagerHistory {
 	_handleDeleteFileContextItem(fileId) {
 		if (!this.manager.activeSession) return;
 
-		// Remove the DOM element first
-		const fileElement = this.conversationArea.querySelector(`[data-message-id="${fileId}"]`);
-		if (fileElement) {
-			fileElement.remove();
-		}
+		// Remove the chip from the FileBar UI
+		this.manager.fileBar.remove(fileId);
 
 		// Then update the data array
 		this.manager.activeSession.messages = this.manager.activeSession.messages.filter(
@@ -252,50 +263,6 @@ class AIManagerHistory {
 		// Re-enable buttons state as history has changed
 		this.manager._setButtonsDisabledState(this.manager._isProcessing);
 		this.manager._dispatchContextUpdate("delete_item"); // Dispatch update to save changes
-	}
-
-	/**
-	 * NEW: Helper to create the UI for a file context pill.
-	 * @param {Object} fileContext - The file context message object.
-	 * @returns {Block} The fully constructed wrapper element for the file pill.
-	 */
-	_createFileContextElement(fileContext) {
-		const wrapperBlock = new Block()
-		wrapperBlock.classList.add("context-file-wrapper")
-		wrapperBlock.dataset.messageId = fileContext.id // Store message ID on the wrapper
-
-		const fileBlock = new Block()
-		fileBlock.classList.add("prompt-pill", "context-file-pill")
-
-		const lines = fileContext.content.split("\n")
-		const truncatedContent = lines.length > 7 ? lines.slice(0, 7).join("\n") + "\n..." : fileContext.content
-		fileBlock.setAttribute("title", truncatedContent)
-
-		const header = document.createElement("div")
-		header.classList.add("context-file-header")
-		const filenameText = document.createElement("p")
-		filenameText.textContent = `Included File: ${fileContext.filename || fileContext.id}`
-		header.appendChild(filenameText)
-
-		const fileSize = fileContext.content.length
-		let sizeText = fileSize < 1024 ? `${fileSize} B` : `${(fileSize / 1024).toFixed(1)} KB`
-		const fileSizeSpan = document.createElement("span")
-		fileSizeSpan.classList.add("file-size")
-		fileSizeSpan.textContent = ` (${sizeText})`
-		filenameText.appendChild(fileSizeSpan)
-
-		fileBlock.append(header)
-		wrapperBlock.append(fileBlock)
-
-		// Add a remove button instead of copy/insert
-		const removeButton = new Button()
-		removeButton.icon = "delete"
-		removeButton.title = "Remove file from context"
-		removeButton.classList.add("delete-history-button") // Reuse existing style
-		removeButton.on("click", () => this._handleDeleteFileContextItem(fileContext.id))
-		wrapperBlock.append(removeButton)
-
-		return wrapperBlock;
 	}
 
 	// OLD addContextFile is removed as AIManager.generate handles it directly.

@@ -6,6 +6,13 @@
     height: 100%;
 }
 
+.ai-chat-container {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden; /* Prevent scrollbars on the container itself */
+}
+
 .conversation-area {
     flex: 1;
     overflow-y: auto;
@@ -500,6 +507,40 @@ button:disabled,
     border: 1px solid var(--theme);
 	margin: 8px 0; /* Add margin to separate from prompt area */
 }
+
+.ai-file-context-bar {
+	flex-wrap: wrap;
+	gap: 6px;
+	padding: 6px 8px;
+	position: sticky;
+	top: 0;
+	background-color: var(--background-color);
+	border-bottom: 1px solid var(--themeDark);
+	z-index: 2; /* Ensure it's above conversation content */
+	max-height: 150px; /* Limit height and allow scrolling if needed */
+	overflow-y: auto;
+}
+
+ui-filechip {
+	background-color: var(--dark);
+	border: 1px solid var(--theme);
+	color: var(--theme);
+	padding: 2px 4px 2px 8px;
+	border-radius: 16px;
+	font-size: 0.8em;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	cursor: pointer;
+	transition: background-color 0.2s;
+}
+
+ui-filechip:hover {
+	background-color: var(--themeDark);
+	color: var(--light);
+}
+
+ui-filechip > ui-icon[close] { font-size: 1.2em; line-height: 1; }
 
 .context-stale-notice .message {
     flex-grow: 1; 
