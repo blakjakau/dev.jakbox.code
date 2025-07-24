@@ -22,7 +22,7 @@ class Gemini extends AI {
                 default: "gemini-2.5-flash", 
                 lookupCallback: this._getAvailableModels.bind(this) 
             },
-            system: { type: "string", label: "System Prompt", default: systemPrompt, multiline: true },
+            //system: { type: "string", label: "System Prompt", default: systemPrompt, multiline: true },
         };
     }
 
@@ -202,12 +202,17 @@ class Gemini extends AI {
         }
         try {
             const contents = this._toGeminiContents(messages);
+            const requestBody = { contents };
+            if (this.config.system) {
+                requestBody.systemInstruction = { parts: [{ text: this.config.system }] };
+            }
+
             const response = await fetch(this._countTokensApiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ contents }),
+                body: JSON.stringify(requestBody),
             });
 
             if (!response.ok) {
@@ -309,7 +314,11 @@ class Gemini extends AI {
         if (onStart) onStart();
 
         try {
-            const contentsToSend = [{ role: "user", parts: [{ text: prompt }] }];
+            const contents = [{ role: "user", parts: [{ text: prompt }] }];
+            const requestBody = { contents };
+            if (this.config.system) {
+                requestBody.systemInstruction = { parts: [{ text: this.config.system }] };
+            }
 
             const currentTokens = await this._countTokens([{ role: "user", content: prompt }]);
             const contextRatio = currentTokens / this.MAX_CONTEXT_TOKENS;
@@ -318,12 +327,13 @@ class Gemini extends AI {
                 onContextRatioUpdate(contextRatio);
             }
 
+
             const response = await fetch(this._streamApiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ contents: contentsToSend }),
+                body: JSON.stringify(requestBody),
             });
 
             if (!response.ok) {
@@ -354,7 +364,12 @@ class Gemini extends AI {
         if (onStart) onStart();
 
         try {
-            const contentsToSend = this._toGeminiContents(messages);
+            const contents = this._toGeminiContents(messages);
+            const requestBody = { contents };
+            if (this.config.system) {
+                requestBody.systemInstruction = { parts: [{ text: this.config.system }] };
+            }
+
 
             const currentTokens = await this._countTokens(messages);
             const contextRatio = currentTokens / this.MAX_CONTEXT_TOKENS;
@@ -368,7 +383,7 @@ class Gemini extends AI {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ contents: contentsToSend }),
+                body: JSON.stringify(requestBody),
             });
 
             if (!response.ok) {

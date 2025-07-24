@@ -42,42 +42,7 @@ class AIManagerHistory {
 		this.manager._dispatchContextUpdate("clear_active_session"); // Dispatch update to save changes
 	}
 
-	addMessage(message) {
-		// AIManager's `generate` method now directly adds messages to `manager.activeSession.messages`.
-		// This method is now primarily for adding system messages (e.g., AI provider switch).
-		// It simply pushes the message and then calls render.
-		if (this.manager.activeSession) {
-			this.manager.activeSession.messages.push(message);
-		}
-		this.render();
-		// The dispatch is handled by AIManager's `generate` or `_dispatchContextUpdate` after message addition.
-	}
-
-	addContextFile(item) {
-		// This method is conceptually no longer needed here as AIManager.generate
-		// directly adds context files to manager.activeSession.messages.
-		// If you intend for it to be callable, it should modify `this.manager.activeSession.messages`.
-		// For clarity, let's assume `AIManager.generate` directly handles it.
-		console.warn("AIManagerHistory.addContextFile should ideally not be called directly. Context files are managed by AIManager.");
-		if (this.manager.activeSession) {
-			// Remove invalidated copies of the same file first if re-adding
-			this.manager.activeSession.messages = this.manager.activeSession.messages.filter(
-				(oldItem) => !(oldItem.type === "file_context" && oldItem.id === item.id)
-			);
-			this.manager.activeSession.messages.push({
-				type: "file_context",
-				id: item.id,
-				filename: item.filename,
-				language: item.language,
-				content: item.content,
-				timestamp: Date.now(),
-			});
-			this.render();
-			// No dispatch here, it will be part of the generate flow's overall dispatch.
-		}
-	}
-
-	// RENAMED: from loadHistory to loadSessionMessages, as it loads for the active session.
+	// REWRITTEN addMessage() to dynamically append new system messages.
 	loadSessionMessages(messagesArray, autoScroll=false) {
 		// This method is now solely responsible for telling the UI to render
 		// the messages of the *newly active* session. `this.chatHistory` getter
@@ -86,11 +51,11 @@ class AIManagerHistory {
 		// Dispatch an update to ensure the UI (progress bar, etc.) reflects the loaded state.
 		this.manager._dispatchContextUpdate("session_messages_loaded");
 		
-		if(autoScroll) {
-			setTimeout(()=>{
-				this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
-			}, 50)
-		}
+		// if(autoScroll) {
+		// 	setTimeout(()=>{
+		// 		this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+		// 	}, 50)
+		// }
 	}
 
     // Method to display the default welcome message
@@ -100,122 +65,207 @@ class AIManagerHistory {
         }
     }
 
+	/**
+	 * The main render method, used when loading a full session history.
+	 * Clears the existing UI and rebuilds it from the current chatHistory.
+	 */
 	render() {
 		if (!this.conversationArea) return
 		this.conversationArea.innerHTML = "" // Clear existing UI
 
         // Check if chat history is empty AND AI is not configured
         // If no active session OR active session has no messages AND AI is not configured
-        if ((!this.manager.activeSession || this.chatHistory.length === 0) && (!this.manager.ai || !this.manager.ai.isConfigured())) {
+        if ((!this.manager.activeSession || this.chatHistory.length === 0) && !(this.manager.ai && this.manager.ai.isConfigured())) {
             this._showDefaultWelcomeMessage();
             return; // Stop rendering actual history if welcome message is shown
         }
 
         // If history is empty but AI is configured, just show empty chat, no welcome guide
         if (this.chatHistory.length === 0) {
-            return; 
+            return;
         }
 
-		// Use a standard for loop to get index access
+		// Use the new element factory for each message in the history
 		for (let i = 0; i < this.chatHistory.length; i++) {
-			const message = this.chatHistory[i]
-
-			if (message.type === "user") {
-				// Check if this user prompt is followed by a model response
-				const nextMessageIsModel = i + 1 < this.chatHistory.length && this.chatHistory[i + 1].type === "model"
-
-				if (nextMessageIsModel) {
-					// Create a wrapper to contain the pill and the delete button
-					const wrapper = new Block()
-					wrapper.classList.add("prompt-pill-wrapper")
-
-					const messageBlock = new Block()
-					messageBlock.classList.add("prompt-pill")
-					messageBlock.innerHTML = this.md.render(message.content)
-					wrapper.append(messageBlock)
-
-					// Create the delete button
-					const deleteButton = new Button()
-					deleteButton.classList.add("delete-history-button")
-					deleteButton.icon = "delete"
-					deleteButton.title = "Delete this prompt and response"
-					deleteButton.on("click", () => this._handleDeleteHistoryItem(i))
-					wrapper.append(deleteButton)
-
-					this.conversationArea.append(wrapper)
-				} else {
-					// Render user prompt without a delete button (it's the last message, or not part of a pair)
-					const messageBlock = new Block()
-					messageBlock.classList.add("prompt-pill")
-					messageBlock.innerHTML = this.md.render(message.content)
-					// It's not in a wrapper, so it needs its own alignment and margin
-					messageBlock.style.alignSelf = "flex-end"
-					messageBlock.style.maxWidth = "80%"
-					messageBlock.style.marginBottom = "8px"
-					this.conversationArea.append(messageBlock)
-				}
-			} else if (message.type === "model") {
-				const messageBlock = new Block()
-				messageBlock.classList.add("response-block")
-				messageBlock.innerHTML = this.md.render(message.content)
-				this.conversationArea.append(messageBlock)
-				this.manager._addCodeBlockButtons(messageBlock)
-			} else if (message.type === "file_context") {
-				this._appendFileContextUI(message)
-			} else if (message.type === "system_message") {
-				const messageBlock = new Block()
-				messageBlock.classList.add("system-message-block")
-				messageBlock.innerHTML = this.md.render(message.content)
-				this.conversationArea.append(messageBlock)
+			const message = this.chatHistory[i];
+			const element = this._createMessageElement(message, i);
+			if (element) {
+				this.conversationArea.append(element);
 			}
 		}
-		// this.conversationArea.scrollTop = this.conversationArea.scrollHeight
+	}
+
+	/**
+	 * NEW: Dynamically creates and appends a single message element to the DOM.
+	 * This is used for new incoming messages (user prompts, model responses, system messages, file contexts).
+	 * @param {Object} message - The message object to append.
+	 */
+	appendMessageElement(message) {
+		if (!this.conversationArea) return;
+
+		// If the welcome message is currently displayed, clear it before appending real content.
+		// We check for the specific h1 content and if the history size is small (e.g., this is the first real message).
+		if (this.chatHistory.length === 1 && message.type !== 'system_message') { // If this is the first "real" message
+			const firstChild = this.conversationArea.firstElementChild;
+			if (firstChild && firstChild.classList.contains('response-block')) {
+				const h1 = firstChild.querySelector('h1');
+				if (h1 && h1.textContent.includes("Welcome to the AI Assistant")) {
+					this.conversationArea.innerHTML = ""; // Clear the welcome message
+				}
+			}
+		}
+		
+		// Find the index of the message within the chatHistory array.
+		// This is important for _createMessageElement to determine if a delete button should be added.
+		const index = this.chatHistory.findIndex(m => m.id === message.id);
+		
+		const element = this._createMessageElement(message, index);
+		if (element) {
+			this.conversationArea.append(element);
+		}
+	}
+
+	/**
+	 * NEW: Factory method to create a DOM element for any given message object.
+	 * This centralizes UI creation logic for individual messages.
+	 * @param {Object} message The message object from the chat history.
+	 * @param {number} index The message's index in the chat history array (needed for delete button logic).
+	 * @returns {HTMLElement|null} The generated DOM element or null if message is invalid.
+	 */
+	_createMessageElement(message, index) { // Add index parameter here
+		if (!message.id) { // If message doesn't have an ID (e.g., loaded from old session data)
+			message.id = crypto.randomUUID(); // Assign a new one
+		}
+
+		let element;
+
+		if (message.type === "user") {
+			// Check if this user prompt is followed by a model response.
+			// We only add the delete button if the pair exists.
+			const nextMessageIsModel = index >= 0 && (index + 1) < this.chatHistory.length && this.chatHistory[index + 1].type === "model";
+			
+			const wrapper = new Block();
+			wrapper.classList.add("prompt-pill-wrapper");
+			wrapper.dataset.messageId = message.id; // Store message ID on the wrapper
+
+			const messageBlock = new Block();
+			messageBlock.classList.add("prompt-pill");
+			messageBlock.innerHTML = this.md.render(message.content);
+			wrapper.append(messageBlock);
+
+			if (nextMessageIsModel) {
+				const deleteButton = this._createDeleteButton(index);
+				wrapper.append(deleteButton);
+			}
+			element = wrapper;
+
+		} else if (message.type === "model" || message.type === "error") {
+			element = new Block();
+			element.classList.add("response-block");
+			if (message.type === "error") element.classList.add("error-block"); // Add a specific class for error styling
+			element.dataset.messageId = message.id; // Store message ID on the response block
+			element.innerHTML = this.md.render(message.content);
+			if (message.type === "model") { // Only add code block buttons to actual model responses
+				this.manager._addCodeBlockButtons(element);
+			}
+
+		} else if (message.type === "file_context") {
+			element = this._createFileContextElement(message);
+			// _createFileContextElement already sets the data-message-id
+
+		} else if (message.type === "system_message") {
+			element = new Block();
+			element.classList.add("system-message-block");
+			element.dataset.messageId = message.id; // Store message ID on system message
+			element.innerHTML = this.md.render(message.content);
+		}
+
+		return element;
+	}
+
+	/**
+	 * NEW: Helper to consistently create a delete button for a user/model message pair.
+	 * This button's click handler will use the message's actual index for deletion.
+	 * @param {number} userPromptIndex - The index of the user prompt in the `chatHistory` array.
+	 * @returns {Button} The configured delete button element.
+	 */
+	_createDeleteButton(userPromptIndex) {
+		const deleteButton = new Button();
+		deleteButton.classList.add("delete-history-button");
+		deleteButton.icon = "delete";
+		deleteButton.title = "Delete this prompt and response";
+		deleteButton.on("click", () => this._handleDeleteHistoryItem(userPromptIndex));
+		return deleteButton;
 	}
 
 	/**
 	 * Handles the deletion of a user prompt and its subsequent model response.
-	 * Directly modifies the active session's messages.
+	 * REWRITTEN to perform direct DOM removal before modifying the active session's messages.
 	 * @param {number} userPromptIndex - The index in the active session's messages of the user prompt to remove.
 	 */
 	_handleDeleteHistoryItem(userPromptIndex) {
 		if (!this.manager.activeSession) return;
-		// We are guaranteed that a model response exists at the next index
-		// because the delete button is only rendered when this is true.
+
+		// Get the IDs of the messages to remove from the DOM
+		const userMessage = this.chatHistory[userPromptIndex];
+		const modelMessage = this.chatHistory[userPromptIndex + 1]; // Guaranteed to exist by _createMessageElement logic
+
+		if (userMessage?.id) {
+			const userElement = this.conversationArea.querySelector(`[data-message-id="${userMessage.id}"]`);
+			if (userElement) userElement.remove();
+		}
+		if (modelMessage?.id) {
+			const modelElement = this.conversationArea.querySelector(`[data-message-id="${modelMessage.id}"]`);
+			if (modelElement) modelElement.remove();
+		}
+
+		// Now update the data array
 		this.manager.activeSession.messages.splice(userPromptIndex, 2); // Removes 2 items
-
-		// Update lastModified timestamp for the session
-		this.manager.activeSession.lastModified = Date.now();
-
-		this.render(); // Re-render the UI to reflect the change
+		this.manager.activeSession.lastModified = Date.now(); // Update last modified timestamp
+		
+		// Re-enable buttons state as history has changed
+		this.manager._setButtonsDisabledState(this.manager._isProcessing);
 		this.manager._dispatchContextUpdate("delete_item"); // Dispatch update to save changes
 	}
 
 	/**
 	 * Handles the deletion of a file context item from the history.
-	 * Directly modifies the active session's messages.
+	 * REWRITTEN to perform direct DOM removal before modifying the active session's messages.
 	 * @param {string} fileId - The unique ID of the file context item to remove.
 	 */
 	_handleDeleteFileContextItem(fileId) {
 		if (!this.manager.activeSession) return;
-		// Filter out the specific file context item by its unique ID
+
+		// Remove the DOM element first
+		const fileElement = this.conversationArea.querySelector(`[data-message-id="${fileId}"]`);
+		if (fileElement) {
+			fileElement.remove();
+		}
+
+		// Then update the data array
 		this.manager.activeSession.messages = this.manager.activeSession.messages.filter(
-			(item) => !(item.type === "file_context" && item.id === fileId)
+			(item) => item.id !== fileId
 		);
 
-		// Update lastModified timestamp for the session
-		this.manager.activeSession.lastModified = Date.now();
-
-		this.render(); // Re-render the UI to reflect the change
+		this.manager.activeSession.lastModified = Date.now(); // Update last modified timestamp
+		
+		// Re-enable buttons state as history has changed
+		this.manager._setButtonsDisabledState(this.manager._isProcessing);
 		this.manager._dispatchContextUpdate("delete_item"); // Dispatch update to save changes
 	}
 
-	_appendFileContextUI(fileContext) {
+	/**
+	 * NEW: Helper to create the UI for a file context pill.
+	 * @param {Object} fileContext - The file context message object.
+	 * @returns {Block} The fully constructed wrapper element for the file pill.
+	 */
+	_createFileContextElement(fileContext) {
 		const wrapperBlock = new Block()
 		wrapperBlock.classList.add("context-file-wrapper")
+		wrapperBlock.dataset.messageId = fileContext.id // Store message ID on the wrapper
 
 		const fileBlock = new Block()
 		fileBlock.classList.add("prompt-pill", "context-file-pill")
-		fileBlock.dataset.fileId = fileContext.id
 
 		const lines = fileContext.content.split("\n")
 		const truncatedContent = lines.length > 7 ? lines.slice(0, 7).join("\n") + "\n..." : fileContext.content
@@ -245,7 +295,31 @@ class AIManagerHistory {
 		removeButton.on("click", () => this._handleDeleteFileContextItem(fileContext.id))
 		wrapperBlock.append(removeButton)
 
-		this.conversationArea.append(wrapperBlock)
+		return wrapperBlock;
+	}
+
+	// OLD addContextFile is removed as AIManager.generate handles it directly.
+	// OLD _appendFileContextUI is replaced by _createFileContextElement and appendMessageElement.
+
+	/**
+	 * NEW: Method to add a delete button to the last user message after a model response is received.
+	 * This function ensures the delete button appears for full conversation turns.
+	 */
+	addInteractionToLastUserMessage(userMessage) {
+		if (!userMessage || !userMessage.id) return;
+
+		// Find the user message element in the DOM
+		const userElement = this.conversationArea.querySelector(`[data-message-id="${userMessage.id}"]`);
+		if (userElement && userElement.classList.contains("prompt-pill-wrapper")) {
+			// Check if a delete button already exists to prevent duplicates on re-renders
+			if (!userElement.querySelector(".delete-history-button")) {
+				const userPromptIndex = this.chatHistory.findIndex(msg => msg.id === userMessage.id);
+				if (userPromptIndex !== -1) {
+					const deleteButton = this._createDeleteButton(userPromptIndex);
+					userElement.append(deleteButton);
+				}
+			}
+		}
 	}
 
 	async performSummarization() {
