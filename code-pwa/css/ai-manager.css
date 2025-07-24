@@ -530,6 +530,14 @@ button:disabled,
     padding: 4px 10px;
 }
 
+.context-stale-notice .cancel-button {
+    background-color: var(--low);
+    color: var(--button-text-color);
+}
+.context-stale-notice .cancel-button:hover {
+    background-color: var(--themeDark);
+}
+
 .button-container {
     display: flex;
     justify-content: space-between;

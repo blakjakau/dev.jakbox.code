@@ -854,9 +854,9 @@ ui-sidebar-panel[active] {
 }
 
 ui-filechip {
-	background-color: var(--dark);
+	background-color: var(--themeDark);
 	border: 1px solid var(--theme);
-	color: var(--theme);
+	color: var(--mid);
 	padding: 1px 4px 1px 8px;
 	border-radius: 16px;
 	font-size: 1em;

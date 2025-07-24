@@ -99,8 +99,8 @@ class AIManagerHistory {
 
         // If history is empty but AI is configured, just show empty chat, no welcome guide
         if (this.chatHistory.length === 0) {
-            return;
-        }
+			return; 
+		}
 
 		// Use the new element factory for each message in the history
 		for (let i = 0; i < this.chatHistory.length; i++) {

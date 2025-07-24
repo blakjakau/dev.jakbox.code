@@ -319,7 +319,8 @@ class AIManager {
 		noticeBar.innerHTML = `
 			<span class="message">Some files in the chat context have changed or are no longer available.</span>
 			<button class="update-button">Update Context</button>
-			<button class="keep-old-button">Keep Old</button>
+			<button class="run-anyway-button">Run Anyway</button>
+			<button class="cancel-button">Cancel</button>
 		`;
 
 		noticeBar.querySelector(".update-button").addEventListener("click", () => {
@@ -328,11 +329,16 @@ class AIManager {
 				this._hideContextStaleNotice();
 			}
 		});
-
-		noticeBar.querySelector(".keep-old-button").addEventListener("click", () => {
+		// Renamed from keep-old-button
+		noticeBar.querySelector(".run-anyway-button").addEventListener("click", () => {
 			if (this._contextStaleResolve) {
 				this._contextStaleResolve(false); // User chose to keep old
 				this._hideContextStaleNotice();
+			}
+		});
+		noticeBar.querySelector(".cancel-button").addEventListener("click", () => {
+			if (this._contextStaleResolve) {
+				this._contextStaleResolve('cancel'); // User chose to cancel
 			}
 		});
 		return noticeBar;
@@ -765,6 +771,12 @@ class AIManager {
 			messages: [], promptInput: "", promptHistory: [], scrollTop: 0,
 		};
 
+		// Add a system message indicating the start of the conversation
+		newSessionData.messages.push({
+			type: "system_message",
+			content: `This is the beginning of your conversation with **${this.aiProvider.charAt(0).toUpperCase() + this.aiProvider.slice(1)}**.`,
+		});
+
 		await set(`ai-session-${newId}`, newSessionData);
 		this.allSessionMetadata.push({ id: newId, name: newName, createdAt: newSessionData.createdAt, lastModified: newSessionData.lastModified });
 
@@ -825,10 +837,9 @@ class AIManager {
 	 * The TabBar will then automatically activate another tab, triggering our switchSession handler.
 	 */
 	async deleteSession(sessionId, tab) {
-		if (this.allSessionMetadata.length <= 1) {
-			alert("Cannot delete the last remaining chat session.");
-			return;
-		}
+		// Allow deleting the last session. If all sessions are deleted, the setup guide will be displayed.
+		// The TabBar component handles activating the next tab, or removing the last one.
+		// We then manually clear the AIManager's active session state if no tabs remain.
 
 		const sessionMeta = this.allSessionMetadata.find(s => s.id === sessionId);
         // Find the full session data to check its message count
@@ -844,6 +855,18 @@ class AIManager {
 		// Delete data
 		await del(`ai-session-${sessionId}`);
 		this.allSessionMetadata = this.allSessionMetadata.filter(s => s.id !== sessionId);
+		
+		// If this was the last session, explicitly clear the active session state in AIManager.
+		// The TabBar.remove will also trigger a new active tab or no active tab.
+		if (this.allSessionMetadata.length === 0) {
+			this.activeSession = null;
+			this.activeSessionId = null;
+
+			// If the last session was deleted, automatically create a new one.
+			// This ensures there's always an active chat session.
+			await this.createNewSession();
+			return; // Exit after creating new session, as it will handle activation
+		}
 
 		// Remove UI element. The TabBar component handles activating the next tab and firing its click event.
 		this.sessionTabBar.remove(tab);
@@ -994,11 +1017,18 @@ class AIManager {
 		// Process prompt for @ tags, always using "chat" logic now.
 		const { processedPrompt, contextItems } = await this.ai._getContextualPrompt(userPrompt, "chat")
 		
-		// NEW: Check for stale context files and handle user interaction
-		await this._checkForStaleContextFiles(); // This will block if user interaction is needed
-
 		// NEW: Remove any existing context items for the same files being added in this turn
-		if (contextItems.length > 0) {
+		const status = await this._checkForStaleContextFiles();
+		if (status === 'canceled') {
+			// If the user cancelled, stop the generation process.
+			this._isProcessing = false;
+			this._setButtonsDisabledState(false);
+			this.promptArea.value = this.activeSession.promptInput || ""; // Restore the prompt
+			this._resizePromptArea();
+			return;
+		}
+
+		if (contextItems.length > 0) { // This check now happens *after* _checkForStaleContextFiles
 			const newFileIds = new Set(contextItems.map(item => item.id));
 			this.activeSession.messages = this.activeSession.messages.filter(msg => 
 				!(msg.type === "file_context" && newFileIds.has(msg.id))
@@ -1128,22 +1158,37 @@ class AIManager {
 			this.ai.chat(messagesForAI, callbacks)
 		} else {
 			// Scenario: Context items were added, but no user prompt was given.
-			// In this case, we don't call the AI, but acknowledge the context addition.
-			this.historyManager.addMessage({
-				type: "system_message",
-				content: `Files added to context for future reference.`,
-				timestamp: Date.now(),
-			});
-	
+			// This part executes if processedPrompt is empty, meaning only @tags were originally in userPrompt.
+			const addedFileNames = contextItems.map(item => item.filename);
+			if (addedFileNames.length > 0) {
+				// If files were actually added/resolved, acknowledge the context addition.
+				this.historyManager.addMessage({
+					type: "system_message",
+					content: `Added ${addedFileNames.length} file(s) to context: ${addedFileNames.join(", ")}.`,
+					timestamp: Date.now(),
+				});
+			} else {
+				// This 'else' means processedPrompt is empty AND no contextItems were added.
+				// This should only happen if userPrompt was an @tag that didn't resolve (e.g., file not found).
+				// We don't show a system message for this case as it implies a non-action.
+				console.warn("Prompt contained only unresolved @tags or resolved to no content. No AI call made.");
+			}
+
+			// Common state reset for cases where AI chat is not triggered, regardless of whether files were added.
 			// Update lastModified timestamp for the session
 			this.activeSession.lastModified = Date.now();
 			// Save the active session to IndexedDB immediately after adding user prompt and context
 			await set(`ai-session-${this.activeSession.id}`, this.activeSession);
 	
 			// Render updated history in UI and dispatch event
-			this.historyManager.render();
-			// this._dispatchContextUpdate("files_added_to_context");
-	
+			// historyManager.render() is called by addMessage now, so just dispatch the update for general UI.
+			this._dispatchContextUpdate("files_added_to_context", {
+				addedFiles: addedFileNames,       // Will be empty if no files resolved
+				processedPrompt: processedPrompt, // Will be empty here
+				contextItems: contextItems        // Original context items (might be empty too)
+			});
+
+			// Ensure processing state is reset *before* returning
 			this._isProcessing = false; // Release lock
 			this._setButtonsDisabledState(false); // Re-enable buttons
 	
@@ -1368,8 +1413,18 @@ class AIManager {
 				changesMade = true;
 			}
 		}
+
 		if (changesMade) {
 			this.activeSession.messages = updatedMessages;
+
+			// Add a system message about the context update
+			const updatedNames = staleFileContexts.filter(f => f.liveContent !== null).map(f => f.message.filename);
+			const removedNames = staleFileContexts.filter(f => f.liveContent === null).map(f => f.message.filename);
+			let messageContent = "";
+			if (updatedNames.length > 0) messageContent += `Updated **${updatedNames.length}** file(s) in context: ${updatedNames.join(", ")}. `;
+			if (removedNames.length > 0) messageContent += `Removed **${removedNames.length}** file(s) from context (not found): ${removedNames.join(", ")}.`;
+			this.historyManager.addMessage({ type: "system_message", content: messageContent.trim(), timestamp: Date.now() });
+
 			this.activeSession.lastModified = Date.now(); // Update last modified timestamp
 			this.historyManager.render(); // Re-render the UI
 			this._dispatchContextUpdate("context_files_updated"); // Dispatch event
@@ -1432,15 +1487,24 @@ class AIManager {
 			
 			this._showContextStaleNotice(message);
 
-			const userChoice = await new Promise(resolve => {
+			const userChoice = await new Promise(resolve => { // userChoice can be true, false, or 'cancel'
 				this._contextStaleResolve = resolve;
 			});
 
 			if (userChoice) { // User chose to update
-				this._updateStaleContextFiles(staleFileContexts);
+				await this._updateStaleContextFiles(staleFileContexts);
 			}
 			// If userChoice is false, do nothing; the old context will be used.
+			
+			// Always hide the notice and reset processing state after interaction,
+			// unless the user chose to cancel, in which case the generate() function
+			// will handle the full reset.
+			if (userChoice !== 'cancel') {
+				this._hideContextStaleNotice();
+			}
+			return userChoice; // Return the user's choice to the caller
 		}
+		return true; // No stale files, proceed by default
 	}
 	
 	async loadSettings() {
