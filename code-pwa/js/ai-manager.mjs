@@ -1258,7 +1258,7 @@ _createUI() {
                     }
 
                     // Extract target path from diff header (e.g., +++ b/path/to/file)
-                    const targetPathMatch = rawDiff.match(/^\+\+\+ b\/(.+)$/m);
+                    const targetPathMatch = rawDiff.match(/^\+\+\+ b\/(.+)$/m) || rawDiff.match(/^\+\+\+ (.+)$/m);
                     if (!targetPathMatch || !targetPathMatch[1]) {
                         alert("Error: Could not determine target file path from diff header. Ensure the diff starts with '+++ b/filename'.");
                         return;
