@@ -1,6 +1,6 @@
 // ai-manager.mjs
 // Styles for this module are located in css/ai-manager.css
-import { Block, Button, Icon, TabBar, TabItem } from "./elements.mjs" // Added TabBar, TabItem
+import { Block, Button, Icon, TabBar, TabItem, FileBar } from "./elements.mjs"
 import Ollama from "./ai-ollama.mjs" 
 import Gemini from "./ai-gemini.mjs"
 import AIManagerHistory, { MAX_RECENT_MESSAGES_TO_PRESERVE } from "./ai-manager-history.mjs"
@@ -30,6 +30,8 @@ class AIManager {
 		this.panel = null
 		this.promptArea = null
 		this.conversationArea = null
+		this.chatContainer = null;
+		this.fileBar = null; // NEW: for file context chips
 		this.submitButton = null
 		this.md = window.markdownit()
 		this.settingsPanel = null
@@ -105,18 +107,12 @@ class AIManager {
 		this.panel.setAttribute("id", "ai-panel")
 	}
 
-_createUI() {
+	_createUI() {
 		// --- Session TabBar UI ---
-		// const sessionTabContainer = new Block();
-		// sessionTabContainer.classList.add('ai-session-tab-container');
-
 		this.sessionTabBar = new TabBar();
 		this.sessionTabBar.setAttribute('slim', '');
 		this.sessionTabBar.classList.add('tabs-inverted');
 		this.sessionTabBar.exclusiveDropType = "ai-tab"
-
-		// This is the core of the new logic. The TabBar handles the UI change,
-		// and we just handle the data change in response.
 		this.sessionTabBar.click = (e) => this.switchSession(e.tab.config.id);
 		this.sessionTabBar.close = (e) => this.deleteSession(e.tab.config.id, e.tab);
 
@@ -127,14 +123,30 @@ _createUI() {
 		this.newSessionButton.on('click', () => this.createNewSession());
 		
 		this.sessionTabBar.append(this.newSessionButton)
-		// sessionTabContainer.append(this.sessionTabBar);
+		
+		// --- NEW FileBar and Context Progress Bar ---
+		const fileBarContainer = new Block();
+		fileBarContainer.classList.add('ai-filebar-container');
+
+		this.fileBar = new FileBar();
+		this.fileBar.classList.add('ai-file-context-bar');
+		// Listen for requests to remove a file, originating from a chip's close button
+		this.fileBar.on('file-remove-request', (e) => {
+			this.historyManager._handleDeleteFileContextItem(e.detail.fileId);
+		});
+		this.progressBar = this._createProgressBar();
+		fileBarContainer.append(this.fileBar, this.progressBar);
 
 		// --- Other UI Elements ---
 		this.conversationArea = this._createConversationArea();
 		const promptContainer = this._createPromptContainer();
 		this.settingsPanel = this._createSettingsPanel();
 
-		this.panel.append(this.conversationArea, this.settingsPanel, this.sessionTabBar, promptContainer);
+		this.chatContainer = new Block();
+		this.chatContainer.classList.add('ai-chat-container');
+		this.chatContainer.append(fileBarContainer, this.conversationArea);
+
+		this.panel.append(this.chatContainer, this.settingsPanel, this.sessionTabBar, promptContainer);
 	}
 	
 	_createConversationArea() {
@@ -143,20 +155,21 @@ _createUI() {
 		return conversationArea
 	}
 
-	_createPromptContainer() {
-		const promptContainer = new Block()
-		promptContainer.classList.add("prompt-container")
-
-		this.progressBar = document.createElement("div")
-		this.progressBar.classList.add("progress-bar")
-		this.progressBar.setAttribute("title", "Context window utilization")
-		this.progressBar.style.display = "block" // Now always visible
-
+	_createProgressBar() {
+		const progressBar = document.createElement("div")
+		progressBar.classList.add("progress-bar")
+		progressBar.setAttribute("title", "Context window utilization")
+		progressBar.style.display = "block" // Now always visible
 
 		const progressBarInner = document.createElement("div")
 		progressBarInner.classList.add("progress-bar-inner")
-		this.progressBar.appendChild(progressBarInner)
-		promptContainer.appendChild(this.progressBar)
+		progressBar.appendChild(progressBarInner)
+		return progressBar;
+	}
+
+	_createPromptContainer() {
+		const promptContainer = new Block()
+		promptContainer.classList.add("prompt-container")
 
 		this.promptArea = this._createPromptArea()
 		
@@ -610,7 +623,7 @@ _createUI() {
 	}
 
 	toggleSettingsPanel() {
-		this.conversationArea.classList.toggle("hidden")
+		this.chatContainer.classList.toggle("hidden")
 		this.settingsPanel.classList.toggle("active")
 		// If settings panel is being hidden, re-render chat history to refresh any potential content/token changes
 		if (!this.settingsPanel.classList.contains("active")) {
@@ -1003,7 +1016,8 @@ _createUI() {
 				timestamp: Date.now(),
 			};
 			this.activeSession.messages.push(contextMessage);
-			this.historyManager.appendMessageElement(contextMessage); // Dynamically append
+			// NEW: Add context files to the file bar instead of the main chat area
+			this.fileBar.add(contextMessage);
 		});
 		
 		let userMessage = null;

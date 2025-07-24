@@ -6,6 +6,17 @@
     height: 100%;
 }
 
+.ai-chat-container {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden; /* Prevent scrollbars on the container itself */
+}
+
+.ai-chat-container.hidden {
+    display: none;
+}
+
 .conversation-area {
     flex: 1;
     overflow-y: auto;
@@ -13,9 +24,6 @@
     display: flex;
     flex-direction: column;
 }
-
-.conversation-area.hidden { display: none; }
-
 .conversation-area>h1, .conversation-area>h2, .conversation-area>h3,
 .conversation-area>h4, .conversation-area>h5, .conversation-area>h6, 
 .conversation-area>p, .conversation-area>ol, .conversation-area>ul {
@@ -150,7 +158,6 @@
 
 .prompt-area {
     flex: 1;
-    margin-bottom: 8px;
     box-sizing: border-box;
     width: 100%;
     border: none;
@@ -385,19 +392,6 @@
     margin: 10px auto;
 }
 
-.progress-bar {
-  height: 4px;
-  width: 100%;
-  background-color: var(--themeDark);
-  border-radius: 4px;
-  margin: 4px;
-  transition: height 333ms;
-}
-
-/*.progress-bar:hover {*/
-/*	height: 12px;	*/
-/*}*/
-
 .progress-bar-inner {
   height: 100%;
   width: 0%;
@@ -500,6 +494,33 @@ button:disabled,
     border: 1px solid var(--theme);
 	margin: 8px 0; /* Add margin to separate from prompt area */
 }
+
+.ai-filebar-container {
+	position: sticky;
+	top: 0;
+	background-color: var(--background-color);
+	z-index: 2;
+	border-bottom: 1px solid var(--themeDark);
+	display: flex;
+	flex-direction: column;
+}
+
+.ai-file-context-bar {
+	flex-wrap: wrap;
+	gap: 6px;
+	padding: 6px 8px;
+	max-height: 150px; /* Limit height and allow scrolling if needed */
+	overflow-y: auto;
+}
+
+.ai-filebar-container > .progress-bar {
+	width: calc(100% - 16px); /* Match padding of file-context-bar */
+	margin: 0 8px 6px 8px; /* Give it some space */
+	height: 4px;
+	background-color: var(--themeDark);
+	border-radius: 4px;
+}
+
 
 .context-stale-notice .message {
     flex-grow: 1; 

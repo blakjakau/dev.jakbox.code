@@ -24,9 +24,9 @@ class DiffHandler {
                 } else if (line.startsWith('@@ ')) {
                     outputLines.push(`<div class="header">${escapeHtml(line)}</div>`);
                 } else if (line.startsWith('+')) {
-                    outputLines.push(`<div class="add">${escapeHtml(line)}</div>`);
+                    outputLines.push(`<div class="add">${escapeHtml(line.substr(1))}</div>`);
                 } else if (line.startsWith('-')) {
-                    outputLines.push(`<div class="remove">${escapeHtml(line)}</div>`);
+                    outputLines.push(`<div class="remove">${escapeHtml(line).substr(1)}</div>`);
                 } else if (line.startsWith(' ')) {
                     outputLines.push(`<div class="neutral">${escapeHtml(line)}</div>`);
                 } else if (line.trim() === '') {
