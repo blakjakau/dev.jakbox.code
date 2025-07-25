@@ -291,6 +291,7 @@ class AIManager {
 	// NEW METHOD: Encapsulates prompt area resizing logic
 	_resizePromptArea() {
 		if (this.promptArea) {
+            this.promptArea.style.height = "auto"; // Reset height before calculating scrollHeight
 			this.promptArea.style.minHeight = "auto" // Reset min-height to allow shrinking
 			void this.promptArea.offsetHeight // Force reflow to get accurate scrollHeight
 			this.promptArea.style.minHeight = Math.min(360, this.promptArea.scrollHeight) + "px"
@@ -376,7 +377,7 @@ class AIManager {
 
 	// Helper to disable/enable relevant buttons
 	_setButtonsDisabledState(disabled) {
-        const isAIConfigured = this.ai && this.ai.isConfigured();
+        const isAIConfigured = this.ai && this.ai.isConfigured() && !this._isProcessing; // Also consider overall processing state
 
 		if (this.submitButton) this.submitButton.disabled = disabled || !isAIConfigured;
 		if (this.clearButton) this.clearButton.disabled = disabled || !this.activeSession?.messages?.length; // Clear is disabled if no messages
@@ -409,7 +410,6 @@ class AIManager {
 				tab.style.pointerEvents = disabled ? 'none' : 'auto';
 			});
 		}
-
 
         this._updatePromptAreaPlaceholder(); // Update prompt area disabled state
 	}
@@ -498,6 +498,15 @@ class AIManager {
 			// Initialize new AI provider instance. Handle errors to prevent blocking.
 			try {
 				await this.ai.init(); // Initialize the new AI with its settings
+				// Add a system message to inform the user about the successful switch.
+				this.historyManager.addMessage({
+					type: "system_message",
+					content: `AI provider switched to **${this.aiProvider}**. ` +
+							 (this.ai.isConfigured()
+								? `Current model: **${this.ai.config.model}**`
+								: `Please configure the provider settings.`),
+					timestamp: Date.now()
+				});
 			} catch (error) {
 				console.error("AIManager: Error initializing new AI provider during switch:", error);
 				// Inform user about the error, but don't re-throw to keep UI interactive
@@ -616,6 +625,7 @@ class AIManager {
 		saveButton.icon = "save"
 		saveButton.classList.add("theme-button")
 		saveButton.on("click", async () => {
+			const oldModel = this.ai.config.model; // Capture old model before changes
 			const newSettings = {}
 			const currentOptions = await this.ai.getOptions()
 			for (const key in currentOptions) {
@@ -642,12 +652,19 @@ class AIManager {
                     this._setButtonsDisabledState(this._isProcessing); // Re-evaluate button state on error
 				},
 				(successMessage) => {
-					const successBlock = new Block()
-					successBlock.classList.add("response-block", "success-block") // Add success-block class
-					successBlock.innerHTML = successMessage
-					this.conversationArea.append(successBlock)
-					this.conversationArea.scrollTop = this.conversationArea.scrollHeight
-					this._dispatchContextUpdate("settings_save_success")
+					// Check if the model has changed and add a specific system message
+					const newModel = this.ai.config.model;
+					let messageContent = successMessage; // Default to the message from the AI provider
+
+					if (newModel && newModel !== oldModel) {
+						messageContent = `AI model switched to **${newModel}**.`;
+					}
+					this.historyManager.addMessage({
+						type: "system_message",
+						content: messageContent,
+						timestamp: Date.now()
+					});
+					this._dispatchContextUpdate("settings_save_success");
                     this._setButtonsDisabledState(this._isProcessing); // Re-evaluate button state on success
 				},
 				this.useWorkspaceSettings,

@@ -417,6 +417,11 @@
     text-align: center;
 }
 
+/* Collapse vertical space between adjacent system message blocks */
+.system-message-block + .system-message-block {
+    margin-top: -32px; /* completely squash the gap on stacked system prompts*/
+}
+
 button:disabled,
 .theme-button:disabled,
 .clear-button:disabled,
