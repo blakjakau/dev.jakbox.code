@@ -5,7 +5,9 @@ import Ollama from "./ai-ollama.mjs"
 import Gemini from "./ai-gemini.mjs"
 import AIManagerHistory, { MAX_RECENT_MESSAGES_TO_PRESERVE } from "./ai-manager-history.mjs"
 import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
-import DiffHandler from "./tools/diff-handler.mjs" // Import DiffHandler
+
+import DiffHandler from "./tools/diff-handler.mjs"
+import hljs from "./tools/highlightjs.mjs"
 
 const MAX_PROMPT_HISTORY = 50 // This is now PER-SESSION
 
@@ -35,15 +37,12 @@ class AIManager {
 		// Initialize markdown-it with highlight.js for code highlighting
 		this.md = window.markdownit({ // hljs is available globally via <script> tag
 			highlight: function (str, lang) {
-				// if (lang && lang === 'diff') {
-				// 	// Return original string for 'diff' language; DiffHandler will process it later.
-				// 	// Returning '' prevents markdown-it from wrapping it in <code>, allowing DiffHandler to replace pre.innerHTML.
-				// 	return ''; 
-				// }
 				if (lang && hljs.getLanguage(lang)) {
 					return hljs.highlight(str, { language: lang, ignoreIllegals: true }).value;
 				}
-				return ''; // use external default escaping (raw string wrapped in <code>)
+				// For 'diff' or other unhandled languages, return empty string to let markdown-it
+				// perform its default escaping. The raw content is then read by _addCodeBlockButtons.
+				return '';
 			}
 		});
 		
@@ -1257,8 +1256,11 @@ class AIManager {
             if (codeElement && codeElement.classList.contains('language-diff')) {
                 const originalDiffString = codeElement.textContent; // Get the raw diff content
 
-                // Render the diff using DiffHandler and replace the pre's innerHTML
-                const renderedDiffHtml = DiffHandler.renderStateless(originalDiffString, 'html');
+                // Infer the language from the '+++ b/path/to/file.ext' line in the diff.
+                const highlightLang = this._inferLanguageFromDiff(originalDiffString);
+
+                // Render the diff using DiffHandler, passing the inferred language for highlighting
+                const renderedDiffHtml = DiffHandler.renderStateless(originalDiffString, 'html', highlightLang, hljs);
                 // Create a temporary div to parse the HTML and extract the inner content
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = renderedDiffHtml;
@@ -1356,6 +1358,43 @@ class AIManager {
 
 			pre.prepend(buttonContainer)
 		})
+	}
+
+	/**
+	 * NEW METHOD: Infers the programming language from a diff string by parsing the
+	 * '+++' line and matching the file extension against the global window.ace_modes.
+	 * @param {string} diffContent - The full text content of the diff.
+	 * @returns {string|null} The inferred language name (e.g., "javascript") or null if not found.
+	 */
+	_inferLanguageFromDiff(diffContent) {
+		if (!window.ace_modes) {
+			console.warn("AIManager: window.ace_modes is not available. Cannot infer language for diff highlighting.");
+			return null;
+		}
+
+		// Regex to find the filename from the '+++' line.
+		const filenameMatch = diffContent.match(/^\+\+\+\s(?:b\/)?(.+?)(?:\t.*)?$/m);
+		if (!filenameMatch || !filenameMatch[1]) {
+			return null; // Could not find a filename in the diff header.
+		}
+		const filename = filenameMatch[1];
+
+		// Iterate through ace_modes to find a matching language.
+		for (const lang in window.ace_modes) {
+			const mode = window.ace_modes[lang];
+			if (mode && mode.extRe instanceof RegExp) {
+				// IMPORTANT: Reset lastIndex for global regexes to avoid state issues.
+				mode.extRe.lastIndex = 0;
+				if (mode.extRe.test(filename)) {
+					// Return the language name compatible with highlight.js
+					// (ace_modes keys are generally compatible).
+					return lang;
+				}
+			}
+		}
+
+		// No language matched the file extension.
+		return null;
 	}
 
 	/**

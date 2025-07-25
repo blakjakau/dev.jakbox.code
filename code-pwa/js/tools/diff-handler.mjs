@@ -1,12 +1,15 @@
 class DiffHandler {
 
+
     /**
      * Renders a diff string into formatted HTML or Markdown.
      * @param {string} diffString The diff in unified format.
      * @param {"html" | "markdown"} format The desired output format ("html" or "markdown").
+     * @param (false) wheather the rendering should include linenumbers (function redirect)
      * @returns {string} The formatted rendering of the diff.
      */
-    renderStateless(diffString, format = "html") {
+    renderStateless(diffString, format = "html", highlightLanguage = null, hljsInstance = null) {
+
         const diffLines = diffString.split(/\r\n|\n|\r/);
         const outputLines = [];
 
@@ -18,21 +21,36 @@ class DiffHandler {
 
         for (let i = 0; i < diffLines.length; i++) {
             const line = diffLines[i];
+            const lineText = line.substring(1);
+            
+            let highlightedContentHtml;
+            // If a language is specified, highlight the content. Otherwise, just escape it.
+            if (highlightLanguage && hljsInstance && hljsInstance.getLanguage(highlightLanguage)) {
+                try {
+                    highlightedContentHtml = hljsInstance.highlight(lineText, { language: highlightLanguage, ignoreIllegals: true }).value;
+                } catch (e) {
+                    console.warn(`Highlight.js failed for language "${highlightLanguage}". Falling back to plain text.`, e);
+                    highlightedContentHtml = escapeHtml(lineText);
+                }
+            } else {
+                highlightedContentHtml = escapeHtml(lineText);
+            }
+
             if (format === "html") {
                 if (line.startsWith('--- ') || line.startsWith('+++ ')) {
                     outputLines.push(`<div class="header">${escapeHtml(line)}</div>`);
                 } else if (line.startsWith('@@ ')) {
                     outputLines.push(`<div class="header">${escapeHtml(line)}</div>`);
                 } else if (line.startsWith('+')) {
-                    outputLines.push(`<div class="add">${escapeHtml(line.substr(1))}</div>`);
+                    outputLines.push(`<div class="add">${highlightedContentHtml}</div>`);
                 } else if (line.startsWith('-')) {
-                    outputLines.push(`<div class="remove">${escapeHtml(line).substr(1)}</div>`);
+                    outputLines.push(`<div class="remove">${highlightedContentHtml}</div>`);
                 } else if (line.startsWith(' ')) {
-                    outputLines.push(`<div class="neutral">${escapeHtml(line)}</div>`);
+                    outputLines.push(`<div class="neutral">${highlightedContentHtml}</div>`);
                 } else if (line.trim() === '') {
                     outputLines.push(`<div class="neutral"></div>`);
                 } else {
-                    outputLines.push(`<div class="neutral">${escapeHtml(line)}</div>`);
+                    outputLines.push(`<div class="neutral">${escapeHtml(line)}</div>`); // No highlight for non-diff lines
                 }
             } else if (format === "markdown") {
                 if (line.startsWith('--- ') || line.startsWith('+++ ')) {
@@ -89,6 +107,128 @@ class DiffHandler {
         return foundIndices;
     }
 
+	/**
+	 * Aligns an AI generated diff with the source code by finding and correcting line numbers
+	 * updates the hunk heaaders in the output string based on found matches in the source
+	 *
+	 * @param {string} originalString The original string to which the diff will be applied.
+	 * @param {string} diffString The diff in unified format.
+	 * @returns {string | null} The corercted diffString (corrected hunk headers), or null if the diff cannot be correctly updated
+	**/    
+	fuzzyToUnified(originalString, diffString) {
+	    const originalLines = originalString.split(/\r?\n/);
+	    const diffLines = diffString.split(/\r\n|\n|\r/);
+	    const correctedDiffOutput = [];
+	    let originalFilePtr = 0; // Tracks current line index in originalLines
+	    let newFilePtr = 0;     // Tracks current line index in the _conceptual_ new file
+	    let diffIdx = 0;
+	    let currentHunkContentLines = []; // Store lines belonging to the current hunk (with +, -, ' ' prefixes)
+	    let inHunk = false; // Flag to indicate if we are currently collecting hunk content
+	    // Helper to process collected hunk content, determine true position, and write a new hunk block
+	    const processAndWriteHunk = () => {
+	        if (currentHunkContentLines.length === 0) return true; // Nothing to process, or previous block was headers
+	        // Create a search pattern from the hunk's context and deletion lines
+	        const searchPattern = currentHunkContentLines
+	            .filter(hLine => hLine.startsWith(' ') || hLine.startsWith('-'))
+	            .map(hLine => hLine.substring(1)); // Remove the diff prefix
+	        // If a hunk consists only of additions, its position is ambiguous for fuzzy matching.
+	        if (searchPattern.length === 0) {
+	            console.error("Error: Cannot re-align a diff hunk that only contains additions, as its precise location is ambiguous without context or deletions.");
+	            return null; // Indicate failure to correct
+	        }
+	        // Find the actual starting line of this pattern in the original file
+	        // Search from current `originalFilePtr` to ensure sequential hunks are applied correctly
+	        const foundIndices = this._findPatternIndices(searchPattern, originalLines, originalFilePtr);
+	        if (foundIndices.length === 0) {
+	            console.error("Error: Cannot re-align diff. A hunk's context could not be found in the original file at or after current position.");
+	            return null;
+	        }
+	        if (foundIndices.length > 1) {
+	            console.error("Error: Cannot re-align diff. A hunk's context is ambiguous (found in multiple locations).");
+	            return null;
+	        }
+	        const actualOldStartIdx = foundIndices[0]; // 0-indexed start of the pattern in originalLines
+	        // Add any original lines *before* this hunk that haven't been added yet as neutral lines
+	        while (originalFilePtr < actualOldStartIdx) {
+	            if (originalFilePtr >= originalLines.length) {
+	                console.error(`Error: Unexpected end of original file while preparing for hunk at index ${actualOldStartIdx}.`);
+	                return null;
+	            }
+	            correctedDiffOutput.push(' ' + originalLines[originalFilePtr]);
+	            originalFilePtr++;
+	            newFilePtr++;
+	        }
+	        // Now, `originalFilePtr` points to the start of the actual hunk content in the original file.
+	        // Calculate the old and new lengths for the new hunk header.
+	        let actualOldLen = 0; // Number of lines consumed from original (context + deletions)
+	        let actualNewLen = 0; // Number of lines contributed to new (context + additions)
+	        for (const hunkLine of currentHunkContentLines) {
+	            if (hunkLine.startsWith(' ') || hunkLine.startsWith('-')) {
+	                actualOldLen++;
+	            }
+	            if (hunkLine.startsWith(' ') || hunkLine.startsWith('+')) {
+	                actualNewLen++;
+	            }
+	        }
+	        // Construct the new @@ header (1-indexed for display)
+	        correctedDiffOutput.push(`@@ -${actualOldStartIdx + 1},${actualOldLen} +${newFilePtr + 1},${actualNewLen} @@`);
+	        // Add the hunk's content lines to the output and update pointers
+	        for (const hunkLine of currentHunkContentLines) {
+	            correctedDiffOutput.push(hunkLine); // Keep prefix (+, -, ' ')
+	            if (hunkLine.startsWith(' ')) {
+	                originalFilePtr++;
+	                newFilePtr++;
+	            } else if (hunkLine.startsWith('-')) {
+	                originalFilePtr++;
+	            } else if (hunkLine.startsWith('+')) {
+	                newFilePtr++;
+	            }
+	        }
+	        currentHunkContentLines = []; // Reset for next hunk
+	        inHunk = false; // Exited the hunk content collection phase
+	        return true; // Hunk processed successfully
+	    };
+	    while (diffIdx < diffLines.length) {
+	        const line = diffLines[diffIdx];
+	        if (line.startsWith('--- ') || line.startsWith('+++ ')) {
+	            // If we were in a hunk, process it before adding new header
+	            if (inHunk) {
+	                const result = processAndWriteHunk();
+	                if (result === null) return null;
+	            }
+	            correctedDiffOutput.push(line);
+	        } else if (line.startsWith('@@ ')) {
+	            // If a new hunk header, process the previous hunk's collected content (if any)
+	            if (inHunk) { // This handles cases where hunks are consecutive without headers in between
+	                const result = processAndWriteHunk();
+	                if (result === null) return null;
+	            }
+	            inHunk = true; // Start collecting content for a new hunk
+	            // The '@@' line itself is not added yet; it will be re-generated by processAndWriteHunk.
+	        } else if (inHunk) {
+	            // Collect content lines for the current hunk
+	            currentHunkContentLines.push(line);
+	        } else {
+	            // Lines that are not headers and not part of a hunk (e.g., blank lines before first hunk)
+	            // These are typically ignored in unified diff processing, or implicitly handled by pre-hunk content
+	            // adding in `processAndWriteHunk`.
+	        }
+	        diffIdx++;
+	    }
+	    // Process the last hunk if one was being collected
+	    if (inHunk) {
+	        const result = processAndWriteHunk();
+	        if (result === null) return null;
+	    }
+	    // Add any remaining original lines that were not part of any hunk (as neutral lines)
+	    while (originalFilePtr < originalLines.length) {
+	        correctedDiffOutput.push(' ' + originalLines[originalFilePtr]);
+	        originalFilePtr++;
+	        newFilePtr++;
+	    }
+		return correctedDiffOutput.join('\n');
+	}
+	
     /**
      * Applies a unified diff patch to an original string using fuzzy content matching, ignoring line numbers.
      * This is more robust against AI inaccuracies in hunk headers.
