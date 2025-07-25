@@ -17,14 +17,16 @@
 	--editorTop: calc(var(--tabHeight));
 	--ui-icon-color: var(--mid);
 	
-	--green: #00bb00;
-	--red: #aa0000;
+	/* diff highlight colours */
+	--green: rgb(128,164,128);
+	--red: rgba(164,128,128);
 	--grey: #777777;
 
-	--green-soft: rgba(0,120,0,0.25);
-	--red-soft: rgba(120,0,0,0.25);
+	--green-soft: rgba(0,120,0,0.33);
+	--red-soft: rgba(120,0,0,0.33);
 
 	--buttonBorder: 8px;
+	--borderRadius: 8px;
 }
 
 a,
@@ -723,7 +725,7 @@ ui-sidebar-panel pre {
 	max-width: 100%;
 	overflow-x: auto;
 	white-space: pre;
-	background-color: rgba(128, 128, 128, 0.25);
+	background-color: rgba(0,0,0, 0.25);
 	border-radius: 8px;
 	padding: 8px;
 }

@@ -203,9 +203,9 @@ class Gemini extends AI {
         try {
             const contents = this._toGeminiContents(messages);
             const requestBody = { contents };
-            if (this.config.system) {
-                requestBody.systemInstruction = { parts: [{ text: this.config.system }] };
-            }
+            // if (this.config.system) {
+            //     requestBody.systemInstruction = { parts: [{ text: this.config.system }] };
+            // }
 
             const response = await fetch(this._countTokensApiUrl, {
                 method: 'POST',

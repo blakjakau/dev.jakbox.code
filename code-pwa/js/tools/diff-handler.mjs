@@ -1,14 +1,14 @@
 class DiffHandler {
 
+
     /**
      * Renders a diff string into formatted HTML or Markdown.
      * @param {string} diffString The diff in unified format.
      * @param {"html" | "markdown"} format The desired output format ("html" or "markdown").
+     * @param (false) wheather the rendering should include linenumbers (function redirect)
      * @returns {string} The formatted rendering of the diff.
      */
-    renderStateless(diffString, format = "html") {
-        const diffLines = diffString.split(/\r\n|\n|\r/);
-        const outputLines = [];
+    renderStateless(diffString, format = "html", highlightLanguage = null, hljsInstance = null) {
 
         const escapeHtml = (text) => {
             const div = document.createElement('div');
@@ -16,51 +16,78 @@ class DiffHandler {
             return div.innerHTML;
         };
 
-        for (let i = 0; i < diffLines.length; i++) {
-            const line = diffLines[i];
-            if (format === "html") {
-                if (line.startsWith('--- ') || line.startsWith('+++ ')) {
-                    outputLines.push(`<div class="header">${escapeHtml(line)}</div>`);
-                } else if (line.startsWith('@@ ')) {
-                    outputLines.push(`<div class="header">${escapeHtml(line)}</div>`);
-                } else if (line.startsWith('+')) {
-                    outputLines.push(`<div class="add">${escapeHtml(line.substr(1))}</div>`);
-                } else if (line.startsWith('-')) {
-                    outputLines.push(`<div class="remove">${escapeHtml(line).substr(1)}</div>`);
-                } else if (line.startsWith(' ')) {
-                    outputLines.push(`<div class="neutral">${escapeHtml(line)}</div>`);
-                } else if (line.trim() === '') {
-                    outputLines.push(`<div class="neutral"></div>`);
-                } else {
-                    outputLines.push(`<div class="neutral">${escapeHtml(line)}</div>`);
-                }
-            } else if (format === "markdown") {
-                if (line.startsWith('--- ') || line.startsWith('+++ ')) {
-                    outputLines.push(`\`\`\`diff\n${line}\n\`\`\``);
-                } else if (line.startsWith('@@ ')) {
-                    outputLines.push(`\`\`\`\n${line}\n\`\`\``);
-                } else if (line.startsWith('+')) {
-                    outputLines.push(`+ ${line.substring(1)}`);
-                } else if (line.startsWith('-')) {
-                    outputLines.push(`- ${line.substring(1)}`);
-                } else if (line.startsWith(' ')) {
-                    outputLines.push(`${line.substring(1)}`);
-                } else if (line.trim() === '') {
-                    outputLines.push('');
-                } else {
-                    outputLines.push(line);
-                }
-            }
+        if (format !== "html") {
+            // Fallback for non-html formats, as this logic is HTML-specific.
+            console.warn(`Block comment highlighting is only supported for HTML format.`);
+            return `<pre class="diff-output">${escapeHtml(diffString)}</pre>`;
         }
 
-        if (format === "html") {
-            return `<pre class="diff-output">${outputLines.join('')}</pre>`;
-        } else if (format === "markdown") {
-            return outputLines.join('\n');
-        } else {
-            console.warn(`Unsupported format: ${format}. Returning plain text.`);
-            return diffString;
+        const diffLines = diffString.split(/\r\n|\n|\r/);
+        const outputLines = [];
+        
+        const commentDelimiters = {
+            javascript: { start: '/*', end: '*/' },
+            java: { start: '/*', end: '*/' },
+            typescript: { start: '/*', end: '*/' },
+            c: { start: '/*', end: '*/' },
+            cpp: { start: '/*', end: '*/' },
+            csharp: { start: '/*', end: '*/' },
+            css: { start: '/*', end: '*/' },
+            xml: { start: '<!--', end: '-->' },
+            html: { start: '<!--', end: '-->' },
+        };
+
+        const delimiters = highlightLanguage ? commentDelimiters[highlightLanguage] : null;
+        let inBlockComment = false;
+
+        for (let i = 0; i < diffLines.length; i++) {
+            const line = diffLines[i];
+            let highlightedContentHtml = '';
+
+            if (line.startsWith('--- ') || line.startsWith('+++ ') || line.startsWith('@@ ')) {
+                outputLines.push(`<div class="header">${escapeHtml(line)}</div>`);
+                continue;
+            }
+
+            const linePrefix = line.charAt(0);
+            const lineText = ['+', '-', ' '].includes(linePrefix) ? line.substring(1) : line;
+            const lineClass = linePrefix === '+' ? 'add' : (linePrefix === '-' ? 'remove' : 'neutral');
+
+            if (delimiters && hljsInstance && hljsInstance.getLanguage(highlightLanguage)) {
+                if (inBlockComment) {
+                    const endPos = lineText.indexOf(delimiters.end);
+                    if (endPos === -1) {
+                        highlightedContentHtml = `<span class="hljs-comment">${escapeHtml(lineText)}</span>`;
+                    } else {
+                        const commentPart = lineText.substring(0, endPos + delimiters.end.length);
+                        const restOfLine = lineText.substring(endPos + delimiters.end.length);
+                        highlightedContentHtml = `<span class="hljs-comment">${escapeHtml(commentPart)}</span>`;
+                        if (restOfLine) {
+                            highlightedContentHtml += hljsInstance.highlight(restOfLine, { language: highlightLanguage, ignoreIllegals: true }).value;
+                        }
+                        inBlockComment = false;
+                    }
+                } else {
+                    const startPos = lineText.indexOf(delimiters.start);
+                    const endPos = lineText.indexOf(delimiters.end, startPos);
+                    if (startPos !== -1 && endPos === -1) {
+                        const beforePart = lineText.substring(0, startPos);
+                        const commentPart = lineText.substring(startPos);
+                        highlightedContentHtml = beforePart ? hljsInstance.highlight(beforePart, { language: highlightLanguage, ignoreIllegals: true }).value : '';
+                        highlightedContentHtml += `<span class="hljs-comment">${escapeHtml(commentPart)}</span>`;
+                        inBlockComment = true;
+                    } else {
+                        // No multi-line comment detected, or it's self-contained. Highlight normally.
+                        highlightedContentHtml = hljsInstance.highlight(lineText, { language: highlightLanguage, ignoreIllegals: true }).value;
+                    }
+                }
+            } else {
+                highlightedContentHtml = escapeHtml(lineText);
+            }
+            outputLines.push(`<div class="${lineClass}">${highlightedContentHtml}</div>`);
         }
+
+        return `<pre class="diff-output">${outputLines.join('')}</pre>`;
     }
 
      /**
@@ -89,6 +116,128 @@ class DiffHandler {
         return foundIndices;
     }
 
+	/**
+	 * Aligns an AI generated diff with the source code by finding and correcting line numbers
+	 * updates the hunk heaaders in the output string based on found matches in the source
+	 *
+	 * @param {string} originalString The original string to which the diff will be applied.
+	 * @param {string} diffString The diff in unified format.
+	 * @returns {string | null} The corercted diffString (corrected hunk headers), or null if the diff cannot be correctly updated
+	**/    
+	fuzzyToUnified(originalString, diffString) {
+	    const originalLines = originalString.split(/\r?\n/);
+	    const diffLines = diffString.split(/\r\n|\n|\r/);
+	    const correctedDiffOutput = [];
+	    let originalFilePtr = 0; // Tracks current line index in originalLines
+	    let newFilePtr = 0;     // Tracks current line index in the _conceptual_ new file
+	    let diffIdx = 0;
+	    let currentHunkContentLines = []; // Store lines belonging to the current hunk (with +, -, ' ' prefixes)
+	    let inHunk = false; // Flag to indicate if we are currently collecting hunk content
+	    // Helper to process collected hunk content, determine true position, and write a new hunk block
+	    const processAndWriteHunk = () => {
+	        if (currentHunkContentLines.length === 0) return true; // Nothing to process, or previous block was headers
+	        // Create a search pattern from the hunk's context and deletion lines
+	        const searchPattern = currentHunkContentLines
+	            .filter(hLine => hLine.startsWith(' ') || hLine.startsWith('-'))
+	            .map(hLine => hLine.substring(1)); // Remove the diff prefix
+	        // If a hunk consists only of additions, its position is ambiguous for fuzzy matching.
+	        if (searchPattern.length === 0) {
+	            console.error("Error: Cannot re-align a diff hunk that only contains additions, as its precise location is ambiguous without context or deletions.");
+	            return null; // Indicate failure to correct
+	        }
+	        // Find the actual starting line of this pattern in the original file
+	        // Search from current `originalFilePtr` to ensure sequential hunks are applied correctly
+	        const foundIndices = this._findPatternIndices(searchPattern, originalLines, originalFilePtr);
+	        if (foundIndices.length === 0) {
+	            console.error("Error: Cannot re-align diff. A hunk's context could not be found in the original file at or after current position.");
+	            return null;
+	        }
+	        if (foundIndices.length > 1) {
+	            console.error("Error: Cannot re-align diff. A hunk's context is ambiguous (found in multiple locations).");
+	            return null;
+	        }
+	        const actualOldStartIdx = foundIndices[0]; // 0-indexed start of the pattern in originalLines
+	        // Add any original lines *before* this hunk that haven't been added yet as neutral lines
+	        while (originalFilePtr < actualOldStartIdx) {
+	            if (originalFilePtr >= originalLines.length) {
+	                console.error(`Error: Unexpected end of original file while preparing for hunk at index ${actualOldStartIdx}.`);
+	                return null;
+	            }
+	            correctedDiffOutput.push(' ' + originalLines[originalFilePtr]);
+	            originalFilePtr++;
+	            newFilePtr++;
+	        }
+	        // Now, `originalFilePtr` points to the start of the actual hunk content in the original file.
+	        // Calculate the old and new lengths for the new hunk header.
+	        let actualOldLen = 0; // Number of lines consumed from original (context + deletions)
+	        let actualNewLen = 0; // Number of lines contributed to new (context + additions)
+	        for (const hunkLine of currentHunkContentLines) {
+	            if (hunkLine.startsWith(' ') || hunkLine.startsWith('-')) {
+	                actualOldLen++;
+	            }
+	            if (hunkLine.startsWith(' ') || hunkLine.startsWith('+')) {
+	                actualNewLen++;
+	            }
+	        }
+	        // Construct the new @@ header (1-indexed for display)
+	        correctedDiffOutput.push(`@@ -${actualOldStartIdx + 1},${actualOldLen} +${newFilePtr + 1},${actualNewLen} @@`);
+	        // Add the hunk's content lines to the output and update pointers
+	        for (const hunkLine of currentHunkContentLines) {
+	            correctedDiffOutput.push(hunkLine); // Keep prefix (+, -, ' ')
+	            if (hunkLine.startsWith(' ')) {
+	                originalFilePtr++;
+	                newFilePtr++;
+	            } else if (hunkLine.startsWith('-')) {
+	                originalFilePtr++;
+	            } else if (hunkLine.startsWith('+')) {
+	                newFilePtr++;
+	            }
+	        }
+	        currentHunkContentLines = []; // Reset for next hunk
+	        inHunk = false; // Exited the hunk content collection phase
+	        return true; // Hunk processed successfully
+	    };
+	    while (diffIdx < diffLines.length) {
+	        const line = diffLines[diffIdx];
+	        if (line.startsWith('--- ') || line.startsWith('+++ ')) {
+	            // If we were in a hunk, process it before adding new header
+	            if (inHunk) {
+	                const result = processAndWriteHunk();
+	                if (result === null) return null;
+	            }
+	            correctedDiffOutput.push(line);
+	        } else if (line.startsWith('@@ ')) {
+	            // If a new hunk header, process the previous hunk's collected content (if any)
+	            if (inHunk) { // This handles cases where hunks are consecutive without headers in between
+	                const result = processAndWriteHunk();
+	                if (result === null) return null;
+	            }
+	            inHunk = true; // Start collecting content for a new hunk
+	            // The '@@' line itself is not added yet; it will be re-generated by processAndWriteHunk.
+	        } else if (inHunk) {
+	            // Collect content lines for the current hunk
+	            currentHunkContentLines.push(line);
+	        } else {
+	            // Lines that are not headers and not part of a hunk (e.g., blank lines before first hunk)
+	            // These are typically ignored in unified diff processing, or implicitly handled by pre-hunk content
+	            // adding in `processAndWriteHunk`.
+	        }
+	        diffIdx++;
+	    }
+	    // Process the last hunk if one was being collected
+	    if (inHunk) {
+	        const result = processAndWriteHunk();
+	        if (result === null) return null;
+	    }
+	    // Add any remaining original lines that were not part of any hunk (as neutral lines)
+	    while (originalFilePtr < originalLines.length) {
+	        correctedDiffOutput.push(' ' + originalLines[originalFilePtr]);
+	        originalFilePtr++;
+	        newFilePtr++;
+	    }
+		return correctedDiffOutput.join('\n');
+	}
+	
     /**
      * Applies a unified diff patch to an original string using fuzzy content matching, ignoring line numbers.
      * This is more robust against AI inaccuracies in hunk headers.

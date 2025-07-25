@@ -27,6 +27,8 @@ const essential = [
 	"js/elements.mjs",
 	"css/elements.css",
 	"css/main.css",
+	"css/ai-manager.css",
+	"css/diff-output.css",
 	"/favicon.png",
 	"ace/ext-settings_menu.js",
 ]
@@ -146,14 +148,16 @@ self.addEventListener("fetch", function (event) {
 	const url = new URL(event.request.url)
 
 	// Special handler for version request
-	if (url.pathname === "/version.json") {
-		const responseBody = { appName: "code.jakbox.dev", version: APP_VERSION, }
-		const jsonResponse = new Response(JSON.stringify(responseBody), {
-			headers: { "Content-Type": "application/json" },
-		})
-		event.respondWith(jsonResponse)
-		return
+	if (url.pathname.endsWith("/version.json")) {
+		console.debug(url)
 	}
+	// 	const responseBody = { appName: "code.jakbox.dev", version: APP_VERSION }
+	// 	const jsonResponse = new Response(JSON.stringify(responseBody), {
+	// 		headers: { "Content-Type": "application/json" },
+	// 	})
+	// 	event.respondWith(jsonResponse)
+	// 	return
+	// }
 
     // --- NEW: Do not cache calls to external APIs like Gemini ---
     if (NON_CACHEABLE_HOSTS.includes(url.hostname)) {

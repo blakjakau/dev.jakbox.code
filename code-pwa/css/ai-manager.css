@@ -1,4 +1,6 @@
 /* ai-manager.css */
+@import "diff-output.css";
+
 #ai-panel[active] {
     display: flex; /* Ensure flexbox is used */
     flex-direction: column;
@@ -50,7 +52,7 @@
 .conversation-area .response-block .diff-output {
     background-color: rgba(0,0,0,0.25); /* A neutral background, maybe slightly darker than main chat area */
     padding: 8px;
-    border-radius: var(--border-radius-sm);
+    border-radius: var(--borderRadius);
     /*font-family: var(--font-family-monospace);*/
     font-size: var(--font-size-sm);
     overflow-x: auto; /* Allow horizontal scrolling for wide diff lines */
@@ -63,50 +65,7 @@
     font-family: roboto mono;
 }
 
-/* Header lines (--- a/, +++ b/, @@) */
-.conversation-area .response-block .diff-output .header {
-    color: var(--theme-text-color-light); /* Lighter text for metadata */
-    background-color: var(--theme-block-background); /* Distinct background for header */
-    /*padding: 2px 4px;*/
-    border-bottom: 1px dashed var(--theme-border-color);
-    /*margin-bottom: 4px;*/
-    font-weight: bold;
-}
 
-/* Added lines */
-.conversation-area .response-block .diff-output .add {
-	font-weight:bold;
-    color: var(--green); /* Bright green for additions */
-    background-color: rgba(0, 128, 0, 0.2); /* Darken for better contrast */
-}
-
-/* Removed lines */
-.conversation-area .response-block .diff-output .remove {
-	font-weight:bold;
-    color: var(--red); /* Bright red for removals */
-    background-color: rgba(128, 0, 0, 0.2); /* Darken for better contrast */
-}
-
-/* Context (neutral) lines */
-.conversation-area .response-block .diff-output .neutral {
-    color: var(--theme-text-color); /* Standard text color */
-}
-
-/* Ensure the leading +, -, and space characters are visually consistent */
-.conversation-area .response-block .diff-output .add::before {
-    /*content: "+";*/
-    color: var(--green);
-    margin-right: 4px; /* Space between sign and content */
-}
-.conversation-area .response-block .diff-output .remove::before {
-    /*content: "-";*/
-    color: var(--red);
-    margin-right: 4px;
-}
-.conversation-area .response-block .diff-output .neutral::before {
-    /*content: " "; */
-    margin-right: 4px;
-}
 
 /* Improve button placement and visibility */
 .conversation-area .response-block .code-buttons {
@@ -129,7 +88,7 @@
     border: 1px solid var(--theme-border-color);
     color: var(--theme-text-color);
     padding: 4px 8px;
-    border-radius: var(--border-radius-sm);
+    border-radius: var(--borderRadius);
     font-size: var(--font-size-xs);
     cursor: pointer;
 }
@@ -162,7 +121,7 @@
     width: 100%;
     border: none;
     outline: none;
-    border-radius: var(--border-radius);
+    border-radius: var(--borderRadius);
     background-color: rgba(0, 0, 0, 0.25);
     color: var(--button-text-color);
     font-family: var(--font-family);
@@ -333,7 +292,7 @@
     padding: 16px;
     background-color: var(--themeDark);
     color: var(--text-color);
-    border-radius: var(--border-radius);
+    border-radius: var(--borderRadius);
     display: none;
     flex-direction: column;
     overflow-y: auto;
@@ -451,7 +410,7 @@
     margin-bottom: 8px;
     padding: 8px 16px;
     background: rgba(var(--text-color-rgb), 0.05);
-    border-radius: var(--border-radius);
+    border-radius: var(--borderRadius);
     color: var(--text-color-secondary);
     font-style: italic;
     font-size: 0.9em;
@@ -516,7 +475,7 @@ button:disabled,
 .ai-filebar-container > .progress-bar {
 	width: calc(100% - 16px); /* Match padding of file-context-bar */
 	margin: 0 8px 6px 8px; /* Give it some space */
-	height: 4px;
+	height: 6px;
 	background-color: var(--themeDark);
 	border-radius: 4px;
 }
