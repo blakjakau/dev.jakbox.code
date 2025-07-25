@@ -354,7 +354,7 @@ class AIManagerHistory {
 				if (conversationBlock[i].type === "user" || conversationBlock[i].type === "model") {
 					eligibleCount++
 				}
-				if (eligibleCount === finalNumberToSummarization) {
+				if (eligibleCount === finalNumberToSummarize) {
 					endIndexInConversationBlock = i
 					break
 				}

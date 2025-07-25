@@ -10,75 +10,84 @@ class DiffHandler {
      */
     renderStateless(diffString, format = "html", highlightLanguage = null, hljsInstance = null) {
 
-        const diffLines = diffString.split(/\r\n|\n|\r/);
-        const outputLines = [];
-
         const escapeHtml = (text) => {
             const div = document.createElement('div');
             div.appendChild(document.createTextNode(text));
             return div.innerHTML;
         };
 
+        if (format !== "html") {
+            // Fallback for non-html formats, as this logic is HTML-specific.
+            console.warn(`Block comment highlighting is only supported for HTML format.`);
+            return `<pre class="diff-output">${escapeHtml(diffString)}</pre>`;
+        }
+
+        const diffLines = diffString.split(/\r\n|\n|\r/);
+        const outputLines = [];
+        
+        const commentDelimiters = {
+            javascript: { start: '/*', end: '*/' },
+            java: { start: '/*', end: '*/' },
+            typescript: { start: '/*', end: '*/' },
+            c: { start: '/*', end: '*/' },
+            cpp: { start: '/*', end: '*/' },
+            csharp: { start: '/*', end: '*/' },
+            css: { start: '/*', end: '*/' },
+            xml: { start: '<!--', end: '-->' },
+            html: { start: '<!--', end: '-->' },
+        };
+
+        const delimiters = highlightLanguage ? commentDelimiters[highlightLanguage] : null;
+        let inBlockComment = false;
+
         for (let i = 0; i < diffLines.length; i++) {
             const line = diffLines[i];
-            const lineText = line.substring(1);
-            
-            let highlightedContentHtml;
-            // If a language is specified, highlight the content. Otherwise, just escape it.
-            if (highlightLanguage && hljsInstance && hljsInstance.getLanguage(highlightLanguage)) {
-                try {
-                    highlightedContentHtml = hljsInstance.highlight(lineText, { language: highlightLanguage, ignoreIllegals: true }).value;
-                } catch (e) {
-                    console.warn(`Highlight.js failed for language "${highlightLanguage}". Falling back to plain text.`, e);
-                    highlightedContentHtml = escapeHtml(lineText);
+            let highlightedContentHtml = '';
+
+            if (line.startsWith('--- ') || line.startsWith('+++ ') || line.startsWith('@@ ')) {
+                outputLines.push(`<div class="header">${escapeHtml(line)}</div>`);
+                continue;
+            }
+
+            const linePrefix = line.charAt(0);
+            const lineText = ['+', '-', ' '].includes(linePrefix) ? line.substring(1) : line;
+            const lineClass = linePrefix === '+' ? 'add' : (linePrefix === '-' ? 'remove' : 'neutral');
+
+            if (delimiters && hljsInstance && hljsInstance.getLanguage(highlightLanguage)) {
+                if (inBlockComment) {
+                    const endPos = lineText.indexOf(delimiters.end);
+                    if (endPos === -1) {
+                        highlightedContentHtml = `<span class="hljs-comment">${escapeHtml(lineText)}</span>`;
+                    } else {
+                        const commentPart = lineText.substring(0, endPos + delimiters.end.length);
+                        const restOfLine = lineText.substring(endPos + delimiters.end.length);
+                        highlightedContentHtml = `<span class="hljs-comment">${escapeHtml(commentPart)}</span>`;
+                        if (restOfLine) {
+                            highlightedContentHtml += hljsInstance.highlight(restOfLine, { language: highlightLanguage, ignoreIllegals: true }).value;
+                        }
+                        inBlockComment = false;
+                    }
+                } else {
+                    const startPos = lineText.indexOf(delimiters.start);
+                    const endPos = lineText.indexOf(delimiters.end, startPos);
+                    if (startPos !== -1 && endPos === -1) {
+                        const beforePart = lineText.substring(0, startPos);
+                        const commentPart = lineText.substring(startPos);
+                        highlightedContentHtml = beforePart ? hljsInstance.highlight(beforePart, { language: highlightLanguage, ignoreIllegals: true }).value : '';
+                        highlightedContentHtml += `<span class="hljs-comment">${escapeHtml(commentPart)}</span>`;
+                        inBlockComment = true;
+                    } else {
+                        // No multi-line comment detected, or it's self-contained. Highlight normally.
+                        highlightedContentHtml = hljsInstance.highlight(lineText, { language: highlightLanguage, ignoreIllegals: true }).value;
+                    }
                 }
             } else {
                 highlightedContentHtml = escapeHtml(lineText);
             }
-
-            if (format === "html") {
-                if (line.startsWith('--- ') || line.startsWith('+++ ')) {
-                    outputLines.push(`<div class="header">${escapeHtml(line)}</div>`);
-                } else if (line.startsWith('@@ ')) {
-                    outputLines.push(`<div class="header">${escapeHtml(line)}</div>`);
-                } else if (line.startsWith('+')) {
-                    outputLines.push(`<div class="add">${highlightedContentHtml}</div>`);
-                } else if (line.startsWith('-')) {
-                    outputLines.push(`<div class="remove">${highlightedContentHtml}</div>`);
-                } else if (line.startsWith(' ')) {
-                    outputLines.push(`<div class="neutral">${highlightedContentHtml}</div>`);
-                } else if (line.trim() === '') {
-                    outputLines.push(`<div class="neutral"></div>`);
-                } else {
-                    outputLines.push(`<div class="neutral">${escapeHtml(line)}</div>`); // No highlight for non-diff lines
-                }
-            } else if (format === "markdown") {
-                if (line.startsWith('--- ') || line.startsWith('+++ ')) {
-                    outputLines.push(`\`\`\`diff\n${line}\n\`\`\``);
-                } else if (line.startsWith('@@ ')) {
-                    outputLines.push(`\`\`\`\n${line}\n\`\`\``);
-                } else if (line.startsWith('+')) {
-                    outputLines.push(`+ ${line.substring(1)}`);
-                } else if (line.startsWith('-')) {
-                    outputLines.push(`- ${line.substring(1)}`);
-                } else if (line.startsWith(' ')) {
-                    outputLines.push(`${line.substring(1)}`);
-                } else if (line.trim() === '') {
-                    outputLines.push('');
-                } else {
-                    outputLines.push(line);
-                }
-            }
+            outputLines.push(`<div class="${lineClass}">${highlightedContentHtml}</div>`);
         }
 
-        if (format === "html") {
-            return `<pre class="diff-output">${outputLines.join('')}</pre>`;
-        } else if (format === "markdown") {
-            return outputLines.join('\n');
-        } else {
-            console.warn(`Unsupported format: ${format}. Returning plain text.`);
-            return diffString;
-        }
+        return `<pre class="diff-output">${outputLines.join('')}</pre>`;
     }
 
      /**
