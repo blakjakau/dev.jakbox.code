@@ -475,7 +475,7 @@ button:disabled,
 .ai-filebar-container > .progress-bar {
 	width: calc(100% - 16px); /* Match padding of file-context-bar */
 	margin: 0 8px 6px 8px; /* Give it some space */
-	height: 4px;
+	height: 6px;
 	background-color: var(--themeDark);
 	border-radius: 4px;
 }
