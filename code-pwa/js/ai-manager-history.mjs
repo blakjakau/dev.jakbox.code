@@ -190,7 +190,7 @@ class AIManagerHistory {
 			wrapper.append(messageBlock);
 
 			if (nextMessageIsModel) {
-				const deleteButton = this._createDeleteButton(index);
+				const deleteButton = this._createDeleteButton(message.id);
 				wrapper.append(deleteButton);
 			}
 			element = wrapper;
@@ -234,22 +234,29 @@ class AIManagerHistory {
 	 * @param {number} userPromptIndex - The index of the user prompt in the `chatHistory` array.
 	 * @returns {Button} The configured delete button element.
 	 */
-	_createDeleteButton(userPromptIndex) {
+	_createDeleteButton(userMessageId) {
 		const deleteButton = new Button();
 		deleteButton.classList.add("delete-history-button");
 		deleteButton.icon = "delete";
 		deleteButton.title = "Delete this prompt and response";
-		deleteButton.on("click", () => this._handleDeleteHistoryItem(userPromptIndex));
+		deleteButton.on("click", () => this._handleDeleteHistoryItem(userMessageId));
 		return deleteButton;
 	}
 
 	/**
 	 * Handles the deletion of a user prompt and its subsequent model response.
-	 * REWRITTEN to perform direct DOM removal before modifying the active session's messages.
-	 * @param {number} userPromptIndex - The index in the active session's messages of the user prompt to remove.
+	 * This now uses the message ID to find the item dynamically, preventing issues with stale indices.
+	 * @param {string} userMessageId - The ID of the user prompt to remove.
 	 */
-	_handleDeleteHistoryItem(userPromptIndex) {
+	_handleDeleteHistoryItem(userMessageId) {
 		if (!this.manager.activeSession) return;
+
+		// Dynamically find the index of the message at click time to avoid stale references.
+		const userPromptIndex = this.chatHistory.findIndex(msg => msg.id === userMessageId);
+		if (userPromptIndex === -1) {
+			console.warn(`Attempted to delete a message with ID ${userMessageId} that was not found.`);
+			return;
+		}
 
 		// Get the IDs of the messages to remove from the DOM
 		const userMessage = this.chatHistory[userPromptIndex];
@@ -312,8 +319,8 @@ class AIManagerHistory {
 			// Check if a delete button already exists to prevent duplicates on re-renders
 			if (!userElement.querySelector(".delete-history-button")) {
 				const userPromptIndex = this.chatHistory.findIndex(msg => msg.id === userMessage.id);
-				if (userPromptIndex !== -1) {
-					const deleteButton = this._createDeleteButton(userPromptIndex);
+				if (userPromptIndex !== -1) { // Check that message is still in history
+					const deleteButton = this._createDeleteButton(userMessage.id);
 					userElement.append(deleteButton);
 				}
 			}
