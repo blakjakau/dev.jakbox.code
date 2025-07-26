@@ -1209,13 +1209,8 @@ class AIManager {
 				}
 			},
 			onDone: async (fullResponse, contextRatioPercent) => { // Mark async to await set
-				spinner.remove()
-				this.conversationArea.removeEventListener("scroll", scrollHandler)
-
-				responseBlock.innerHTML = this.md.render(fullResponse) // Final render
-				this._addCodeBlockButtons(responseBlock) // Add buttons after final response is rendered
-
-				// Add AI response to activeSession's messages for persistence
+				// First, update the session data and add the delete button to the user's prompt.
+				// This is safer than doing it after rendering, which could fail.
 				const modelMessage = {
 					id: modelMessageId, // Use the pre-generated ID
 					role: "model",
@@ -1224,10 +1219,15 @@ class AIManager {
 					timestamp: Date.now(),
 				};
 				this.activeSession.messages.push(modelMessage);
-				// Update lastModified timestamp and save the active session
 				this.historyManager.addInteractionToLastUserMessage(userMessage); // Add delete button to user prompt
 				this.activeSession.lastModified = Date.now();
 				await set(`ai-session-${this.activeSession.id}`, this.activeSession);
+
+				// Now, render the final response in the UI.
+				spinner.remove()
+				this.conversationArea.removeEventListener("scroll", scrollHandler)
+				responseBlock.innerHTML = this.md.render(fullResponse) // Final render
+				this._addCodeBlockButtons(responseBlock) // Add buttons after final response is rendered
 				
 				this._dispatchContextUpdate("append_model") // Dispatch after model response
 
