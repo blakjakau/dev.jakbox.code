@@ -217,6 +217,10 @@ class AIManagerHistory {
 				element.addEventListener('animationend', () => {
 					element.classList.remove('system-message-sticky-fade');
 				}, { once: true });
+				// Also add a click listener to dismiss the notice immediately.
+				element.addEventListener('click', () => {
+					element.classList.remove('system-message-sticky-fade');
+				}, { once: true });
 			}
 		}
 

@@ -601,6 +601,13 @@ ui-tabbar.tabs-inverted[slim] > ui-tab-item[active] {
     border: 1px solid var(--theme); /* Highlight it */
     font-style: normal; /* Override system-message-block italic */
     text-align: center;
+    /* New styles for sticky behavior */
+    position: sticky;
+    bottom: 0;
+    z-index: 4; /* Above other messages */
+    background-color: var(--dark); /* Solid background to obscure content behind it */
+    box-shadow: 0 -5px 10px rgba(0,0,0,0.2); /* Shadow on top to lift it from the content */
+    padding: 8px 16px; /* Ensure consistent padding */
 }
 
 .system-message-block + .system-message-block.context-stale-notice {
