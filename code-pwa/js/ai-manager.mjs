@@ -217,9 +217,6 @@ class AIManager {
 		const buttonContainer = new Block()
 		buttonContainer.classList.add("button-container");
 
-		// NEW: Context Stale Notice Bar
-		this.contextStaleNotice = this._createContextStaleNotice();
-
 		const spacer = new Block()
 		spacer.classList.add("spacer")
 
@@ -245,7 +242,6 @@ class AIManager {
 		buttonContainer.append(settingsButton) // Append settings button to the right
 
 		promptContainer.append(this.promptArea)
-		promptContainer.append(this.contextStaleNotice); // Add the new notice bar here
 		promptContainer.append(buttonContainer)
 
 		return promptContainer
@@ -351,37 +347,48 @@ class AIManager {
 	/**
 	 * NEW METHOD: Creates the UI element for displaying context currency warnings.
 	 */
-	_createContextStaleNotice() {
-		const noticeBar = document.createElement("div");
-		noticeBar.classList.add("notice-bar", "context-stale-notice");
-		noticeBar.style.display = "none"; // Hidden by default
-		noticeBar.innerHTML = `
-			<span class="message">Some files in the chat context have changed or are no longer available.</span>
-			<button class="update-button">Update Context</button>
-			<button class="keep-old-button">Keep Old</button>
+	_createContextStaleNoticeElement() {
+		const noticeBlock = new Block();
+		// This notice is now an inline chat message. It reuses system-message styling
+		// and removes the old 'notice-bar' class to avoid CSS conflicts.
+		noticeBlock.classList.add("system-message-block", "context-stale-notice");
+		noticeBlock.innerHTML = `
+			<span class="message"></span>
+			<div class="button-group">
+				<button class="update-button">Update Context</button>
+				<button class="keep-old-button">Keep Old</button>
+			</div>
 		`;
 
-		noticeBar.querySelector(".update-button").addEventListener("click", () => {
+		noticeBlock.querySelector(".update-button").addEventListener("click", () => {
 			if (this._contextStaleResolve) {
 				this._contextStaleResolve(true); // User chose to update
 				this._hideContextStaleNotice();
 			}
 		});
 
-		noticeBar.querySelector(".keep-old-button").addEventListener("click", () => {
+		noticeBlock.querySelector(".keep-old-button").addEventListener("click", () => {
 			if (this._contextStaleResolve) {
 				this._contextStaleResolve(false); // User chose to keep old
 				this._hideContextStaleNotice();
 			}
 		});
-		return noticeBar;
+		return noticeBlock;
+	}
+	
+	_showContextStaleNotice(message) {
+		this.contextStaleNotice = this._createContextStaleNoticeElement();
+		this.contextStaleNotice.querySelector(".message").innerHTML = this.md.render(message);
+		this.conversationArea.append(this.contextStaleNotice);
+		this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
 	}
 
-	_showContextStaleNotice(message) {
-		this.contextStaleNotice.querySelector(".message").textContent = message;
-		this.contextStaleNotice.style.display = "flex";
+	_hideContextStaleNotice() {
+		if (this.contextStaleNotice && this.contextStaleNotice.parentElement) {
+			this.contextStaleNotice.remove();
+		}
+		this.contextStaleNotice = null;
 	}
-	_hideContextStaleNotice() { this.contextStaleNotice.style.display = "none"; }
 
 	// Helper to disable/enable relevant buttons
 	_setButtonsDisabledState(disabled) {
@@ -1399,7 +1406,7 @@ class AIManager {
                             type: "system_message",
                             content: `Diff successfully applied to **${targetPath}**. Remember to save the file.`,
                             timestamp: Date.now(),
-                        });
+                        }, false); // Pass false to prevent auto-scrolling
                     }
                 });
                 buttonContainer.append(applyDiffButton);

@@ -459,19 +459,12 @@ button:disabled,
     max-width: 150px; 
 }
 
-.context-stale-notice {
-    background-color: var(--dark); 
-    color: #fff; 
-    padding: 6px;
-    display: flex;
-    justify-content: space-between; 
-    align-items: center;
-    gap: 6px; 
-    z-index: 1000; 
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); 
-    border-radius: 5px; 
-    border: 1px solid var(--theme);
-	margin: 8px 0; /* Add margin to separate from prompt area */
+.ai-file-context-bar {
+	flex-wrap: wrap;
+	gap: 6px;
+	padding: 6px 8px;
+	max-height: 150px; /* Limit height and allow scrolling if needed */
+	overflow-y: auto;
 }
 
 .ai-filebar-container {
@@ -484,13 +477,6 @@ button:disabled,
 	flex-direction: column;
 }
 
-.ai-file-context-bar {
-	flex-wrap: wrap;
-	gap: 6px;
-	padding: 6px 8px;
-	max-height: 150px; /* Limit height and allow scrolling if needed */
-	overflow-y: auto;
-}
 
 .ai-filebar-container > .progress-bar {
 	width: calc(100% - 16px); /* Match padding of file-context-bar */
@@ -498,15 +484,6 @@ button:disabled,
 	height: 6px;
 	background-color: var(--themeDark);
 	border-radius: 4px;
-}
-
-
-.context-stale-notice .message {
-    flex-grow: 1; 
-    text-align: center;
-}
-.context-stale-notice button {
-    padding: 4px 10px;
 }
 
 .button-container {
@@ -579,3 +556,40 @@ ui-tabbar.tabs-inverted[slim] > ui-tab-item[active] {
 }
 
 /* ... (rest of CSS) ... */
+
+/* Styles for the new in-thread context stale notice */
+.context-stale-notice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px; /* Space between message and button group */
+    border: 1px solid var(--theme); /* Highlight it */
+    font-style: normal; /* Override system-message-block italic */
+    text-align: center;
+}
+
+.system-message-block + .system-message-block.context-stale-notice {
+	margin-top:0px;
+}
+
+.context-stale-notice .button-group {
+    display: flex;
+    gap: 8px;
+}
+
+/* Style the buttons to look consistent */
+.context-stale-notice button {
+    padding: 6px 12px;
+    border-radius: var(--borderRadius);
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    background-color: var(--low);
+    color: var(--button-text-color);
+    font-size: 0.9em;
+}
+.context-stale-notice .update-button {
+    background-color: var(--theme);
+    border-color: var(--theme);
+    color: var(--light);
+}
+.context-stale-notice button:hover { filter: brightness(1.2); }

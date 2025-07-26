@@ -62,14 +62,15 @@ class AIManagerHistory {
 	/**
 	 * Adds a message object to the active session's history and re-renders the UI.
 	 * @param {Object} messageObject - The message to add (e.g., {type: "system_message", content: "..."}).
+	 * @param {boolean} [autoScroll=true] - Whether to automatically scroll to the bottom.
 	 */
-	addMessage(messageObject) {
+	addMessage(messageObject, autoScroll = true) {
 		if (this.manager.activeSession) {
 			this.manager.activeSession.messages.push(messageObject);
 			this.manager.activeSession.lastModified = Date.now();
 			this.render(); // Re-render to show the new message
 			// Scroll to the bottom of the conversation area to make the new message visible
-			if (this.conversationArea) {
+			if (this.conversationArea && autoScroll) {
 				this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
 			}
 			this.manager._dispatchContextUpdate("add_message", { messageType: messageObject.type });
