@@ -144,142 +144,85 @@ self.addEventListener("activate", (event) => {
 	self.clients.claim()
 })
 
-self.addEventListener("fetch", function (event) {
-	const url = new URL(event.request.url)
+self.addEventListener("fetch", (event) => {
+	event.respondWith(
+		(async () => {
+			const url = new URL(event.request.url);
 
-	// Special handler for version request
-	if (url.pathname.endsWith("/version.json")) {
-		console.debug("[service] Intercepted /version.json request");
-		const responseBody = { appName: "code.jakbox.dev", version: APP_VERSION };
-		const jsonResponse = new Response(JSON.stringify(responseBody), {
-			headers: { "Content-Type": "application/json" },
-		});
-		event.respondWith(jsonResponse); // Provide the custom response
-		return; // Ensure no further processing for this request
-	}
-    // --- NEW: Do not cache calls to external APIs like Gemini ---
-    if (NON_CACHEABLE_HOSTS.includes(url.hostname)) {
-        console.debug("[service] Bypassing cache for external API:", url.href);
-        event.respondWith(fetch(event.request)); // Go directly to network
-        return; // Important: Exit here to prevent any further caching logic for this request
-    }
+			// --- Priority 1: Special Handlers (that don't touch cache) ---
 
-	// Do not cache Ollama API requests (your existing logic)
-	// This specifically targets your local /api/ path, which is good.
-	if (url.pathname.startsWith("/api/")) {
-		console.debug("[service] Bypassing cache for internal API:", url.href);
-		event.respondWith(fetch(event.request));
-		return;
-	}
+			// Special handler for version request. This is top priority.
+			if (url.pathname.endsWith("/version.json")) {
+				console.debug("[service] Intercepting and responding to /version.json");
+				const responseBody = { appName: "code.jakbox.dev", version: APP_VERSION };
+				return new Response(JSON.stringify(responseBody), {
+					headers: { "Content-Type": "application/json" },
+				});
+			}
 
-	
-	if (event.request.mode === "navigate") {
-		event.respondWith(
-			(async () => {
-				console.debug("[service]", event.request.mode, event.request.url)
-				const cache = await caches.open(CACHE_PRELOAD)
+			// Do not cache calls to external or internal APIs.
+			if (NON_CACHEABLE_HOSTS.includes(url.hostname) || url.pathname.startsWith("/api/")) {
+				console.debug("[service] Bypassing cache for API request:", url.href);
+				return fetch(event.request);
+			}
 
-				const preloadResponse = await event.preloadResponse.catch(console.warn)
-				if (preloadResponse) {
-					return preloadResponse
+			// --- Priority 2: Handle Navigation Requests ---
+
+			if (event.request.mode === "navigate") {
+				try {
+					// Try network first for navigation.
+					const networkResponse = await fetch(event.request);
+					// If successful, update the cache.
+					const cache = await caches.open(CACHE_PRELOAD);
+					cache.put(event.request, networkResponse.clone());
+					return networkResponse;
+				} catch (error) {
+					// Network failed, serve the offline page from the cache.
+					console.warn("[service] Navigation failed, serving offline page.", error);
+					const cache = await caches.open(CACHE_PRELOAD);
+					return await cache.match(OFFLINE_URL);
 				}
+			}
 
-				const networkResponse = await fetch(event.request).catch(console.warn)
-				const cached = await cache.match(event.request.url)
+			// --- Priority 3: Handle All Other Requests (Assets, etc.) ---
 
-				if (networkResponse && !cached) {
-					console.warn("[service] [request]", event.request.url, "updating cache")
-                    // For navigation requests, assume they are internal and cacheable.
-                    // This is less likely to be an external API but could be.
-                    // If navigation leads to an external domain, the NON_CACHEABLE_HOSTS check above handles it.
-					await cache.add(new Request(event.request.url)) // Or use put if you have the response already
-					return networkResponse
+			// Development-specific substitutions
+			const isDev = self.location.hostname === "localhost";
+			if (isDev) {
+				let substituteUrl;
+				if (event.request.url.includes("manifest.json")) {
+					substituteUrl = event.request.url.replace("manifest.json", "manifest_dev.json");
+				} else if (event.request.url.includes("favicon.png")) {
+					substituteUrl = event.request.url.replace("favicon.png", "favicon_dev.png");
 				}
-
-				if (!cached) {
-					const offline = await cache.match(OFFLINE_URL)
-					return offline
+				if (substituteUrl) {
+					console.log("[service] [dev-substitute]", substituteUrl);
+					return fetch(substituteUrl);
 				}
-				console.debug("[service] [cached]", event.request.url)
-				return cached
-			})()
-		)
-	} else {
-		event.respondWith(
-			(async () => {
-				const preload = await caches.open(CACHE_PRELOAD)
-				const offline = await caches.open(CACHE_OFFLINE)
+			}
 
-				// filter some url's for DEV
-				const dev = self.location.hostname == "localhost"
-				if (dev) {
-					let substitute
-					if (event.request.url.indexOf("manifest.json") > 0) {
-						substitute = event.request.url.replace("manifest.json", "manifest_dev.json")
-					}
-					if (event.request.url.indexOf("favicon.png") > 0) {
-						substitute = event.request.url.replace("favicon.png", "favicon_dev.png")
-					}
+			// Cache-first strategy for assets
+			const cache = await caches.open(CACHE_OFFLINE);
+			const cachedResponse = await cache.match(event.request);
+			if (cachedResponse) {
+				console.debug("[service] [cache] Serving from cache:", event.request.url);
+				return cachedResponse;
+			}
 
-					if (substitute) {
-						console.log("[service] [dev-substitute]", substitute)
-						return fetch(new Request(substitute)).catch(console.warn)
-					}
+			// If not in cache, fetch from network, cache it, and return it.
+			try {
+				const networkResponse = await fetch(event.request);
+				// Check for valid response before caching
+				if (networkResponse && networkResponse.status === 200) {
+					console.debug("[service] [network] Caching new asset:", event.request.url);
+					await cache.put(event.request, networkResponse.clone());
 				}
-
-				const preloadResponse = await event.preloadResponse
-				if (preloadResponse) {
-					return preloadResponse
-				}
-
-				const preloaded = await preload.match(event.request.url)
-
-				if (preloaded) {
-					console.debug("[service] [cache] preload", event.request.url)
-					return preloaded
-				}
-
-				if (!navigator.onLine) {
-					const cached = await offline.match(event.request.url)
-					if (cached) {
-						console.debug("[service] [cache] offline", event.request.url)
-						return cached
-					} else {
-						console.error("[service] resource not cached :( ", event.request.url)
-						return null
-					}
-				}
-
-				const networkResponse = await fetch(event.request).catch(console.warn)
-
-				if (networkResponse) {
-					console.debug("[service] [updating] ", event.request.url)
-					if (event.request.url.indexOf("http") === 0) { // Ensures it's an HTTP/S request
-                        // Only cache GET requests and non-cacheable hosts are already filtered out
-                        // by the check at the top of the fetch listener.
-                        // However, a double-check here adds robustness.
-                        if (event.request.method === 'GET' && !NON_CACHEABLE_HOSTS.includes(url.hostname)) {
-                            // --- MODIFICATION: Using .put() with .clone() ---
-                            // We clone the response because networkResponse will be consumed when returned.
-                            // If we want to also put it in cache, we need a separate copy.
-                            await offline.put(event.request.url, networkResponse.clone());
-                            console.debug("[service] Cached via .put():", event.request.url);
-                        }
-					}
-					return networkResponse
-				}
-
-				// Fallback to cache if network failed and no other response found
-                const cached = await offline.match(event.request.url) // Re-check if it's in offline cache
-                if (cached) {
-                    console.debug("[service] [cached] (fallback)", event.request.url);
-                    return cached;
-                }
-
-				console.error("[service] No response found for", event.request.url);
-				return null; // If neither network nor cache has it
-			})()
-		)
-	}
+				return networkResponse;
+			} catch (error) {
+				console.error("[service] Asset fetch failed, and not in cache:", event.request.url, error);
+				return new Response("", { status: 404, statusText: "Not Found" });
+			}
+		})()
+	);
 })
 

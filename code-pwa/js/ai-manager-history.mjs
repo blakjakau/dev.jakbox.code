@@ -34,8 +34,9 @@ class AIManagerHistory {
 			this.manager.activeSession.messages = []; // Clear the active session's messages
 			this.manager.activeSession.promptInput = ""; // Clear its current prompt input
 			this.manager.activeSession.promptHistory = []; // Clear its command history
-			this.manager.promptArea.value = ""; // Clear the UI prompt area
-			this.manager.promptIndex = -1; // Reset prompt history index
+			this.manager.promptEditor.setValue(""); // Clear the UI prompt area via ACE API
+			this.manager.promptIndex = 0; // Reset prompt history index to the "new prompt" line
+			this.manager._unsentPromptBuffer = null; // Also clear the unsent prompt buffer
 			this.manager._resizePromptArea(); // Resize prompt area after clearing
 		}
 		this.manager.fileBar.clear(); // Clear the file context bar

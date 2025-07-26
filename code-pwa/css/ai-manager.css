@@ -108,27 +108,36 @@
     /* position: sticky; */ /* This can cause layout issues with flexbox; flex handles this better */
     /* bottom: 0; */
     /*padding-top: 8px;*/
-    padding-bottom: 8px;
+    padding: 8px 0;
     background-color: var(--background-color);
     /*border-top: 1px solid var(--themeDark);*/
     display: flex;
     flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0; /* Prevents the container from being shrunk by the parent flexbox, allowing it to grow with its content. */
 }
 
-.prompt-area {
-    flex: 1;
+.prompt-area { /* This now targets the container DIV for ACE */
     box-sizing: border-box;
     width: 100%;
     border: none;
     outline: none;
     border-radius: var(--borderRadius);
-    background-color: rgba(0, 0, 0, 0.25);
-    color: var(--button-text-color);
-    font-family: var(--font-family);
-    padding: 8px;
-    resize: none; 
-    overflow-y: auto;
-    max-height: 512px;
+    /*padding: 8px; */
+    /* The following are managed by ACE's internal rendering and options */
+    /* resize: none; */
+    /* overflow-y: auto; */
+    /*max-height: 50%; */
+}
+
+/* Specific styles for the ACE editor instance inside the prompt area */
+.prompt-area .ace_editor {
+    height: auto !important; /* Allow ACE to calculate height based on minLines/maxLines */
+    min-height: 24px; /* Ensure at least one line height */
+}
+.prompt-area .ace_print-margin,
+.prompt-area .ace_gutter {
+    display: none !important; /* Hide print margin and gutter for the prompt editor */
 }
 
 .prompt-area:disabled {
@@ -291,6 +300,13 @@
     transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
     box-shadow: 0 1px 3px rgba(0,0,0,0.5); 
     z-index: 1;
+}
+
+/* ACE Editor read-only state, specifically for the prompt editor */
+.prompt-area .ace_editor.ace_read-only {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background-color: rgba(0, 0, 0, 0.15);
 }
 
 .delete-history-button:hover {

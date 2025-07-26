@@ -49,7 +49,7 @@ ui.create()
 window.ui = ui
 window.code = {
 	version: (()=>{
-		const last="0.3.2"
+		const last="0.4.2"
 		 fetch("/version.json").then(async response=>{
 			const version = await response.json()
 			if(version.appName && version.version) {
@@ -573,11 +573,12 @@ const execCommandPrettify = () => {
 
 const execCommandEditorOptions = () => {
 	for (const editor of window.editors) {
-		if (app.sessionOptions && editor.id !== "editor3") {
+		// Exclude special editors from global session/renderer options
+		if (app.sessionOptions && !['scratch-editor', 'ai-prompt-editor'].includes(editor.id)) {
 			editor.session.setOptions(app.sessionOptions);
 		}
-		if (app.rendererOptions) {
-			editor.renderer.setOptions(app.rendererOptions);
+		if (app.rendererOptions && !['scratch-editor', 'ai-prompt-editor'].includes(editor.id)) {
+ 			editor.renderer.setOptions(app.rendererOptions);
 		}
 		if (app.enableLiveAutocompletion) {
 			editor.$enableLiveAutocompletion = app.enableLiveAutocompletion;
@@ -726,7 +727,11 @@ const execCommandNewFile = async () => {
 	const srcTab = ui.currentTabs.activeTab
 	const mode = srcTab?.config?.mode?.mode || "";
 	const folder = srcTab?.config?.folder || undefined;
-	const newSession = ace.createEditSession("", mode);
+	const newSession = ace.createEditSession("", mode);	
+	// Apply stored session options to the new session
+	if (app.sessionOptions) {
+		newSession.setOptions(app.sessionOptions);
+	}
 	newSession.baseValue = "";
 
 	let targetTabs = ui.currentTabs
@@ -1703,6 +1708,9 @@ setTimeout(async () => {
 		app.sessionOptions = stored?.sessionOptions || null
 		app.rendererOptions = stored?.rendererOptions || null
 		app.enableLiveAutocompletion = stored?.enableLiveAutocompletion || null
+
+		// Apply any stored editor settings immediately after loading them.
+		execCommandEditorOptions();
 
 		app.workspace = stored?.workspace || "default"
 		app.workspaces = stored?.workspaces || [app.workspace]

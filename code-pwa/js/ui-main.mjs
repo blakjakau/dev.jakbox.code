@@ -106,6 +106,7 @@ const uiManager = {
 		filesPanel.append(fileList);
 		// The AI Panel creation is delegated to aiManager.init(aiManagerPanel)
         // Ensure aiManagerPanel exists for aiManager to append its UI
+		// aiManager.panel is set here for the first time
 		const aiManagerPanel = new SidebarPanel();
 		aiManager.init(aiManagerPanel) 
         // as we need global app/workspace config loaded before aiManager fully initializes.
@@ -714,6 +715,9 @@ const uiManager = {
 		window.leftEdit = leftEdit = ace.edit(leftHolder.editorElement)
 		window.rightEdit = rightEdit = ace.edit(rightHolder.editorElement)
 		
+		leftEdit.id = "left-editor"
+		rightEdit.id = "right-editor"
+		
 		leftHolder.editor = leftEdit
 		rightHolder.editor = rightEdit
 		
@@ -727,6 +731,7 @@ const uiManager = {
 		ace.require("ace/etc/keybindings_menu")
 
 		scratchEditor = ace.edit(scratchEditorElement);
+		scratchEditor.id = "scratch-editor"
 		
 		window.editors.push(scratchEditor);
 

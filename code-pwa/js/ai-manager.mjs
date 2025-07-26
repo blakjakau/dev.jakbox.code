@@ -11,6 +11,24 @@ import hljs from "./tools/highlightjs.mjs"
 
 const MAX_PROMPT_HISTORY = 50 // This is now PER-SESSION
 
+const promptEditorSettings = {
+	useSoftTabs: false,
+	tabSize: 4,
+	newLineMode: "auto",
+	fontSize: 12,
+	fontFamily: "roboto mono",
+	minLines: 3,
+	maxLines: 20,
+	wrap: true,
+	indentedSoftWrap: false,
+	showGutter: false,
+	highlightActiveLine: false,
+	showPrintMargin: false,
+
+	// enableBasicAutocompletion: true,
+	// indentedSoftWrap: false
+}
+
 class AIManager {
 	constructor() {
 		this.ai = null
@@ -29,7 +47,7 @@ class AIManager {
 		
 
 		this.panel = null
-		this.promptArea = null
+		this.promptEditor = null // Will hold the ACE editor instance
 		this.conversationArea = null
 		this.chatContainer = null;
 		this.fileBar = null; // NEW: for file context chips
@@ -71,6 +89,7 @@ class AIManager {
 		this.activeSessionId = null; // ID of the currently active session
 		this.activeSession = null; // The full active session object {id, name, messages, promptInput, promptHistory}
 		this.promptIndex = -1; // Index for the current session's prompt history (Ctrl+Up/Down)
+		this._unsentPromptBuffer = null; // NEW: To store unsubmitted prompt during history navigation
 
 		// NEW: Session TabBar properties
 		this.sessionTabBar = null;
@@ -113,6 +132,7 @@ class AIManager {
 		}
 
 		this._createUI();
+		this._initPromptEditor();
 		this._setupPanel();
 		
 		this._updateAIInfoDisplay();
@@ -130,7 +150,7 @@ class AIManager {
 	}
 
 	focus() {
-		this.promptArea?.focus()
+		this.promptEditor?.focus()
 	}
 
 	_setupPanel() {
@@ -248,70 +268,101 @@ class AIManager {
 	}
 
 	_createPromptArea() {
-		const promptArea = document.createElement("textarea")
-		promptArea.classList.add("prompt-area")
-		// Update placeholder based on AI configuration
-		this._updatePromptAreaPlaceholder(promptArea);
+		// This now creates the container for the ACE editor.
+		const promptAreaContainer = document.createElement("div")
+		promptAreaContainer.classList.add("prompt-area")
+		promptAreaContainer.setAttribute("id", "ai-prompt-editor-container")
+		// The editor instance is created and configured in _initPromptEditor
+		return promptAreaContainer;
+	}
 
-		// Moved the resize logic into a new method _resizePromptArea
-		promptArea.addEventListener("keydown", (e) => {
-			// NEW: Ctrl+Enter sends the message. A simple Enter creates a new line by default.
-			if (e.ctrlKey && e.key === "Enter") {
-				e.preventDefault()
-				this.generate()
-				return
+	// NEW METHOD: Initialize the ACE editor for the prompt area
+	_initPromptEditor() {
+		if (!window.ace || !this.promptArea) return; // Ensure ACE and container are ready
+
+		this.promptEditor = ace.edit(this.promptArea);
+		this.promptEditor.id = "ai-prompt-editor"
+		this.promptEditor.session.setMode("ace/mode/markdown");
+		this.promptEditor.setOptions(promptEditorSettings)
+		this.promptEditor.renderer.setScrollMargin(4, 4, 4, 4);
+
+		// Sync theme and keybindings with the main editor
+		if (window.editors && window.editors.length > 0) {
+			const mainEditor = window.editors[0];
+			this.promptEditor.setTheme(mainEditor.getTheme());
+			// disabled this, we actually don't want to sync the keyboard handler
+			// this.promptEditor.setKeyboardHandler(mainEditor.getKeyboardHandler());
+			if (!window.editors.includes(this.promptEditor)) {
+				window.editors.push(this.promptEditor);
 			}
-			if (e.ctrlKey && e.key === "ArrowUp") {
-				e.preventDefault()
-				// Use active session's prompt history
-				if (this.activeSession?.promptHistory && this.activeSession.promptHistory.length > 0) {
-					this.promptIndex = Math.max(0, this.promptIndex - 1)
-					this.promptArea.value = this.activeSession.promptHistory[this.promptIndex]
-					this._resizePromptArea()
-				}
-				return
-			}
-			if (e.ctrlKey && e.key === "ArrowDown") {
-				e.preventDefault()
-				// Use active session's prompt history
-				if (this.activeSession?.promptHistory && this.activeSession.promptHistory.length > 0) {
-					this.promptIndex = Math.min(this.activeSession.promptHistory.length, this.promptIndex + 1) // Allow going one past history for empty
+		}
+		
+		// NEW: Remove default conflicting keybindings before adding our own.
+		this.promptEditor.on("ready", ()=>{
+			console.log("removing some default commands")
+			this.promptEditor.commands.removeCommand('movelinesup');
+			this.promptEditor.commands.removeCommand('movelinesdown');
+		})
+
+		this.promptEditor.commands.addCommand({
+			name: "submitPrompt",
+			bindKey: { win: "Ctrl-Enter", mac: "Ctrl-Enter|Command-Enter" },
+			exec: () => this.generate(),
+		});
+
+		this.promptEditor.commands.addCommand({
+			name: "promptHistoryUp",
+			bindKey: { win: "Alt-Up", mac: "Alt-Up" },
+			exec: () => {
+				if (this.activeSession?.promptHistory?.length > 0) {
+					// If we are at the "new prompt" line, save the current input before navigating up.
 					if (this.promptIndex === this.activeSession.promptHistory.length) {
-						this.promptArea.value = ""
-					} else {
-						this.promptArea.value = this.activeSession.promptHistory[this.promptIndex]
+						this._unsentPromptBuffer = this.promptEditor.getValue();
 					}
-					this._resizePromptArea()
+					this.promptIndex = Math.max(0, this.promptIndex - 1);
+					this.promptEditor.setValue(this.activeSession.promptHistory[this.promptIndex] || "", -1);
 				}
-				return
-			}
-		})
-		promptArea.addEventListener("input", () => {
-			this._resizePromptArea() // Call the new method
-		})
-		return promptArea
+			},
+		});
+
+		this.promptEditor.commands.addCommand({
+			name: "promptHistoryDown",
+			bindKey: { win: "Alt-Down", mac: "Alt-Down" },
+			exec: () => {
+				if (this.activeSession?.promptHistory?.length > 0) {
+					this.promptIndex = Math.min(this.activeSession.promptHistory.length, this.promptIndex + 1);
+					// If we navigate to the end, restore the unsent buffer; otherwise, use history.
+					const prompt = this.promptIndex === this.activeSession.promptHistory.length 
+						? (this._unsentPromptBuffer || "") 
+						: this.activeSession.promptHistory[this.promptIndex];
+					this.promptEditor.setValue(prompt || "", -1);
+				}
+			},
+		});
+
+		this.promptEditor.on("change", () => this._resizePromptArea());
+		this.promptEditor.resize(); // Perform initial resize
 	}
 
 	// NEW METHOD: Encapsulates prompt area resizing logic
 	_resizePromptArea() {
-		if (this.promptArea) {
-            this.promptArea.style.height = "auto"; // Reset height before calculating scrollHeight
-			this.promptArea.style.minHeight = "auto" // Reset min-height to allow shrinking
-			void this.promptArea.offsetHeight // Force reflow to get accurate scrollHeight
-			this.promptArea.style.minHeight = Math.min(360, this.promptArea.scrollHeight) + "px"
+		if (this.promptEditor) {
+			// ACE's auto-resize is handled by minLines/maxLines options.
+			// We just need to call resize() to trigger it.
+			this.promptEditor.resize();
 		}
 	}
 
     // NEW METHOD: Updates the prompt area placeholder text based on AI configuration
-    _updatePromptAreaPlaceholder(promptArea = this.promptArea) {
-        if (!promptArea) return;
+    _updatePromptAreaPlaceholder() {
+        if (!this.promptEditor) return;
 
         if (this.ai && this.ai.isConfigured()) {
-            promptArea.placeholder = "Enter your prompt here...";
-            promptArea.removeAttribute('disabled');
+			this.promptEditor.setReadOnly(false);
+            this.promptEditor.setOption("placeholder", "Enter your prompt here...");
         } else {
-            promptArea.placeholder = "AI is not configured. Go to Settings (gear icon) to set up a provider.";
-            promptArea.setAttribute('disabled', 'true');
+			this.promptEditor.setReadOnly(true);
+            this.promptEditor.setOption("placeholder", "AI is not configured. Go to Settings (gear icon) to set up a provider.");
         }
     }
 
@@ -851,11 +902,11 @@ class AIManager {
 	async switchSession(sessionId) {
 		// If we are already on this session, do nothing.
 		// The TabBar might fire a click on an already-active tab.
-		if (this.activeSessionId === sessionId) return;
+		if (this.activeSessionId === sessionId && this.activeSession) return;
 
 		// Save the state of the *current* active session (if any)
 		if (this.activeSession && this.activeSession.id) {
-			this.activeSession.promptInput = this.promptArea.value;
+			this.activeSession.promptInput = this.promptEditor.getValue();
 			this.activeSession.scrollTop = this.conversationArea.scrollTop; // Save current scroll position
 			const currentSessionMeta = this.allSessionMetadata.find(s => s.id === this.activeSession.id);
 			if (currentSessionMeta) currentSessionMeta.lastModified = Date.now();
@@ -875,6 +926,7 @@ class AIManager {
 		// Update manager's state
 		this.activeSession = newSessionData;
 		this.activeSessionId = sessionId;
+		this._unsentPromptBuffer = null; // Clear any pending unsent prompt from the previous session
 		
 		// Update the rest of the UI based on the new data
 		// Do NOT auto-scroll to bottom. Instead, restore saved scroll position.
@@ -882,7 +934,7 @@ class AIManager {
 		// Restore scroll position after content has been rendered
 		// A small timeout ensures the DOM has updated before setting scroll.
 		setTimeout(() => { this.conversationArea.scrollTop = this.activeSession.scrollTop || 0; }, 0); 
-		this.promptArea.value = this.activeSession.promptInput || "";
+		this.promptEditor.setValue(this.activeSession.promptInput || "", -1);
 		this.promptIndex = (this.activeSession.promptHistory?.length || 0);
 		this._resizePromptArea();
         this._setButtonsDisabledState(this._isProcessing);
@@ -1011,10 +1063,11 @@ class AIManager {
             return;
         }
 
+		this._unsentPromptBuffer = null; // Clear the unsent prompt buffer on submission.
 		this._isProcessing = true
 		this._setButtonsDisabledState(true)
 
-		const userPrompt = this.promptArea.value.trim()
+		const userPrompt = this.promptEditor.getValue().trim()
 
 		if (!userPrompt) {
 			this._isProcessing = false
@@ -1041,7 +1094,7 @@ class AIManager {
 		}
 
 		// Reset the promptArea height after submitting the prompt
-		this.promptArea.value = ""
+		this.promptEditor.setValue("")
 		this._resizePromptArea();
 
 		// No longer dispatch "new-prompt" globally, prompt history is per-session
