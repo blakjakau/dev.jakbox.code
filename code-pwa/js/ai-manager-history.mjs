@@ -64,13 +64,17 @@ class AIManagerHistory {
 	 * @param {Object} messageObject - The message to add (e.g., {type: "system_message", content: "..."}).
 	 * @param {boolean} [autoScroll=true] - Whether to automatically scroll to the bottom.
 	 */
-	addMessage(messageObject, autoScroll = true) {
+	addMessage(messageObject, autoScroll = true) { // Default remains true for other message types
 		if (this.manager.activeSession) {
+			// New logic: System messages should never cause an auto-scroll.
+			if (messageObject.type === 'system_message') {
+				autoScroll = false;
+			}
+
 			this.manager.activeSession.messages.push(messageObject);
 			this.manager.activeSession.lastModified = Date.now();
-			this.render(); // Re-render to show the new message
-			// Scroll to the bottom of the conversation area to make the new message visible
-			if (this.conversationArea && autoScroll) {
+			this.render({ isNewMessage: true }); // Re-render to show the new message, flagging it as new
+			if (this.conversationArea && autoScroll) { // Scroll only if requested and not a system message
 				this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
 			}
 			this.manager._dispatchContextUpdate("add_message", { messageType: messageObject.type });
@@ -101,7 +105,7 @@ class AIManagerHistory {
 	 * The main render method, used when loading a full session history.
 	 * Clears the existing UI and rebuilds it from the current chatHistory.
 	 */
-	render() {
+	render({ isNewMessage = false } = {}) {
 		if (!this.conversationArea) return
 		this.conversationArea.innerHTML = "" // Clear existing UI
 
@@ -120,7 +124,7 @@ class AIManagerHistory {
 			const message = this.chatHistory[i];
 			// Skip file_context messages as they are in the fileBar
 			if (message.type !== 'file_context') {
-				const element = this._createMessageElement(message, i);
+				const element = this._createMessageElement(message, i, isNewMessage);
 				if (element) this.conversationArea.append(element);
 			}
 		}
@@ -163,7 +167,7 @@ class AIManagerHistory {
 	 * @param {number} index The message's index in the chat history array (needed for delete button logic).
 	 * @returns {HTMLElement|null} The generated DOM element or null if message is invalid.
 	 */
-	_createMessageElement(message, index) { // Add index parameter here
+	_createMessageElement(message, index, isNew = false) { // Add isNew parameter here
 		if (!message.id) { // If message doesn't have an ID (e.g., loaded from old session data)
 			message.id = crypto.randomUUID(); // Assign a new one
 		}
@@ -205,6 +209,15 @@ class AIManagerHistory {
 			element.classList.add("system-message-block");
 			element.dataset.messageId = message.id; // Store message ID on system message
 			element.innerHTML = this.md.render(message.content);
+
+			// If this render was triggered by a new message, and this is that new message, make it sticky.
+			if (isNew && message.type === 'system_message' && index === this.chatHistory.length - 1) {
+				element.classList.add("system-message-sticky-fade");
+				// When the animation completes, remove the class to revert its position.
+				element.addEventListener('animationend', () => {
+					element.classList.remove('system-message-sticky-fade');
+				}, { once: true });
+			}
 		}
 
 		return element;
@@ -435,7 +448,7 @@ class AIManagerHistory {
 				this.manager.activeSession.messages.push(systemMessage); // Append system message to the end
 				this.manager.activeSession.lastModified = Date.now(); // Update last modified timestamp for the session
 
-				this.render()
+				this.render({ isNewMessage: true }); // Render with the new summary and flag the last message as new and sticky
 				this.manager._dispatchContextUpdate("summarize", {
 					summaryDetails: { tokensBefore: tokensBeforeSummary, tokensAfter: tokensAfterSummary },
 				})

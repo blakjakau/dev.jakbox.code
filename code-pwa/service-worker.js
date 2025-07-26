@@ -149,16 +149,14 @@ self.addEventListener("fetch", function (event) {
 
 	// Special handler for version request
 	if (url.pathname.endsWith("/version.json")) {
-		console.debug(url)
+		console.debug("[service] Intercepted /version.json request");
+		const responseBody = { appName: "code.jakbox.dev", version: APP_VERSION };
+		const jsonResponse = new Response(JSON.stringify(responseBody), {
+			headers: { "Content-Type": "application/json" },
+		});
+		event.respondWith(jsonResponse); // Provide the custom response
+		return; // Ensure no further processing for this request
 	}
-	// 	const responseBody = { appName: "code.jakbox.dev", version: APP_VERSION }
-	// 	const jsonResponse = new Response(JSON.stringify(responseBody), {
-	// 		headers: { "Content-Type": "application/json" },
-	// 	})
-	// 	event.respondWith(jsonResponse)
-	// 	return
-	// }
-
     // --- NEW: Do not cache calls to external APIs like Gemini ---
     if (NON_CACHEABLE_HOSTS.includes(url.hostname)) {
         console.debug("[service] Bypassing cache for external API:", url.href);

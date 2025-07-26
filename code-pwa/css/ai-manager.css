@@ -557,6 +557,41 @@ ui-tabbar.tabs-inverted[slim] > ui-tab-item[active] {
 
 /* ... (rest of CSS) ... */
 
+@keyframes sticky-fade-out {
+  0%, 90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.system-message-sticky-fade {
+	position: absolute;
+	bottom: 0; /* Stick to the top of the conversation-area, below the file bar */
+	z-index: 3; /* Ensure it's above other chat content */
+	border: 1px solid var(--theme);
+	background: var(--themeDark);
+	color: var(--light);
+	animation: sticky-fade-out 5s linear forwards;
+	box-shadow: 0 5px 5px rgba(0, 0, 0, 0.15); /* Add a subtle shadow to lift it off the content */
+	padding:0px;
+
+	padding: 0px;
+	left: 8px;
+	right: 8px;
+}
+
+/*.system-message-sticky-fade {*/
+/*    position: sticky;*/
+/*    bottom: 130px;*/
+/*    border: 1px solid var(--theme);*/
+/*    background: var(--themeDark);*/
+/*    color: var(--light);*/
+    /* animation: sticky-fade-out 10s linear forwards; */
+/*    box-shadow: 0 5px 5px rgba(0, 0, 0, 0.15);*/
+/*}*/
+
 /* Styles for the new in-thread context stale notice */
 .context-stale-notice {
     display: flex;

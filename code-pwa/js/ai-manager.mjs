@@ -380,7 +380,6 @@ class AIManager {
 		this.contextStaleNotice = this._createContextStaleNoticeElement();
 		this.contextStaleNotice.querySelector(".message").innerHTML = this.md.render(message);
 		this.conversationArea.append(this.contextStaleNotice);
-		this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
 	}
 
 	_hideContextStaleNotice() {
@@ -1406,7 +1405,7 @@ class AIManager {
                             type: "system_message",
                             content: `Diff successfully applied to **${targetPath}**. Remember to save the file.`,
                             timestamp: Date.now(),
-                        }, false); // Pass false to prevent auto-scrolling
+                        }); // Auto-scroll is now automatically suppressed for system messages
                     }
                 });
                 buttonContainer.append(applyDiffButton);
