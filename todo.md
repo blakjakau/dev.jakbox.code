@@ -2,15 +2,15 @@
 
 ## fixes
 - filelist activity indicators (line wrapping)
+- tab title updates using "Save As"
+- resolve/rework sidebar size contraints
 
 ## ideas
-- replace prompt textarea with ACE editor instance?
-- add tabs to AI panel for multi-session / multi-task AI usage
+- filelist index updates?
 - add basic image editing (annotations) to mediaView?
 - add context menu for tabs (right-click > rename, delete)
 - expand context menu for files (right-click > rename, delete, move?)
 - add markdown previews (tab or sidebar, live updated?)
-- add code highlighting to markdown (for AI response and preview tab)
 - embed MDN or similar doc source in sidebar
 - add click handlers on the status bar current path atoms to show files panel (if not already showing) and expand the paths to it (if not already showing)
 
@@ -23,9 +23,7 @@
 - - more complex read/find ops
 - - file ops independant of FileSystemAPI?
 
-
 ## tool integration
-- code merges based on diff format
 - find/replace commands
 - EXEC:READ_FILE: { filename:"" }
 - EXEC:REPLACE: { filename:"", find:"", replace:"", global:true }
@@ -46,7 +44,14 @@
 - add "delete file" in filelist context menu?
 - consider porting prettier modules for Kotline/Java/Sh/other?
 
+
+
 # done
+- ad code merges based on diff format
+- add code highlighting to markdown (for AI response and preview tab)
+- replace prompt textarea with ACE editor instance?
+- add tabs to AI panel for multi-session / multi-task AI usage
+
 - drag+drop tabs on the leftTabs
 - disable live autocomplete
 - set text baseValue at load and save, use it for change tracking
