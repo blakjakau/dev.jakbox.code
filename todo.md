@@ -7,6 +7,7 @@
 
 ## ideas
 - filelist index updates?
+- filelist index search (helpful for @ tagging in prompts?)
 - add basic image editing (annotations) to mediaView?
 - add context menu for tabs (right-click > rename, delete)
 - expand context menu for files (right-click > rename, delete, move?)
