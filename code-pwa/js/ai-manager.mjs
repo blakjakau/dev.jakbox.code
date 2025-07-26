@@ -1377,13 +1377,16 @@ class AIManager {
                         console.error("Diff application failed:", { originalContentFromContext, rawDiff });
                     } else {
                     	
-                    	// 4. Update the live file content in the editor
-                        tabToUpdate.config.session.setValue(newFileContentFromDiff);
-                        
-                        // applyCodeDiffToAceSession(tabToUpdate.config.session, tabToUpdate.config.session.getValue(), newFileContentFromDiff);
+                        // 4. Update the live file content in the editor, preserving undo history.
+                        const session = tabToUpdate.config.session;
+                        const doc = session.getDocument();
+                        const lastRow = doc.getLength() - 1;
+                        const lastCol = doc.getLine(lastRow).length;
+                        const fullRange = new window.ace.Range(0, 0, lastRow, lastCol);
+                        session.replace(fullRange, newFileContentFromDiff);
                         
                         // IMPORTANT: DO NOT call session.markClean() here.
-                        // setValue marks it dirty, which is correct because it's not saved to disk yet.
+                        // replace() marks it dirty, which is correct because it's not saved to disk yet.
                         // The user should manually save after applying.
 
                         // Provide visual feedback
