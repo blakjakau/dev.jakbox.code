@@ -59,6 +59,23 @@ class AIManagerHistory {
 		// }
 	}
 
+	/**
+	 * Adds a message object to the active session's history and re-renders the UI.
+	 * @param {Object} messageObject - The message to add (e.g., {type: "system_message", content: "..."}).
+	 */
+	addMessage(messageObject) {
+		if (this.manager.activeSession) {
+			this.manager.activeSession.messages.push(messageObject);
+			this.manager.activeSession.lastModified = Date.now();
+			this.render(); // Re-render to show the new message
+			// Scroll to the bottom of the conversation area to make the new message visible
+			if (this.conversationArea) {
+				this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+			}
+			this.manager._dispatchContextUpdate("add_message", { messageType: messageObject.type });
+		}
+	}
+
     // Method to display the default welcome message
     _showDefaultWelcomeMessage() {
         if (this.conversationArea) {
@@ -90,14 +107,9 @@ class AIManagerHistory {
 		// Populate the file context bar separately
 		this.populateFileBar();
 
-        // Check if chat history is empty AND AI is not configured
-        // If no active session OR active session has no messages AND AI is not configured
-        if ((!this.manager.activeSession || this.chatHistory.length === 0) && !(this.manager.ai && this.manager.ai.isConfigured())) {
-            this._showDefaultWelcomeMessage();
-            return; // Stop rendering actual history if welcome message is shown
-        }
-
-        // If history is empty but AI is configured, just show empty chat, no welcome guide
+        // If history is empty, but AI is configured (which implies chatContainer is visible),
+        // just leave the chat area blank. The welcome message is handled by AIManager._checkAndDisplayWelcomeOrChat
+        // when the AI is not configured, which hides the chatContainer itself.
         if (this.chatHistory.length === 0) {
             return;
         }
@@ -308,7 +320,17 @@ class AIManagerHistory {
 		this.manager._isProcessing = true
 		this.manager._setButtonsDisabledState(true)
 
+		const summarizeButton = this.manager.summarizeButton;
+		let originalButtonContent = '';
+
 		try {
+			// Replace button content with a spinner
+			if (summarizeButton) {
+				originalButtonContent = summarizeButton.innerHTML;
+				summarizeButton.innerHTML = '<div class="button-spinner"></div>';
+				summarizeButton.classList.add('loading');
+			}
+
 			// All operations now directly on this.manager.activeSession.messages.
             const conversationMessages = this.manager.activeSession.messages;
             
@@ -388,6 +410,7 @@ class AIManagerHistory {
 			// If we got a summary, replace the old history with the new summary.
 			if (summaryResponse) {
 				const summaryMessage = {
+					id: crypto.randomUUID(),
 					role: "model",
 					type: "model",
 					content: `**Summary of prior conversation:**\n\n${summaryResponse}`,
@@ -396,6 +419,7 @@ class AIManagerHistory {
 				const tokensAfterSummary = this.ai.estimateTokens([summaryMessage])
 
 				const systemMessage = {
+					id: crypto.randomUUID(),
 					type: "system_message",
 					content: `History summarized: **${tokensBeforeSummary}** tokens condensed to **${tokensAfterSummary}** tokens.`,
 					timestamp: Date.now(),
@@ -406,7 +430,8 @@ class AIManagerHistory {
 				const spliceCount = actualMessagesToReplace.length
 
 				// Modify the active session's messages directly
-				this.manager.activeSession.messages.splice(spliceStartIndex, spliceCount, summaryMessage, systemMessage)
+				this.manager.activeSession.messages.splice(spliceStartIndex, spliceCount, summaryMessage); // Insert summary at the top
+				this.manager.activeSession.messages.push(systemMessage); // Append system message to the end
 				this.manager.activeSession.lastModified = Date.now(); // Update last modified timestamp for the session
 
 				this.render()
@@ -424,6 +449,11 @@ class AIManagerHistory {
 			this.manager._dispatchContextUpdate("summarize_error")
 		} finally {
 			this.manager._isProcessing = false
+			// Restore button content and remove spinner
+			if (summarizeButton) {
+				summarizeButton.innerHTML = originalButtonContent;
+				summarizeButton.classList.remove('loading');
+			}
 			this.manager._setButtonsDisabledState(false)
 		}
 	}

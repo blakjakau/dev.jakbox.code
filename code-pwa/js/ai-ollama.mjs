@@ -3,8 +3,8 @@ import systemPrompt from "./ollamaSystemPrompt.mjs"
 
 // Define default models in the new object format with estimated maxTokens
 const defaultModels = [
-    { value: "", label: "Select a model", maxTokens: 8192 }, 
-    // // Add other common Ollama models you expect to list with estimated context lengths
+    { value: "", label: "Select a model", maxTokens: 0 }, // maxTokens 0 for "Select a model"
+    // Add other common Ollama models you expect to list with estimated context lengths
     // { value: "codegemma:7b-code", label: "CodeGemma 7b Code", maxTokens: 8192 },
     // { value: "codegemma:7b-instruct", label: "CodeGemma 7b Instruct", maxTokens: 8192 },
     // { value: "codegemma:code", label: "CodeGemma Code", maxTokens: 8192 },
@@ -17,7 +17,7 @@ class Ollama extends AI {
 		super();
 		this.config = {
 			server: "http://localhost:11434",
-			model: "", //defaultModels[0].value, // default model
+			model: null, // Initial model is null, not an empty string
 			system: systemPrompt
 		};
 		this.context = null; // For /api/generate context (Ollama's internal context)
@@ -26,10 +26,10 @@ class Ollama extends AI {
 
         this._settingsSchema = {
             server: { type: "string", label: "Ollama Server", default: "http://localhost:11434" },
-            model: { 
-                type: "enum", 
-                label: "Model", 
-                default: "", // defaultModels[0].value, 
+            model: {
+                type: "enum",
+                label: "Model",
+                default: null, // Default for settings schema is null
                 enum: defaultModels, // Initial enum uses the object format
                 lookupCallback: this._getAvailableModels.bind(this) 
             },
@@ -38,7 +38,8 @@ class Ollama extends AI {
 	}
 
     isConfigured() {
-    	return this.config.server != "" && this.config.model != ""
+    	// Check for non-empty server AND non-null/non-empty model
+    	return this.config.server !== "" && this.config.model !== null && this.config.model !== "";
     }
 
 
@@ -47,7 +48,7 @@ class Ollama extends AI {
             const tagsEndpoint = `${this.config.server}/api/tags`;
             const response = await fetch(tagsEndpoint);
             if (!response.ok) {
-                console.error(`Ollama API error fetching tags: ${response.status}`);
+                console.error(`Ollama API error fetching tags: ${response.status} - ${await response.text()}`); // Log detailed error
                 return JSON.parse(JSON.stringify(defaultModels)); // Return copy of defaults on error
             }
             const data = await response.json();
@@ -60,21 +61,22 @@ class Ollama extends AI {
 
             // Deduplicate and combine with defaultModels, preferring fetched ones
             const uniqueModelsMap = new Map();
-            defaultModels.forEach(m => uniqueModelsMap.set(m.value, m)); // Add defaults first
+            defaultModels.forEach(m => uniqueModelsMap.set(m.value, m)); // Add defaults first (e.g., "Select a model")
             fetchedModels.forEach(m => uniqueModelsMap.set(m.value, m)); // Overwrite with fetched, or add new
 
             // Ensure the currently configured model is in the list, even if not fetched
             const currentModelValue = this.config.model;
-            if (!uniqueModelsMap.has(currentModelValue)) {
+            // ONLY add if currentModelValue is not empty/null AND not already in map
+            if (currentModelValue && currentModelValue !== "" && !uniqueModelsMap.has(currentModelValue)) {
                  // Try to find it in the original _settingsSchema.model.enum if it was there initially
                 const initialModel = this._settingsSchema.model.enum.find(m => m.value === currentModelValue);
                 if (initialModel) {
                     uniqueModelsMap.set(currentModelValue, initialModel);
                 } else {
                     // Fallback for completely unknown model if API didn't return it
-                    uniqueModelsMap.set(currentModelValue, { 
-                        value: currentModelValue, 
-                        label: `${currentModelValue} (unknown k)`, 
+                    uniqueModelsMap.set(currentModelValue, {
+                        value: currentModelValue,
+                        label: `${currentModelValue} (unknown k)`,
                         maxTokens: this.MAX_CONTEXT_TOKENS || 4096 // Use current MAX_CONTEXT_TOKENS or a guess
                     });
                 }
@@ -82,12 +84,22 @@ class Ollama extends AI {
 
             const finalModels = Array.from(uniqueModelsMap.values());
             finalModels.sort((a,b) => a.label.localeCompare(b.label)); // Sort for consistent display
-			finalModels.sort((a,b)=>a==""?1:-1)
-			
+
+            // Re-sort to put "Select a model" (if its value is "") at the top
+            finalModels.sort((a, b) => {
+                if (a.value === "" && b.value !== "") return -1;
+                if (a.value !== "" && b.value === "") return 1;
+                return 0;
+            });
+
             return finalModels;
         } catch (error) {
             console.error("Error fetching Ollama models:", error);
-            return JSON.parse(JSON.stringify(defaultModels)); // Return copy of defaults on error
+            const modelsOnError = JSON.parse(JSON.stringify(defaultModels));
+            if (this.config.model && this.config.model !== "" && !modelsOnError.some(m => m.value === this.config.model)) {
+                 modelsOnError.push({ value: this.config.model, label: `${this.config.model} (unavailable)`, maxTokens: this.MAX_CONTEXT_TOKENS || 8192 });
+            }
+            return modelsOnError;
         }
     }
 
@@ -97,6 +109,14 @@ class Ollama extends AI {
 	}
 
 	async _queryModelCapability() {
+        // If no model is selected/configured, we can't query its capability.
+        // Set a default and indicate failure.
+        if (!this.config.model || this.config.model === "") {
+            console.warn("Ollama: No model selected. Cannot query model capability. Setting MAX_CONTEXT_TOKENS to default (8192).");
+            this.MAX_CONTEXT_TOKENS = 8192; // Sensible default if no model is set
+            this._modelCaps = null; // Clear any previous model info
+            return false; // Indicate failure
+        }
         try {
 			const showEndpoint = `${this.config.server}/api/show`;
 			const response = await fetch(showEndpoint, {
@@ -109,7 +129,7 @@ class Ollama extends AI {
 
 			if (!response.ok) {
 				console.error(`Ollama API error showing model capability: ${response.status} - ${await response.text()}`);
-                this.MAX_CONTEXT_TOKENS = 0; // Clear previous context max on error
+                this.MAX_CONTEXT_TOKENS = 8192; // Fallback context max on API error
 				return false;
 			}
 
@@ -122,11 +142,12 @@ class Ollama extends AI {
 				if (modelCaps.model_info[`${family}.context_length`]) {
 					this.MAX_CONTEXT_TOKENS = modelCaps.model_info[`${family}.context_length`];
 				} else {
-                    this.MAX_CONTEXT_TOKENS = 0; // Or a default like 4096 / 8192
-                    console.warn(`Could not find context_length for model ${this.config.model}.`);
+                    this.MAX_CONTEXT_TOKENS = 8192; // Fallback to a default if context_length isn't explicitly found
+                    console.warn(`Could not find context_length for model ${this.config.model}. Using default ${this.MAX_CONTEXT_TOKENS}.`);
                 }
 			} else {
-                 this.MAX_CONTEXT_TOKENS = 0;
+                 this.MAX_CONTEXT_TOKENS = 8192; // Fallback if structure is unexpected
+                 console.warn(`Unexpected model capability structure for ${this.config.model}. Using default ${this.MAX_CONTEXT_TOKENS}.`);
             }
 
 			console.debug("Model Capabilities:", modelCaps, `MAX_CONTEXT_TOKENS: ${this.MAX_CONTEXT_TOKENS}`);
@@ -324,24 +345,29 @@ class Ollama extends AI {
     }
 
     async setOptions(newConfig, onErrorCallback, onSuccessCallback, useWorkspaceSettings, source = 'global') {
-        // ... (No change - same as before) ...
+        let modelChanged = false;
         for (const name in newConfig) {
-            this.setOption(name, newConfig[name]); 
+            // Only update if value is different
+            if (this.config[name] !== newConfig[name]) {
+                this.config[name] = newConfig[name];
+                if (name === 'model') modelChanged = true;
+            }
         }
         this._settingsSource = source; 
-        // clearContext(); // AIManager will handle this
 
-        const querySuccess = await this._queryModelCapability(); 
-        
-        if (!querySuccess || this.MAX_CONTEXT_TOKENS === 0) {
-            this.MAX_CONTEXT_TOKENS = 4096; 
-            console.warn(`Could not determine MAX_CONTEXT_TOKENS for Ollama model: ${this.config.model}. Using default ${this.MAX_CONTEXT_TOKENS}.`);
+        let querySuccess = true;
+        // Only attempt to query model capability if a model is actually selected
+        if (this.config.model && this.config.model !== "") {
+            querySuccess = await this._queryModelCapability();
+        } else {
+            // If model is cleared, just reset MAX_CONTEXT_TOKENS to default
+            this.MAX_CONTEXT_TOKENS = 8192;
         }
 
-        if (!querySuccess && onErrorCallback) {
-            onErrorCallback(`Unable to talk to the server at ${this.config.server} or query model ${this.config.model}. Please check the server address and ensure Ollama is running and the model is downloaded.`);
-        } else if (onSuccessCallback) {
-            onSuccessCallback(`Connected to ${this.config.server}, using model: ${this.config.model}`);
+        if (!querySuccess) {
+            if (onErrorCallback) onErrorCallback(`Unable to connect to Ollama server at ${this.config.server} or model '${this.config.model}' is unavailable/invalid. Please check the server address and ensure Ollama is running and the model is downloaded.`);
+        } else {
+            if (onSuccessCallback) onSuccessCallback(`Connected to ${this.config.server}, using model: ${this.config.model || 'No model selected'}`);
         }
         
         const event = new CustomEvent('setting-changed', {
@@ -364,6 +390,10 @@ class Ollama extends AI {
 
     async refreshModels() {
         this._settingsSchema.model.enum = await this._getAvailableModels();
+        // After refreshing, if there's a selected model, try to update its capabilities
+        if (this.config.model && this.config.model !== "") {
+            await this._queryModelCapability();
+        }
     }
 }
 

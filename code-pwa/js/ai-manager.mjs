@@ -85,7 +85,22 @@ class AIManager {
 		
 		// Initialize the AI provider instance
 		this.ai = new this.aiProviders[this.aiProvider]();
-		await this.ai.init(); // Initialize with loaded settings
+		
+		// Wrap AI initialization in try-catch to prevent UI freeze on configuration errors
+		try {
+			await this.ai.init(); // Initialize with loaded settings. This is where the Ollama error occurs.
+		} catch (error) {
+			console.error("AIManager: Error initializing AI provider:", error);
+			// Display an error message to the user in the conversation area
+            this.historyManager.addMessage({
+                type: "system_message",
+                content: `Error initializing AI provider (${this.aiProvider}). Please check your settings. Details: ${error.message}`,
+                timestamp: Date.now(),
+            });
+            // Ensure UI is not blocked
+            this._isProcessing = false;
+            this._setButtonsDisabledState(false);
+		}
 
 		// Load summarization settings from storage, overriding defaults
 		const storedSummarizeThreshold = localStorage.getItem("summarizeThreshold")
@@ -101,6 +116,7 @@ class AIManager {
 		this._setupPanel();
 		
 		this._updateAIInfoDisplay();
+        this._updatePromptAreaPlaceholder(); // Ensure placeholder is correct after init
 		window.addEventListener('setting-changed', this._handleSettingChangedExternally.bind(this));
 	}
 
@@ -146,7 +162,18 @@ class AIManager {
 		this.fileBar.classList.add('ai-file-context-bar');
 		// Listen for requests to remove a file, originating from a chip's close button
 		this.fileBar.on('file-remove-request', (e) => {
-			this.historyManager._handleDeleteFileContextItem(e.detail.fileId);
+			const fileId = e.detail.fileId;
+			// Find the message before it gets deleted to retrieve the filename
+			const fileMessage = this.activeSession?.messages.find(m => m.id === fileId);
+			if (fileMessage) {
+				this.historyManager.addMessage({
+					type: 'system_message',
+					content: `**${fileMessage.filename}** removed from this context.`,
+					timestamp: Date.now()
+				});
+			}
+			// Proceed with the deletion
+			this.historyManager._handleDeleteFileContextItem(fileId);
 		});
 		this.progressBar = this._createProgressBar();
 		fileBarContainer.append(this.fileBar, this.progressBar);
@@ -232,11 +259,8 @@ class AIManager {
 
 		// Moved the resize logic into a new method _resizePromptArea
 		promptArea.addEventListener("keydown", (e) => {
-			if (e.shiftKey && e.key === "Enter") {
-				return
-			}
-
-			if (e.key === "Enter") {
+			// NEW: Ctrl+Enter sends the message. A simple Enter creates a new line by default.
+			if (e.ctrlKey && e.key === "Enter") {
 				e.preventDefault()
 				this.generate()
 				return
@@ -275,6 +299,7 @@ class AIManager {
 	// NEW METHOD: Encapsulates prompt area resizing logic
 	_resizePromptArea() {
 		if (this.promptArea) {
+            this.promptArea.style.height = "auto"; // Reset height before calculating scrollHeight
 			this.promptArea.style.minHeight = "auto" // Reset min-height to allow shrinking
 			void this.promptArea.offsetHeight // Force reflow to get accurate scrollHeight
 			this.promptArea.style.minHeight = Math.min(360, this.promptArea.scrollHeight) + "px"
@@ -360,7 +385,7 @@ class AIManager {
 
 	// Helper to disable/enable relevant buttons
 	_setButtonsDisabledState(disabled) {
-        const isAIConfigured = this.ai && this.ai.isConfigured();
+        const isAIConfigured = this.ai && this.ai.isConfigured() && !this._isProcessing; // Also consider overall processing state
 
 		if (this.submitButton) this.submitButton.disabled = disabled || !isAIConfigured;
 		if (this.clearButton) this.clearButton.disabled = disabled || !this.activeSession?.messages?.length; // Clear is disabled if no messages
@@ -393,7 +418,6 @@ class AIManager {
 				tab.style.pointerEvents = disabled ? 'none' : 'auto';
 			});
 		}
-
 
         this._updatePromptAreaPlaceholder(); // Update prompt area disabled state
 	}
@@ -478,23 +502,36 @@ class AIManager {
 			// Create new AI instance, maintaining history for it.
 			const newAIInstance = new this.aiProviders[this.aiProvider]();
 			this.ai = newAIInstance;
-			await this.ai.init(); // Initialize the new AI with its settings
-
-			// Check if the provider actually changed and we have a valid new AI instance
-			if (oldProviderName !== this.aiProvider && this.ai) {
-				// Add a system message to the history to inform the user about the AI provider change
+			
+			// Initialize new AI provider instance. Handle errors to prevent blocking.
+			try {
+				await this.ai.init(); // Initialize the new AI with its settings
+				// Add a system message to inform the user about the successful switch.
 				this.historyManager.addMessage({
 					type: "system_message",
-					content: `AI Provider switched to: **${this.aiProvider.charAt(0).toUpperCase() + this.aiProvider.slice(1)}**`,
+					content: `AI provider switched to **${this.aiProvider}**. ` +
+							 (this.ai.isConfigured()
+								? `Current model: **${this.ai.config.model}**`
+								: `Please configure the provider settings.`),
 					timestamp: Date.now()
 				});
-				// _dispatchContextUpdate is called within addMessage for system messages,
-				// but we can also dispatch explicitly to ensure AI status UI is updated.
-				this._dispatchContextUpdate("ai_provider_switched");
+			} catch (error) {
+				console.error("AIManager: Error initializing new AI provider during switch:", error);
+				// Inform user about the error, but don't re-throw to keep UI interactive
+				this.historyManager.addMessage({
+					type: "system_message", // System message for the user
+					content: `Error switching to ${this.aiProvider} provider. Check settings. Details: ${error.message}`,
+					timestamp: Date.now()
+				});
+			} finally {
+				// Always re-render settings form to reflect new AI's options
+				this._renderSettingsForm(); 
+				this._updateAIInfoDisplay(); // Update the display element for the new AI/model
+				this._dispatchContextUpdate("ai_provider_switched"); // Dispatch regardless of init success
+                this.historyManager.render(); // Re-render history to show/hide welcome message
+                this._setButtonsDisabledState(this._isProcessing); // Ensure buttons are updated
+                this._updatePromptAreaPlaceholder(); // Update placeholder for new AI
 			}
-			this._renderSettingsForm() // Re-render settings for the new provider
-			this._updateAIInfoDisplay(); // Update the display element for the new AI/model
-            this.historyManager.render(); // Re-render history to show/hide welcome message
 		})
 		aiProviderLabel.appendChild(aiProviderSelect)
 		form.appendChild(aiProviderLabel)
@@ -554,11 +591,11 @@ class AIManager {
 						try {
 							await this.ai.refreshModels()
 							this._renderSettingsForm() // Re-render to show updated model list
+						} finally {
+							this._setButtonsDisabledState(false)
 							this._updateAIInfoDisplay(); // Update display after refresh
 							this._dispatchContextUpdate("settings_change")
                             this.historyManager.render(); // Re-render history to show/hide welcome message
-						} finally {
-							this._setButtonsDisabledState(false)
 						}
 					})
 					label.appendChild(refreshButton)
@@ -596,6 +633,7 @@ class AIManager {
 		saveButton.icon = "save"
 		saveButton.classList.add("theme-button")
 		saveButton.on("click", async () => {
+			const oldModel = this.ai.config.model; // Capture old model before changes
 			const newSettings = {}
 			const currentOptions = await this.ai.getOptions()
 			for (const key in currentOptions) {
@@ -614,19 +652,28 @@ class AIManager {
 				newSettings,
 				(errorMessage) => {
 					const errorBlock = new Block()
-					errorBlock.classList.add("response-block")
+					errorBlock.classList.add("response-block", "error-block") // Add error-block class
 					errorBlock.innerHTML = `Error: ${errorMessage}`
 					this.conversationArea.append(errorBlock)
 					this.conversationArea.scrollTop = this.conversationArea.scrollHeight
 					this._dispatchContextUpdate("settings_save_error")
+                    this._setButtonsDisabledState(this._isProcessing); // Re-evaluate button state on error
 				},
 				(successMessage) => {
-					const successBlock = new Block()
-					successBlock.classList.add("response-block")
-					successBlock.innerHTML = successMessage
-					this.conversationArea.append(successBlock)
-					this.conversationArea.scrollTop = this.conversationArea.scrollHeight
-					this._dispatchContextUpdate("settings_save_success")
+					// Check if the model has changed and add a specific system message
+					const newModel = this.ai.config.model;
+					let messageContent = successMessage; // Default to the message from the AI provider
+
+					if (newModel && newModel !== oldModel) {
+						messageContent = `AI model switched to **${newModel}**.`;
+					}
+					this.historyManager.addMessage({
+						type: "system_message",
+						content: messageContent,
+						timestamp: Date.now()
+					});
+					this._dispatchContextUpdate("settings_save_success");
+                    this._setButtonsDisabledState(this._isProcessing); // Re-evaluate button state on success
 				},
 				this.useWorkspaceSettings,
 				this.ai.settingsSource // Pass source for correct persistence
@@ -703,7 +750,7 @@ class AIManager {
 		if (this.aiInfoDisplay && this.ai) {
             if (this.ai.isConfigured()) {
                 const providerName = this.aiProvider;
-                const modelName = this.ai.config?.model || "Unknown Model"; // Fallback
+                const modelName = this.ai.config?.model || "No Model Selected"; // Fallback
                 this.aiInfoDisplay.textContent = `AI: ${modelName}`;
                 this.aiInfoDisplay.setAttribute("title", `AI Provider: ${providerName}, Model: ${modelName}`);
             } else {
@@ -722,6 +769,8 @@ class AIManager {
 		this._updateAIInfoDisplay();
 		this._dispatchContextUpdate("settings_change_external");
         this.historyManager.render(); // Re-render history to show/hide welcome message
+        this._setButtonsDisabledState(this._isProcessing); // Ensure buttons are updated
+        this._updatePromptAreaPlaceholder(); // Update placeholder
 	}
 
 	/**
@@ -831,6 +880,7 @@ class AIManager {
 		this.promptIndex = (this.activeSession.promptHistory?.length || 0);
 		this._resizePromptArea();
         this._setButtonsDisabledState(this._isProcessing);
+        this._updatePromptAreaPlaceholder(); // Update placeholder after session switch
 		this._dispatchContextUpdate("session_switched");
 	}
 
@@ -1143,20 +1193,19 @@ class AIManager {
 		} else {
 			// Scenario: Context items were added, but no user prompt was given.
 			// In this case, we don't call the AI, but acknowledge the context addition.
-			this.historyManager.addMessage({
-				type: "system_message",
-				content: `Files added to context for future reference.`,
-				timestamp: Date.now(),
-			});
+			if (contextItems.length > 0) {
+				const fileNames = contextItems.map(item => `**${item.filename}**`).join(', ');
+				this.historyManager.addMessage({
+					type: "system_message",
+					content: `Files added to context: ${fileNames}.`,
+					timestamp: Date.now(),
+				});
+			}
 	
 			// Update lastModified timestamp for the session
 			this.activeSession.lastModified = Date.now();
 			// Save the active session to IndexedDB immediately after adding user prompt and context
 			await set(`ai-session-${this.activeSession.id}`, this.activeSession);
-	
-			// Render updated history in UI and dispatch event
-			this.historyManager.render();
-			// this._dispatchContextUpdate("files_added_to_context");
 	
 			this._isProcessing = false; // Release lock
 			this._setButtonsDisabledState(false); // Re-enable buttons

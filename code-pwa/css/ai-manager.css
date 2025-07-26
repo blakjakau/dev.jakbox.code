@@ -175,6 +175,21 @@
     border-color: var(--mid); 
 }
 
+/* Spinner specifically for use inside buttons */
+.button-spinner {
+    width: 16px; /* Smaller for button context */
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.5); /* Use a color that works on the button background */
+    border-radius: 50%;
+    border-top-color: var(--light); /* Spinner color */
+    animation: spin 1s linear infinite;
+    /* This will help center it as our Button class uses flexbox */
+    margin: auto;
+}
+
+/* Optional: Add styling to the button itself while loading */
+.summarize-button.loading { }
+
 
 .response-block {
     margin-bottom: 16px;
@@ -415,6 +430,11 @@
     font-style: italic;
     font-size: 0.9em;
     text-align: center;
+}
+
+/* Collapse vertical space between adjacent system message blocks */
+.system-message-block + .system-message-block {
+    margin-top: -42px; /* completely squash the gap on stacked system prompts*/
 }
 
 button:disabled,
