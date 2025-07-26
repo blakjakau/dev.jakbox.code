@@ -31,6 +31,23 @@ export class FileChip extends Button {
             e.stopPropagation();
             this.dispatch('chip-close');
         };
+
+        // On pointer down, prevent default browser actions like paste/auto-scroll.
+        this.addEventListener('pointerdown', (e) => {
+            if (e.button === 1) { // 1 is for the middle mouse button
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+
+        // On pointer up, trigger the close action. This separation is key to preventing the OS paste.
+        this.addEventListener('pointerup', (e) => {
+            if (e.button === 1) {
+                e.preventDefault();
+                e.stopPropagation();
+                this._close.click(); // Trigger the close button's click handler
+            }
+        });
     }
 }
 

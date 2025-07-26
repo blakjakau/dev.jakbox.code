@@ -162,7 +162,18 @@ class AIManager {
 		this.fileBar.classList.add('ai-file-context-bar');
 		// Listen for requests to remove a file, originating from a chip's close button
 		this.fileBar.on('file-remove-request', (e) => {
-			this.historyManager._handleDeleteFileContextItem(e.detail.fileId);
+			const fileId = e.detail.fileId;
+			// Find the message before it gets deleted to retrieve the filename
+			const fileMessage = this.activeSession?.messages.find(m => m.id === fileId);
+			if (fileMessage) {
+				this.historyManager.addMessage({
+					type: 'system_message',
+					content: `**${fileMessage.filename}** removed from this context.`,
+					timestamp: Date.now()
+				});
+			}
+			// Proceed with the deletion
+			this.historyManager._handleDeleteFileContextItem(fileId);
 		});
 		this.progressBar = this._createProgressBar();
 		fileBarContainer.append(this.fileBar, this.progressBar);
@@ -248,11 +259,8 @@ class AIManager {
 
 		// Moved the resize logic into a new method _resizePromptArea
 		promptArea.addEventListener("keydown", (e) => {
-			if (e.shiftKey && e.key === "Enter") {
-				return
-			}
-
-			if (e.key === "Enter") {
+			// NEW: Ctrl+Enter sends the message. A simple Enter creates a new line by default.
+			if (e.ctrlKey && e.key === "Enter") {
 				e.preventDefault()
 				this.generate()
 				return
@@ -1185,20 +1193,19 @@ class AIManager {
 		} else {
 			// Scenario: Context items were added, but no user prompt was given.
 			// In this case, we don't call the AI, but acknowledge the context addition.
-			this.historyManager.addMessage({
-				type: "system_message",
-				content: `Files added to context for future reference.`,
-				timestamp: Date.now(),
-			});
+			if (contextItems.length > 0) {
+				const fileNames = contextItems.map(item => `**${item.filename}**`).join(', ');
+				this.historyManager.addMessage({
+					type: "system_message",
+					content: `Files added to context: ${fileNames}.`,
+					timestamp: Date.now(),
+				});
+			}
 	
 			// Update lastModified timestamp for the session
 			this.activeSession.lastModified = Date.now();
 			// Save the active session to IndexedDB immediately after adding user prompt and context
 			await set(`ai-session-${this.activeSession.id}`, this.activeSession);
-	
-			// Render updated history in UI and dispatch event
-			this.historyManager.render();
-			// this._dispatchContextUpdate("files_added_to_context");
 	
 			this._isProcessing = false; // Release lock
 			this._setButtonsDisabledState(false); // Re-enable buttons

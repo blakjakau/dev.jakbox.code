@@ -320,7 +320,17 @@ class AIManagerHistory {
 		this.manager._isProcessing = true
 		this.manager._setButtonsDisabledState(true)
 
+		const summarizeButton = this.manager.summarizeButton;
+		let originalButtonContent = '';
+
 		try {
+			// Replace button content with a spinner
+			if (summarizeButton) {
+				originalButtonContent = summarizeButton.innerHTML;
+				summarizeButton.innerHTML = '<div class="button-spinner"></div>';
+				summarizeButton.classList.add('loading');
+			}
+
 			// All operations now directly on this.manager.activeSession.messages.
             const conversationMessages = this.manager.activeSession.messages;
             
@@ -439,6 +449,11 @@ class AIManagerHistory {
 			this.manager._dispatchContextUpdate("summarize_error")
 		} finally {
 			this.manager._isProcessing = false
+			// Restore button content and remove spinner
+			if (summarizeButton) {
+				summarizeButton.innerHTML = originalButtonContent;
+				summarizeButton.classList.remove('loading');
+			}
 			this.manager._setButtonsDisabledState(false)
 		}
 	}
