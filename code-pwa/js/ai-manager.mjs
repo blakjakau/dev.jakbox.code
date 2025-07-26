@@ -1094,11 +1094,28 @@ class AIManager {
 		if(processedPrompt) {
 			userMessage = { role: "user", type: "user", content: processedPrompt, timestamp: Date.now(), id: crypto.randomUUID() };
 			this.activeSession.messages.push(userMessage);
-			this.historyManager.appendMessageElement(userMessage); // Dynamically append
+			this.historyManager.appendMessageElement(userMessage);
+		} else {
+			// Scenario: Context items were added, but no user prompt was given.
+			// In this case, we don't call the AI, acknowledge the context addition, and abort.
+			if (contextItems.length > 0) {
+				const fileNames = contextItems.map(item => `**${item.filename}**`).join(', ');
+				this.historyManager.addMessage({
+					type: "system_message",
+					content: `Files added to context: ${fileNames}.`,
+					timestamp: Date.now(),
+				}, false);
+				// We still need to save the session since context items were added.
+				this.activeSession.lastModified = Date.now();
+				await set(`ai-session-${this.activeSession.id}`, this.activeSession);
+				this._dispatchContextUpdate("context_files_updated");
+			}
+			this._isProcessing = false; // Release lock
+			this._setButtonsDisabledState(false); // Re-enable buttons
+			return; // Exit the function as there's no prompt to send to the AI.
 		}
 
-		// The `processedPrompt` is the cleaned prompt after @-tags. Add it as the user's message.
-
+		// Save session and dispatch update now that we've confirmed there's a user prompt.
 		// Update lastModified timestamp for the session
 		this.activeSession.lastModified = Date.now();
 		// Save the active session to IndexedDB immediately after adding user prompt and context
@@ -1191,33 +1208,9 @@ class AIManager {
 			onContextRatioUpdate: (ratio) => { /* ... */ },
 		}
 
-		
-		// Always use the chat method.
-		if(processedPrompt) {
-			const messagesForAI = this.historyManager.prepareMessagesForAI()
-			this.ai.chat(messagesForAI, callbacks)
-		} else {
-			// Scenario: Context items were added, but no user prompt was given.
-			// In this case, we don't call the AI, but acknowledge the context addition.
-			if (contextItems.length > 0) {
-				const fileNames = contextItems.map(item => `**${item.filename}**`).join(', ');
-				this.historyManager.addMessage({
-					type: "system_message",
-					content: `Files added to context: ${fileNames}.`,
-					timestamp: Date.now(),
-				}, false);
-			}
-	
-			// Update lastModified timestamp for the session
-			this.activeSession.lastModified = Date.now();
-			// Save the active session to IndexedDB immediately after adding user prompt and context
-			await set(`ai-session-${this.activeSession.id}`, this.activeSession);
-	
-			this._isProcessing = false; // Release lock
-			this._setButtonsDisabledState(false); // Re-enable buttons
-	
-			return; // Exit the function as AI chat is not needed.
-		}
+		// Since we now return early if `processedPrompt` is empty, we can unconditionally call the AI here.
+		const messagesForAI = this.historyManager.prepareMessagesForAI()
+		this.ai.chat(messagesForAI, callbacks)
 	}
 
 	_addCodeBlockButtons(responseBlock) {
