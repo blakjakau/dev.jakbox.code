@@ -96,7 +96,7 @@ class AIManager {
                 type: "system_message",
                 content: `Error initializing AI provider (${this.aiProvider}). Please check your settings. Details: ${error.message}`,
                 timestamp: Date.now(),
-            });
+            }, false);
             // Ensure UI is not blocked
             this._isProcessing = false;
             this._setButtonsDisabledState(false);
@@ -170,7 +170,7 @@ class AIManager {
 					type: 'system_message',
 					content: `**${fileMessage.filename}** removed from this context.`,
 					timestamp: Date.now()
-				});
+				}, false);
 			}
 			// Proceed with the deletion
 			this.historyManager._handleDeleteFileContextItem(fileId);
@@ -520,7 +520,7 @@ class AIManager {
 								? `Current model: **${this.ai.config.model}**`
 								: `Please configure the provider settings.`),
 					timestamp: Date.now()
-				});
+				}, false);
 			} catch (error) {
 				console.error("AIManager: Error initializing new AI provider during switch:", error);
 				// Inform user about the error, but don't re-throw to keep UI interactive
@@ -528,7 +528,7 @@ class AIManager {
 					type: "system_message", // System message for the user
 					content: `Error switching to ${this.aiProvider} provider. Check settings. Details: ${error.message}`,
 					timestamp: Date.now()
-				});
+				}, false);
 			} finally {
 				// Always re-render settings form to reflect new AI's options
 				this._renderSettingsForm(); 
@@ -677,7 +677,7 @@ class AIManager {
 						type: "system_message",
 						content: messageContent,
 						timestamp: Date.now()
-					});
+					}, false);
 					this._dispatchContextUpdate("settings_save_success");
                     this._setButtonsDisabledState(this._isProcessing); // Re-evaluate button state on success
 				},
@@ -1004,7 +1004,7 @@ class AIManager {
                 type: "system_message",
                 content: `AI is not configured or no active session. Please set up your AI provider in the settings or create a new chat.`,
                 timestamp: Date.now(),
-            });
+            }, false);
             this._dispatchContextUpdate("generation_error_not_configured");
             this._isProcessing = false;
             this._setButtonsDisabledState(false);
@@ -1205,7 +1205,7 @@ class AIManager {
 					type: "system_message",
 					content: `Files added to context: ${fileNames}.`,
 					timestamp: Date.now(),
-				});
+				}, false);
 			}
 	
 			// Update lastModified timestamp for the session
@@ -1405,7 +1405,7 @@ class AIManager {
                             type: "system_message",
                             content: `Diff successfully applied to **${targetPath}**. Remember to save the file.`,
                             timestamp: Date.now(),
-                        }); // Auto-scroll is now automatically suppressed for system messages
+                        }, false); // Auto-scroll is now automatically suppressed for system messages
                     }
                 });
                 buttonContainer.append(applyDiffButton);
@@ -1480,7 +1480,8 @@ class AIManager {
 		if (changesMade) {
 			this.activeSession.messages = updatedMessages;
 			this.activeSession.lastModified = Date.now(); // Update last modified timestamp
-			this.historyManager.render(); // Re-render the UI
+			// Just update the file bar, which is the only visual representation of file context.
+			this.historyManager.populateFileBar();
 			this._dispatchContextUpdate("context_files_updated"); // Dispatch event
 		}
 	}
