@@ -76,8 +76,9 @@ class TerminalManager {
 		// Create a new xterm.js instance
 		const term = new window.Terminal({
 			cursorBlink: true,
-			fontFamily: "roboto mono, monospace",
+			fontFamily: "monospace",
 			fontSize: 13,
+			cursorStyle: 'bar', // Set cursor style to thin bar
 			theme: {
 				background: '#1e1e1e',
 				foreground: '#d4d4d4',
@@ -114,15 +115,18 @@ class TerminalManager {
 		ws.onerror = (error) => {
 			console.error(`WebSocket Error for session ${sessionId}:`, error);
 			term.writeln(`\r\n\n[Connection Error for session ${sessionId}: Could not connect to terminal server or connection lost.]\r\n[Please ensure the Node.js backend server is running on ws://${window.location.hostname}:3001/terminal]\r\n`);
-			this._disconnectSession(sessionId); // Clean up resources on error
+			const session = this._sessions.get(sessionId);
+			if (session && session.ws === ws) {
+				this.deleteTerminalSession(sessionId, session.tabItem);
+			}
 		};
 
 		ws.onclose = () => {
-			console.log(`WebSocket closed for session ${sessionId}.`);
-			// Only write "Disconnected" if the session still exists and this WS was its active one
-			if (this._sessions.has(sessionId) && this._sessions.get(sessionId)?.ws === ws) {
-				term.writeln("\r\n\n[Disconnected from terminal server.]\r\n");
-				this._disconnectSession(sessionId); // Clean up resources on explicit close
+			const session = this._sessions.get(sessionId);
+			if (session && session.ws === ws) {
+				console.log(`WebSocket closed for session ${sessionId}.`);
+				if(session.term) term.writeln("\r\n\n[Disconnected from terminal server.]\r\n");
+				this.deleteTerminalSession(sessionId, session.tabItem);
 			}
 		};
 		// Relay data typed into xterm.js to the WebSocket (to the PTY)
@@ -148,13 +152,17 @@ class TerminalManager {
 	_disconnectSession(sessionId) {
 		const session = this._sessions.get(sessionId);
 		if (session) {
-			if (session.ws && session.ws.readyState === WebSocket.OPEN) {
-				session.ws.close();
+			if (session.ws) {
+                // Remove handlers to prevent re-entrant calls when we manually close the socket.
+                session.ws.onclose = null;
+                session.ws.onerror = null;
+                if (session.ws.readyState === WebSocket.OPEN) {
+				    session.ws.close();
+                }
 			}
 			if (session.term) {
 				session.term.dispose(); // Dispose the xterm.js instance
 			}
-			this._sessions.delete(sessionId); // Remove from our sessions map
 		}
 	}
 
@@ -241,28 +249,22 @@ class TerminalManager {
 	 * @param {TabItem} tab - The TabItem associated with the session.
 	 */
 	deleteTerminalSession(sessionId, tab) {
-		// Prevent deleting the very last terminal session
-		if (this._sessions.size <= 1) {
-			alert("Cannot delete the last remaining terminal session.");
-			return;
-		}
 		const session = this._sessions.get(sessionId);
 		if (session) {
 			this._disconnectSession(sessionId); // Close WebSocket and dispose xterm.js
 			session.containerElement.remove(); // Remove its dedicated DOM container
+			this._sessions.delete(sessionId); // Remove from our internal map
+
 			if (tab) {
 				this.sessionTabBar.remove(tab); // Remove its tab from the TabBar
 			}
+
 			// If the deleted session was the active one, switch to another session
 			if (this._activeSessionId === sessionId) {
-				const remainingSessionIds = Array.from(this._sessions.keys());
-				if (remainingSessionIds.length > 0) {
-					// Automatically switch to the first available remaining session
-					this.switchTerminalSession(remainingSessionIds[0]);
-				} else {
-					// This case should ideally not happen if we prevent deleting the last session
-					this._activeSessionId = null;
-				}
+				// The TabBar's remove method should handle activating the next tab,
+				// which will then call switchTerminalSession and set the new active ID.
+				// We just need to clear the old one here.
+				this._activeSessionId = null;
 			}
 		} else {
 			console.warn(`Attempted to delete non-existent session: ${sessionId}`);

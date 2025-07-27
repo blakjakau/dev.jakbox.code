@@ -621,13 +621,19 @@ const execCommandToggleSidebarPanel = (panelId) => {
 
 	if (isSidebarVisible && currentPanel === panelId) {
 		if(panelId == 'developer_board') {
-			if(!document.activeElement.classList.contains("prompt-area")) {
+			if(!document.activeElement.classList.contains("ace_text-input")) {
 				// just focus the tab
 				ui.iconTabBar.activeTabById = panelId;
 				return
 			}
 		}
-		
+		if(panelId == 'terminal') {
+			if(!document.activeElement.classList.contains("xterm-helper-textarea")) {
+				// just focus the tab
+				ui.iconTabBar.activeTabById = panelId;
+				return
+			}
+		}
 		ui.toggleSidebar(); // Close the sidebar
 	} else if (!isSidebarVisible) {
 		ui.toggleSidebar(); // Open the sidebar
@@ -668,8 +674,31 @@ const execCommandRestoreFolders = () => {
 }
 
 const execCommandCloseActiveTab = async () => {
-	const tab = leftTabs.activeTab
-	tab.close.click()
+	const activeEl = document.activeElement;
+
+	// If the active element is within a terminal instance
+	if (activeEl && activeEl.closest('.terminal-instance-container')) {
+		if (window.terminalManager && window.terminalManager._activeSessionId) {
+			const session = window.terminalManager._sessions.get(window.terminalManager._activeSessionId);
+			if (session && session.tabItem) {
+				window.terminalManager.deleteTerminalSession(session.tabItem.config.id, session.tabItem);
+			}
+		}
+		return;
+	}
+	// If the active element is within the AI prompt editor
+	if (activeEl && activeEl.closest('#ai-prompt-editor-container')) {
+		if (ui.aiManager && ui.aiManager.activeSession) {
+			ui.aiManager.deleteSession(ui.aiManager.activeSession.id, ui.aiManager.sessionTabBar.activeTab);
+		}
+		return;
+	}
+
+	// Fallback to closing the current editor file if neither terminal nor AI is focused
+	const tab = ui.currentTabs.activeTab;
+	if (tab) {
+		tab.close.click();
+	}
 }
 const execCommandSave = async () => {
     isSavingFile = true; // Set flag at the beginning of save operation
@@ -1419,6 +1448,14 @@ const keyBinds = [
 		bindKey: { win: "Alt+N", mac: "Option+N" },
 		exec: () => {
 			execCommandToggleSidebarPanel('edit_note');
+		},
+	},
+	{
+		target: "app",
+		name: "show-terminal",
+		bindKey: { win: "Alt+T", mac: "Option+T" },
+		exec: () => {
+			execCommandToggleSidebarPanel('terminal');
 		},
 	},
 	{
