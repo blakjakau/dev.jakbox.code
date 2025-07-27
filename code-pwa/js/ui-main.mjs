@@ -1,4 +1,4 @@
-import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder, IconTabBar, IconTab, SidebarPanel } from './elements.mjs';
+import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder, IconTabBar, IconTab, SidebarPanel, TerminalPanel } from './elements.mjs';
 import aiManager from './ai-manager.mjs';
 import ollama from './ai-ollama.mjs';
 
@@ -58,27 +58,48 @@ const uiManager = {
 		}
 
 		constrainHolders = ()=>{
-			if(!document.body.classList.contains("showSplitView")) {
-				leftEdit.resize()
-				rightEdit.resize()
-				scratchEditor.resize();
-				return
+			// 1. Handle Sidebar width constraints
+			const minSidebarWidth = 350;
+			const maxSidebarWidth = window.innerWidth * 0.5;
+			const currentSidebarWidth = sidebar.offsetWidth;
+
+			if (document.body.classList.contains("showSidebar")) {
+				if (currentSidebarWidth > maxSidebarWidth) {
+					sidebar.style.width = maxSidebarWidth + "px";
+					mainContent.style.left = maxSidebarWidth + "px";
+				} else if (currentSidebarWidth < minSidebarWidth) {
+					sidebar.style.width = minSidebarWidth + "px";
+					mainContent.style.left = minSidebarWidth + "px";
+				}
+			} else {
+				mainContent.style.left = ""; // Reset mainContent position if sidebar is hidden
 			}
-			const w = mainContent.offsetWidth
-			let l = leftHolder.offsetWidth/w
-			let r = rightHolder.offsetWidth/w
+
 			
-			l = Math.max(0.25, Math.min(0.75, l))
-			r = 1 - l
+			// 2. Adjust main content width for split view, if active
+			if (document.body.classList.contains("showSplitView")) {
+				const totalContentWidth = mainContent.offsetWidth; // This is the width available for editors
+				let leftWidthRatio = leftHolder.offsetWidth / totalContentWidth; // Current ratio
+				
+				leftWidthRatio = Math.max(0.25, Math.min(0.75, leftWidthRatio)); // Clamp ratio
+				
+				leftHolder.style.width = (leftWidthRatio * 100) + "%";
+				rightHolder.style.width = ((1 - leftWidthRatio) * 100) + "%";
+			} else {
+				// Ensure right holder is hidden and left holder takes full width if not in split view
+				leftHolder.style.width = "100%";
+				rightHolder.style.width = "0%";
+			}
+
+			// 3. Trigger resize for all elements that need to adapt to new container sizes
+			leftEdit.resize();
+			rightEdit.resize();
+			scratchEditor.resize();
 			
-			leftHolder.style.width = ((l)*100)+"%"
-			rightHolder.style.width = ((r)*100)+"%"
-			
-			setTimeout(()=>{
-				leftEdit.resize()
-				rightEdit.resize()
-				scratchEditor.resize();
-			}, animRate)
+			terminalPanel.fit(); // Fit xterm.js terminal
+			sidebar.addEventListener("transitionend", ()=>{
+				terminalPanel.fit(); // Fit xterm.js terminal
+			}, {once:true})
 		}
 
 		options = { ...defaults, ...options }
@@ -97,10 +118,12 @@ const uiManager = {
 		const filesTab = new IconTab('folder');
 		const aiTab = new IconTab('developer_board');
 		const scratchTab = new IconTab('edit_note');
+		const terminalTab = new IconTab('terminal');
 		iconTabBar.addTab(filesTab);
 		iconTabBar.addTab(aiTab);
 		iconTabBar.addTab(scratchTab);
-
+		iconTabBar.addTab(terminalTab);
+		
 		const filesPanel = new SidebarPanel();
 		filesPanel.append(fileActions);
 		filesPanel.append(fileList);
@@ -118,11 +141,14 @@ const uiManager = {
 		scratchEditorElement.style.height = "100%";
 		scratchPanel.append(scratchEditorElement);
 
+		const terminalPanel = new TerminalPanel();
+
 		const sidebarPanelsContainer = new Block();
 		sidebarPanelsContainer.setAttribute("id", "sidebar-panels-container");
 		sidebarPanelsContainer.append(filesPanel);
 		sidebarPanelsContainer.append(aiManagerPanel);
 		sidebarPanelsContainer.append(scratchPanel);
+		sidebarPanelsContainer.append(terminalPanel);
 
 		sidebar = new Panel()
 		sidebar.setAttribute("id", "sidebar")
@@ -142,6 +168,9 @@ const uiManager = {
 				aiManagerPanel.active = true;
 			} else if (tab === scratchTab) {
 				scratchPanel.active = true;
+			} else if (tab === terminalTab) {
+				terminalPanel.active = true;
+				terminalPanel.connect(); // Attempt to connect when panel is shown
 			}
 		});
 
@@ -278,17 +307,6 @@ const uiManager = {
 		sidebar.resizeEndListener(()=>{
 			sidebar.style.transition = ""
 			mainContent.style.transition = ""
-
-			void sidebar.offsetWidth
-			const minWidth = 350
-			const maxWidth = window.innerWidth * 0.5; // 50% of window width
-			if(sidebar.offsetWidth > maxWidth) {
-				sidebar.style.width = maxWidth + "px"
-				mainContent.style.left = maxWidth + "px";
-			} else if(sidebar.offsetWidth < minWidth) {
-				sidebar.style.width = minWidth + "px"
-				mainContent.style.left = minWidth + "px";
-			}
 			
 			constrainHolders()
 		})

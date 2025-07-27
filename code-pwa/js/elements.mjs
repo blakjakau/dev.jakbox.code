@@ -23,7 +23,8 @@ export { EditorHolder } from './elements/editorholder.mjs';
 export { IconTabBar } from './elements/icon-tabbar.mjs';
 export { IconTab } from './elements/icon-tab.mjs';
 export { SidebarPanel } from './elements/sidebar-panel.mjs';
-export { isset, isNotNull, isFunction, isElement, clone, addStylesheet, sortOnName, readAndOrderDirectory, readAndOrderDirectoryRecursive, buildPath } from './elements/utils.mjs';
+export { TerminalPanel } from './elements/terminal-panel.mjs';
+export { isset, isNotNull, isFunction, isElement, clone, addStylesheet, sortOnName, readAndOrderDirectory, readAndOrderDirectoryRecursive, buildPath, loadScript } from './elements/utils.mjs';
 
 import { Element } from './elements/element.mjs';
 import { Inline } from './elements/element.mjs';
@@ -51,6 +52,7 @@ import { Input } from './elements/input.mjs';
 import { Effects } from './elements/effect.mjs';
 import { Effect } from './elements/effect.mjs';
 import { Ripple } from './elements/ripple.mjs';
+import { TerminalPanel } from './elements/terminal-panel.mjs';
 import { EditorHolder } from './elements/editorholder.mjs';
 
 

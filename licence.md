@@ -19,3 +19,5 @@ Open Source credits:
 Code uses [Ace](https://ace.c9.io) - "The high performance code editor for the web" - Copyright (c) 2010, Ajax.org B.V.
 
 Code uses [Prettier](https://prettier.io) - Copyright © James Long and contributors
+
+Code uses [xterm.js](https://xtermjs.org) - Copyright © The [xterm.js authors](https://github.com/xtermjs/xterm.js)
