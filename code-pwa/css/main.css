@@ -707,6 +707,11 @@ ui-sidebar-panel#ai-panel[active] {
 	display: flex;
 }
 
+ui-sidebar-panel#terminal-panel[active] {
+    display: flex;
+}
+
+
 ui-sidebar-panel .conversation-area::-webkit-scrollbar {
 	width: .66em; height: .66em;
 }
@@ -742,4 +747,59 @@ ui-sidebar-panel pre::-webkit-scrollbar-track {
 ui-sidebar-panel pre::-webkit-scrollbar-thumb {
 	background-color: darkgrey;
 	border-radius:4px;
+}
+
+
+.terminal-panel-container { /* Renamed from ui-terminal-panel */
+    /*display: flex; */ /* removed as this is handled by the active attribute*/
+    flex-direction: column;
+    height: 100%; /* Ensure the panel itself takes full height */
+}
+
+/* Styles for the terminal content wrapper within the panel */
+ui-sidebar-panel.terminal-panel-container .terminal-containers-wrapper {
+    flex: 1; /* Allows the terminal content area to grow and fill available space */
+    min-height: 0; /* Important for flex items to shrink correctly */
+    position: relative; /* For absolutely positioned terminal instances */
+}
+
+/* Ensure individual terminal instance containers fill their space */
+ui-sidebar-panel.terminal-panel-container .terminal-containers-wrapper .terminal-instance-container {
+    position: absolute; /* Needed for xterm.js to size correctly within a relative parent */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+ui-tabbar.tabs-inverted {
+	display: flex;
+    overflow-x: auto;
+    box-sizing: border-box;
+    border-top: 3px solid var(--themeDark);
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.5);
+    z-index: 2;
+}
+
+
+/* "Inverted" tabs are now styled to sit on top of the prompt area */
+ui-tabbar.tabs-inverted[slim] > ui-tab-item {
+
+    margin-top: 0;
+    margin-bottom: 0; /* Sits flush with the bottom of the container */
+    border-radius: 0 0 8px 8px; /* Rounded TOP corners */
+}
+
+/* Override to ensure bottom corners are square */
+ui-tabbar.tabs-inverted[slim] > ui-tab-item,
+ui-tabbar.tabs-inverted[slim] > ui-tab-item[active] {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    /*background: var(--dark); */
+    /*color: var(--button-text-color);*/
+}
+
+ui-tabbar.tabs-inverted[slim] > ui-tab-item[active] {
+	/*background: var(--themeDark);*/
+ /*   color: var(--light);*/
 }

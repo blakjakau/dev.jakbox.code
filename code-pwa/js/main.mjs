@@ -728,6 +728,21 @@ const execCommandNewFile = async () => {
 	const mode = srcTab?.config?.mode?.mode || "";
 	const folder = srcTab?.config?.folder || undefined;
 	const newSession = ace.createEditSession("", mode);	
+
+	// Check for active element focus to determine context
+	const activeEl = document.activeElement;
+
+	// If the active element is within a terminal instance
+	if (activeEl && activeEl.closest('.terminal-instance-container')) {
+		window.terminalManager.createNewTerminalSession();
+		return;
+	}
+	// If the active element is within the AI prompt editor
+	if (activeEl && activeEl.closest('#ai-prompt-editor-container')) {
+		ui.aiManager.createNewSession();
+		return;
+	}
+
 	// Apply stored session options to the new session
 	if (app.sessionOptions) {
 		newSession.setOptions(app.sessionOptions);
@@ -1656,6 +1671,9 @@ setTimeout(async () => {
     	if(e.detail?.tab?._iconId == "developer_board") {
     		ui.aiManager.focus()
     	}
+		if(e.detail?.tab?._iconId == "terminal") {
+			window.terminalManager.fit(); // Fit active terminal when its tab is focused
+		}
     })
     // REMOVED: ui.aiManager.panel.addEventListener('new-prompt', (event) => { /* ... */ });
     // This is now handled within ai-manager for activeSession.promptHistory

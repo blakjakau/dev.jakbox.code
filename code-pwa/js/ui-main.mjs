@@ -1,4 +1,5 @@
-import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder, IconTabBar, IconTab, SidebarPanel, TerminalPanel } from './elements.mjs';
+import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder, IconTabBar, IconTab, SidebarPanel } from './elements.mjs';
+import TerminalManager from './terminal-manager.mjs'; // Import the new TerminalManager
 import aiManager from './ai-manager.mjs';
 import ollama from './ai-ollama.mjs';
 
@@ -95,11 +96,14 @@ const uiManager = {
 			leftEdit.resize();
 			rightEdit.resize();
 			scratchEditor.resize();
-			
-			terminalPanel.fit(); // Fit xterm.js terminal
-			sidebar.addEventListener("transitionend", ()=>{
-				terminalPanel.fit(); // Fit xterm.js terminal
-			}, {once:true})
+			// Call fit on the terminal manager's instance
+			if (window.terminalManager) {
+				window.terminalManager.fit();
+				// Ensure fit after sidebar transition
+				sidebar.removeEventListener("transitionend", uiManager._sidebarFitTerminalAfterTransition); // Prevent duplicate listeners
+				uiManager._sidebarFitTerminalAfterTransition = () => window.terminalManager.fit();
+				sidebar.addEventListener("transitionend", uiManager._sidebarFitTerminalAfterTransition, { once: true });
+			}
 		}
 
 		options = { ...defaults, ...options }
@@ -141,7 +145,11 @@ const uiManager = {
 		scratchEditorElement.style.height = "100%";
 		scratchPanel.append(scratchEditorElement);
 
-		const terminalPanel = new TerminalPanel();
+		const terminalPanel = new SidebarPanel(); // Create a SidebarPanel to host the terminal
+		terminalPanel.setAttribute("id", "terminal-panel");
+		
+		window.terminalManager = TerminalManager; // Create the manager instance
+		window.terminalManager.init(terminalPanel); // Initialize the manager with its panel
 
 		const sidebarPanelsContainer = new Block();
 		sidebarPanelsContainer.setAttribute("id", "sidebar-panels-container");
@@ -169,8 +177,8 @@ const uiManager = {
 			} else if (tab === scratchTab) {
 				scratchPanel.active = true;
 			} else if (tab === terminalTab) {
-				terminalPanel.active = true;
-				terminalPanel.connect(); // Attempt to connect when panel is shown
+				terminalPanel.active = true; // Activate the sidebar panel
+				window.terminalManager.connect(); // Tell the manager to connect
 			}
 		});
 
@@ -1010,9 +1018,11 @@ const uiManager = {
 	get scratchEditor() { return scratchEditor },
 	get iconTabBar() { return iconTabBar },
 	
+	get terminalManager() { return terminalManager }, // Export the terminal's SidebarPanel
 	get aiManager() { return aiManager },
 	
 	constrainHolders: constrainHolders,
+	_sidebarFitTerminalAfterTransition: null, // To hold the bound function for removal
 	
 	set currentEditor(v) {
 		currentEditor = v;
