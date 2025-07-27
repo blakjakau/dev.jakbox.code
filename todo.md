@@ -2,12 +2,18 @@
 
 ## fixes
 - filelist activity indicators (line wrapping)
+- filelist rendering janky when removing folders
 - tab title updates using "Save As"
 - resolve/rework sidebar size contraints
+- maintain tab orders - files and AI chats between reloads
 
 ## ideas
 - filelist index updates?
 - filelist index search (helpful for @ tagging in prompts?)
+- improve chat summary implementation
+- - consider short-term "undo" for summarisation? or a confirm step with a preview?
+- allow import/export (save to file / load from file) of context threads for portability
+- 
 - add basic image editing (annotations) to mediaView?
 - add context menu for tabs (right-click > rename, delete)
 - expand context menu for files (right-click > rename, delete, move?)
