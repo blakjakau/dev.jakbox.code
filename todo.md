@@ -3,7 +3,6 @@
 ## fixes
 - filelist activity indicators (line wrapping)
 - filelist rendering janky when removing folders
-- tab title updates using "Save As"
 - resolve/rework sidebar size contraints
 - maintain tab orders - files and AI chats between reloads
 
@@ -54,7 +53,8 @@
 
 
 # done
-- ad code merges based on diff format
+- tab title updates using "Save As"
+- add code merges based on diff format
 - add code highlighting to markdown (for AI response and preview tab)
 - replace prompt textarea with ACE editor instance?
 - add tabs to AI panel for multi-session / multi-task AI usage
