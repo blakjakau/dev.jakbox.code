@@ -45,7 +45,7 @@ export async function readAndOrderDirectory(handle) {
 		folders = []
 	for await (const entry of handle.values()) {
 		// set the parent folder
-		entry.container = handle
+		if(entry != handle) entry.container = handle
 		if (entry.kind == "file") {
 			files.push(entry)
 		} else {
@@ -66,7 +66,8 @@ export async function readAndOrderDirectoryRecursive(handle) {
 	try {
 		for await (const entry of handle.values()) {
 			// set the parent folder
-			entry.container = handle
+			
+			if(entry != handle) entry.container = handle
 			entry.path = buildPath(entry)
 			
 			if (entry.kind == "file") {

@@ -735,6 +735,22 @@ const uiManager = {
 		
 		window.editors.push(scratchEditor);
 
+		const updateCursorPositionStatus = (editor) => {
+			if (editor === scratchEditor) return;
+			const selection = editor.getSelection();
+			const cursor = selection.getCursor();
+			let displayText = `${cursor.row + 1}:${cursor.column + 1}`;
+
+			const tab = editor.tabs?.activeTab;
+			if (tab) {
+				const fileName = tab.title || tab.config.name;
+				if (fileName) {
+					displayText += ` - ${fileName.replace(/\//g, " > ")}`;
+				}
+			}
+			cursorpos.innerHTML = displayText;
+		};
+
 		for(const editor of editors) {
 			const thisTabs = editor.tabs
 			editor.setKeyboardHandler(options.keyboard)
@@ -757,38 +773,7 @@ const uiManager = {
 			})
 
 			editor.on("changeSelection", () => {
-				if (editor === scratchEditor) return;
-				const selection = editor.getSelection()
-				var cursor = selection.getCursor()
-				let displayText = cursor.row + 1 + ":" + (cursor.column + 1)
-				if (editor.tabs && editor.tabs.activeTab) {
-					const tabTitle = editor.tabs.activeTab.title;
-					const fileName = tabTitle && tabTitle !== "" ? tabTitle.replace(/\//g, " > ") : editor.tabs.activeTab.config.name;
-					if (fileName) {
-						displayText = displayText + " - " + fileName;
-					}
-				}
-				cursorpos.innerHTML = displayText
-			})
-	
-			// // copy text to the thumbnail strip
-			editor.on("change", () => {
-				if (editor === scratchEditor) return;
-				const pos = editor.getCursorPosition
-				cursorpos.innerHTML = `${pos.col}:${pos.row}`
-				if (!editor.session.getUndoManager().isClean()) {
-					if (editor.getValue() !== editor.session.baseValue) {
-						if (thisTabs.activeTab) thisTabs.activeTab.changed = true
-						if (fileList.activeItem) fileList.activeItem.changed = true
-					} else {
-						if (thisTabs.activeTab) thisTabs.activeTab.changed = false
-						if (fileList.activeItem) fileList.activeItem.changed = false
-						editor.session.getUndoManager().markClean()
-					}
-				} else {
-					if (thisTabs.activeTab) thisTabs.activeTab.changed = false
-					if (fileList.activeItem) fileList.activeItem.changed = false
-				}
+				updateCursorPositionStatus(editor);
 			})
 			
 		}

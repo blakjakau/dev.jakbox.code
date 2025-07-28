@@ -695,13 +695,13 @@ const execCommandRemoveAllFolders = () => {
 const execCommandRefreshFolders = () => {}
 
 const execCommandRestoreFolders = () => {
+	fileList.openFolders = workspace.openFolders;
 	fileAccess.click();
 	fileAccess.style.display = "none";
 	menuRestoreFolders.style.display = "none";
-	fileList.openFolders = workspace.openFolders;
-	setTimeout(()=>{
-		fileList.openFolders = workspace.openFolders;
-	}, 300)
+	// setTimeout(()=>{
+	// 	fileList.openFolders = workspace.openFolders;
+	// }, 300)
 }
 
 const execCommandCloseActiveTab = async () => {
@@ -739,6 +739,9 @@ const execCommandSave = async () => {
 		
 		// This is a new file, add it to the workspace
 		syncWorkspaceFile(tab);
+
+		// Refresh the folder in the file list to show the new file
+		await fileList.refreshFolder(newHandle.container);
 	}
 	setTimeout(() => { // Reset flag after a short delay
 		isSavingFile = false;
@@ -750,6 +753,7 @@ const execCommandSaveAs = async () => {
 	const tab = currentTabs.activeTab;
 	const config = tab.config;
 	const oldHandle = config.handle;
+	const oldFolderHandle = oldHandle?.container;
 
 	const startIn = await getSuggestedStartDirectory();
 	const options = {};
@@ -775,6 +779,12 @@ const execCommandSaveAs = async () => {
 	tab.setAttribute("title", config.path);
 	await saveFile(tab);
 	syncWorkspaceFile(tab);
+
+	await fileList.refreshFolder(newHandle.container);
+	if (oldFolderHandle && oldFolderHandle !== newHandle.container) {
+		await fileList.refreshFolder(oldFolderHandle);
+	}
+
     setTimeout(() => { // Reset flag after a short delay
         isSavingFile = false;
     }, 500); // 500ms delay
@@ -886,7 +896,23 @@ const syncWorkspaceFile = (tab) => {
 	}
 	saveWorkspace();
 };
-
+const setupSessionChangeListener = (session, tab) => {
+    session.on('change', () => {
+        const isDirty = session.getValue() !== session.baseValue;
+        
+        // Update tab's changed status
+        tab.changed = isDirty;
+        
+        // Update corresponding file list item's changed status
+        const handle = tab.config.handle;
+        if (handle) {
+            const fileItem = fileList.byTitle(buildPath(handle));
+            if (fileItem) {
+                fileItem.changed = isDirty;
+            }
+        }
+    });
+};
 let currentEditor = leftEdit;
 let currentTabs = leftEdit;
 let currentMediaView = ui.leftMedia;
@@ -1032,9 +1058,9 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 		handle: handle,
 		folder: handle.container,
 		fileModified: false, // Initialize fileModified flag
-	})
+	});
+	setupSessionChangeListener(newSession, tab);
 	tab.click()
-
 	observeFile(handle, onFileModified); // Observe the file for changes
 
 	// Only add to workspace and save if it's a newly opened file, not from a restore
@@ -1195,7 +1221,8 @@ const defaultTab = (targetTabs) => {
 	}
 	const defaultSession = ace.createEditSession("", "")
 	const tab = targetTabs.add({ name: "untitled", mode: { mode: "" }, session: defaultSession })
-	
+	setupSessionChangeListener(newSession, tab);
+
 	// Determine which editor and media view to use based on the targetTabs
 	let editorToUse = leftEdit;
 	let mediaViewToUse = leftMedia;
