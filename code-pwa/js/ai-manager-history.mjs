@@ -73,8 +73,8 @@ class AIManagerHistory {
 			}
 
 			this.manager.activeSession.messages.push(messageObject);
-			this.manager.activeSession.lastModified = Date.now();
-			this.render({ isNewMessage: true }); // Re-render to show the new message, flagging it as new
+			this.manager.activeSession.lastModified = Date.now(); // Update last modified timestamp
+			this.appendMessageElement(messageObject); // Append the new message directly
 			if (this.conversationArea && autoScroll) { // Scroll only if requested and not a system message
 				this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
 			}
@@ -123,11 +123,10 @@ class AIManagerHistory {
 		// Use the new element factory for each message in the history
 		for (let i = 0; i < this.chatHistory.length; i++) {
 			const message = this.chatHistory[i];
-			// Skip file_context messages as they are in the fileBar
-			if (message.type !== 'file_context') {
-				const element = this._createMessageElement(message, i, isNewMessage);
-				if (element) this.conversationArea.append(element);
-			}
+			// Skip file_context messages as they are only in the fileBar for initial render
+			if (message.type === 'file_context') continue;
+			const element = this._createMessageElement(message, i); // No isNewMessage for full render
+			if (element) this.conversationArea.append(element);
 		}
 	}
 
@@ -154,8 +153,8 @@ class AIManagerHistory {
 		// Find the index of the message within the chatHistory array.
 		// This is important for _createMessageElement to determine if a delete button should be added.
 		const index = this.chatHistory.findIndex(m => m.id === message.id);
-		
-		const element = this._createMessageElement(message, index);
+
+		const element = this._createMessageElement(message, index, true); // Always new when appended
 		if (element) {
 			this.conversationArea.append(element);
 		}
@@ -200,10 +199,8 @@ class AIManagerHistory {
 			element.classList.add("response-block");
 			if (message.type === "error") element.classList.add("error-block"); // Add a specific class for error styling
 			element.dataset.messageId = message.id; // Store message ID on the response block
-			element.innerHTML = this.md.render(message.content);
-			if (message.type === "model") { // Only add code block buttons to actual model responses
-				this.manager._addCodeBlockButtons(element);
-			}
+			element.innerHTML = this.md.render(message.content); // Render content
+			if (message.type === "model") this.manager._addCodeBlockButtons(element, message); // Add buttons for model messages, passing the message object
 
 		} else if (message.type === "system_message") {
 			element = new Block();

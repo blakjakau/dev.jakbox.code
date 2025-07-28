@@ -1216,6 +1216,7 @@ class AIManager {
 					role: "model",
 					type: "model",
 					content: fullResponse,
+					diffStatuses: [], // NEW: To store applied status for each diff block within this message
 					timestamp: Date.now(),
 				};
 				this.activeSession.messages.push(modelMessage);
@@ -1224,10 +1225,10 @@ class AIManager {
 				await set(`ai-session-${this.activeSession.id}`, this.activeSession);
 
 				// Now, render the final response in the UI.
-				spinner.remove()
+				spinner.remove(); // Spinner removed first
 				this.conversationArea.removeEventListener("scroll", scrollHandler)
-				responseBlock.innerHTML = this.md.render(fullResponse) // Final render
-				this._addCodeBlockButtons(responseBlock) // Add buttons after final response is rendered
+				responseBlock.innerHTML = this.md.render(fullResponse); // Final render (this will rebuild the content inside responseBlock)
+				this._addCodeBlockButtons(responseBlock, modelMessage); // Pass the message object here to read/write persistent state
 				
 				this._dispatchContextUpdate("append_model") // Dispatch after model response
 
@@ -1246,6 +1247,7 @@ class AIManager {
 					type: "error",
 					content: `Error: ${error.message}`,
 					timestamp: Date.now(),
+					diffStatuses: [], // Initialize even for errors, though no diffs expected here
 				};
 				this.activeSession.messages.push(errorMessage);
 				// Update lastModified timestamp and save the active session
@@ -1266,9 +1268,9 @@ class AIManager {
 		this.ai.chat(messagesForAI, callbacks)
 	}
 
-	_addCodeBlockButtons(responseBlock) {
+	_addCodeBlockButtons(responseBlock, messageObject = null) { // Add messageObject parameter
 		const preElements = responseBlock.querySelectorAll("pre")
-		preElements.forEach((pre) => {
+		preElements.forEach((pre, index) => {
             // Check if buttons are already added to this <pre> element
             if (pre.querySelector('.code-buttons')) {
                 return; // Skip if buttons already exist
@@ -1277,6 +1279,11 @@ class AIManager {
 			const codeElement = pre.querySelector("code") // Get the code element inside pre
 
 			const buttonContainer = new Block()
+
+            // Ensure messageObject.diffStatuses exists and is an array
+            if (messageObject && !Array.isArray(messageObject.diffStatuses)) {
+                messageObject.diffStatuses = [];
+            }
 			buttonContainer.classList.add("code-buttons")
 
 			// Common buttons for all code blocks
@@ -1380,8 +1387,23 @@ class AIManager {
                 // Add "Apply Diff" button
                 const applyDiffButton = new Button();
                 applyDiffButton.classList.add("code-button");
-                applyDiffButton.icon = "merge"; // Suitable icon for applying changes
-                applyDiffButton.title = "Apply diff to file";
+
+                // Check state from messageObject if available
+                if (messageObject && messageObject.diffStatuses && messageObject.diffStatuses[index]) {
+                    applyDiffButton.icon = "done";
+                    applyDiffButton.title = "Diff applied successfully!";
+
+                    // If diff is applied, start it in collapsed state
+                    pre.removeAttribute("expanded"); // Remove any expanded state
+                    pre.setAttribute("collapsed", ""); // Apply collapsed state
+                    expandCollapseButton.icon = "unfold_more";
+                    expandCollapseButton.title = "Expand code block";
+
+                } else {
+                    applyDiffButton.icon = "merge"; // Suitable icon for applying changes
+                    applyDiffButton.title = "Apply diff to file";
+                }
+
                 applyDiffButton.on("click", async () => {
                     const rawDiff = pre.dataset.originalDiffContent;
                     if (!rawDiff) {
@@ -1428,6 +1450,8 @@ class AIManager {
                     if (newFileContentFromDiff === null) {
                         alert(`Failed to apply diff to "${targetPath}". There might be a content mismatch with the file as it was originally sent to AI. Please review the diff manually.`);
                         console.error("Diff application failed:", { originalContentFromContext, rawDiff });
+                        applyDiffButton.classList.remove("diff-apply-success"); // Ensure success state is removed
+                        applyDiffButton.classList.add("diff-apply-failed");
                     } else {
                     	
                         // 4. Update the live file content in the editor, preserving undo history.
@@ -1443,12 +1467,15 @@ class AIManager {
                         // The user should manually save after applying.
 
                         // Provide visual feedback
+                        applyDiffButton.classList.remove("diff-apply-failed"); // Ensure failure state is removed
+                        applyDiffButton.classList.add("diff-apply-success");
                         applyDiffButton.icon = "done"; 
                         applyDiffButton.title = "Diff applied successfully!";
-                        setTimeout(() => {
-                            applyDiffButton.icon = "merge";
-                            applyDiffButton.title = "Apply diff to file";
-                        }, 2000);
+                        // NEW: Update the diff status in the message object and save
+                        if (messageObject) {
+                            messageObject.diffStatuses[index] = true;
+                            await set(`ai-session-${this.activeSession.id}`, this.activeSession); // Save the session immediately
+                        }
                         // Add a system message to chat history for persistent feedback
                         this.historyManager.addMessage({
                             type: "system_message",

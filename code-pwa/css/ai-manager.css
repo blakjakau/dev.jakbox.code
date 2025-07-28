@@ -69,7 +69,7 @@
 
 /* Improve button placement and visibility */
 .conversation-area .response-block .code-buttons {
-    position: absolute;
+    position: sticky; /* make the buttons show when the code is scrolled*/
     top: 4px;
     right: 4px;
     display: flex;
@@ -219,7 +219,7 @@
 }
 
 .response-block pre[collapsed] {
-    max-height: 16em; /* Collapsed state */
+    max-height: 10em; /* Collapsed state */
     overflow-y: auto;
 }
 
@@ -241,7 +241,9 @@
     z-index: 1; /* Ensure buttons are on top of code content */
 }
 
-.response-block pre:hover .code-buttons {
+
+.response-block pre:hover .code-buttons,
+.response-block pre[collapsed] .code-buttons {
     opacity: 1;
 }
 
@@ -249,7 +251,7 @@
     background-color: rgba(120, 120, 120, 0.5);
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 50%;
     padding: 0px 4px;
     cursor: pointer;
     font-size: 14px;
@@ -261,6 +263,18 @@
 
 .code-button:hover {
     background-color: rgba(120, 120, 120, 0.7);
+}
+
+/* Styles for successful diff application */
+.code-button.diff-apply-success {
+    background-color: var(--green-soft)!important;
+    border-color: var(--green);
+}
+
+/* Styles for failed diff application */
+.code-button.diff-apply-failed {
+    background-color: var(--red-soft)!important; 
+    border-color: var(--red);
 }
 
 .prompt-pill-wrapper {
