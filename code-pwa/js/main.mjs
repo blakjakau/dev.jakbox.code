@@ -1862,7 +1862,7 @@ setTimeout(async () => {
 		ui.toggleSidebar()
 		ui.currentTabs = ui.leftTabs
 		
-		defaultTab()
+		//defaultTab()
 		ui.fileList.open = openFileHandle;
 		fileList.unsupported = openFileHandle;
 		leftTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, leftEdit);
