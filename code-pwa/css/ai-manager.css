@@ -392,10 +392,25 @@
 
 }
 
-ui-loader-bar {
-    display: flex; /* Make the custom element itself a flex container */
-    width: 100%;
-    height: 50px;
+.spinner-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100px; /* Give the spinner some vertical space */
+}
+
+.loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 4px solid var(--low);
+    border-top-color: var(--theme);
+    border-radius: 50%;
+    animation: spin-simple 1s linear infinite;
+}
+
+@keyframes spin-simple {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
 }
 
 .progress-bar-inner {

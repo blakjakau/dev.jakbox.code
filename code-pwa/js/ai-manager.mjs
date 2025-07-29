@@ -1,15 +1,13 @@
 // ai-manager.mjs
 // Styles for this module are located in css/ai-manager.css
-import { Block, Button, Icon, TabBar, TabItem, FileBar, LoaderBar } from "./elements.mjs"
+import { Block, Button, Icon, TabBar, TabItem, FileBar } from "./elements.mjs"
 import Ollama from "./ai-ollama.mjs" 
 import Gemini from "./ai-gemini.mjs"
 import AIManagerHistory, { MAX_RECENT_MESSAGES_TO_PRESERVE } from "./ai-manager-history.mjs"
 import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
 
-
 import DiffHandler from "./tools/diff-handler.mjs"
 import hljs from "./tools/highlightjs.mjs"
-
 const MAX_PROMPT_HISTORY = 50 // This is now PER-SESSION
 
 const promptEditorSettings = {
@@ -226,6 +224,19 @@ class AIManager {
 		progressBarInner.classList.add("progress-bar-inner")
 		progressBar.appendChild(progressBarInner)
 		return progressBar;
+	}
+
+	/**
+	 * Creates a new spinner element wrapped in a container for centering.
+	 * @returns {HTMLElement} The spinner container element.
+	 */
+	_createSpinner() {
+		const spinnerContainer = document.createElement('div');
+		spinnerContainer.classList.add('spinner-container');
+		const spinner = document.createElement('div');
+		spinner.classList.add('loading-spinner');
+		spinnerContainer.append(spinner);
+		return spinnerContainer;
 	}
 
 	_createPromptContainer() {
@@ -1186,19 +1197,22 @@ class AIManager {
 		// Render updated history in UI and dispatch event
 		// this.historyManager.render(); // NO LONGER NEEDED, using dynamic appends
 		this._dispatchContextUpdate("append_user"); // This will also save workspace metadata
-
 		// NEW: Create and append the new ui-loader-bar *before* the response block
-		const loaderBar = new LoaderBar();
-		this.conversationArea.append(loaderBar); // Loader bar comes first
+		// Ensure we calculate the space needed for the loader + response block, accounting for the file bar.
+		const fileBarContainer = this.panel.querySelector('.ai-filebar-container');
+		const fileBarHeight = fileBarContainer ? fileBarContainer.offsetHeight : 0;
+		const availableHeightForResponse = this.conversationArea.clientHeight - (fileBarHeight+16);
 
 		// Prepare placeholder for AI response
 		const modelMessageId = crypto.randomUUID(); // Pre-generate ID for the upcoming model response
 		const responseBlock = new Block();
 		responseBlock.classList.add("response-block");
 		responseBlock.dataset.messageId = modelMessageId; // Assign ID for future reference
+		const spinner = this._createSpinner(); // Create the new spinner
+		responseBlock.append(spinner); // Add spinner to the response block
 		// NEW: Set a temporary min-height to ensure the scroll area is large enough
-		this.conversationArea.append(responseBlock); // Then the response block
-		responseBlock.style.minHeight = `${this.conversationArea.clientHeight}px`; // Keep this for scroll stability
+		this.conversationArea.append(responseBlock);
+		responseBlock.style.minHeight = `${Math.max(50, availableHeightForResponse)}px`; // Ensure a minimum of 50px
 
 		// NEW: Scroll the conversation area so the user's prompt is near the top.
 		if (userMessageElement) {
@@ -1211,8 +1225,7 @@ class AIManager {
 
 		const callbacks = {
 			onUpdate: (fullResponse) => { // Update the responseBlock directly
-				// Remove the loader bar once content starts streaming
-				if (loaderBar.parentNode) loaderBar.remove();
+				if (spinner.parentNode) spinner.remove(); // Remove spinner on first stream chunk
                 // NEW: _addCodeBlockButtons will now also handle diff rendering for streaming updates
                 responseBlock.innerHTML = this.md.render(fullResponse);
                 this._addCodeBlockButtons(responseBlock) 
@@ -1220,8 +1233,7 @@ class AIManager {
 			onDone: async (fullResponse, contextRatioPercent) => { // Mark async to await set
 				// First, update the session data and add the delete button to the user's prompt.
 				// This is safer than doing it after rendering, which could fail.
-				if (loaderBar.parentNode) loaderBar.remove(); // Ensure loader is removed
-
+				// The spinner is removed when innerHTML is set, so no explicit removal is needed here.
 				const modelMessage = { id: modelMessageId, role: "model", type: "model", content: fullResponse, diffStatuses: [], timestamp: Date.now() };
 				this.activeSession.messages.push(modelMessage);
 				this.historyManager.addInteractionToLastUserMessage(userMessage); // Add delete button to user prompt
@@ -1240,6 +1252,7 @@ class AIManager {
 				this._setButtonsDisabledState(false) // Re-enable buttons
 			},
 			onError: async (error) => { // Mark async to await set
+				// The spinner is also removed here when innerHTML is overwritten.
 				responseBlock.style.minHeight = ''; // Reset min-height on error too
 				responseBlock.innerHTML = `Error: ${error.message}`
 				console.error(`Error calling ${this.ai.config.model} API:`, error);
