@@ -24,6 +24,7 @@ export { IconTabBar } from './elements/icon-tabbar.mjs';
 export { IconTab } from './elements/icon-tab.mjs';
 export { SidebarPanel } from './elements/sidebar-panel.mjs';
 export { isset, isNotNull, isFunction, isElement, clone, addStylesheet, sortOnName, readAndOrderDirectory, readAndOrderDirectoryRecursive, buildPath } from './elements/utils.mjs';
+export { LoaderBar } from "./elements/loader-bar.mjs"
 
 import { Element } from './elements/element.mjs';
 import { Inline } from './elements/element.mjs';
@@ -52,6 +53,7 @@ import { Effects } from './elements/effect.mjs';
 import { Effect } from './elements/effect.mjs';
 import { Ripple } from './elements/ripple.mjs';
 import { EditorHolder } from './elements/editorholder.mjs';
+import { LoaderBar } from "./elements/loader-bar.mjs"
 
 
 

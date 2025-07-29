@@ -310,6 +310,7 @@ const uiManager = {
 		drawer.resizable = "top"
 		let drawerHeight = 34
 		drawer.minSize = drawerHeight
+		drawer.maxSize = 1440
 		drawer.style.height = drawerHeight + "px"
 		mainContent.style.bottom = drawerHeight + "px"
 
@@ -323,6 +324,7 @@ const uiManager = {
 			mainContent.style.transition = ""
 			constrainHolders()
 		})
+		
 
 		installer = new Panel()
 		installer.setAttribute("type", "modal")

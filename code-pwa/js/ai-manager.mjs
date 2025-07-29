@@ -1,10 +1,11 @@
 // ai-manager.mjs
 // Styles for this module are located in css/ai-manager.css
-import { Block, Button, Icon, TabBar, TabItem, FileBar } from "./elements.mjs"
+import { Block, Button, Icon, TabBar, TabItem, FileBar, LoaderBar } from "./elements.mjs"
 import Ollama from "./ai-ollama.mjs" 
 import Gemini from "./ai-gemini.mjs"
 import AIManagerHistory, { MAX_RECENT_MESSAGES_TO_PRESERVE } from "./ai-manager-history.mjs"
 import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
+
 
 import DiffHandler from "./tools/diff-handler.mjs"
 import hljs from "./tools/highlightjs.mjs"
@@ -72,7 +73,6 @@ class AIManager {
 		this._settingsForm = null // Reference to the settings form element
 		this._workspaceSettingsCheckbox = null // Reference to the checkbox
 		this.useWorkspaceSettings = false
-		this.userScrolled = false
 		this._isProcessing = false // Flag to track if AI is busy (generating or summarizing)
 
 		// Reference to the AI info display element
@@ -1063,6 +1063,14 @@ class AIManager {
             return;
         }
 
+		// NEW: Clear min-height from the previous response block if it exists
+		const lastResponseBlockInHistory = this.conversationArea.lastElementChild;
+		if (lastResponseBlockInHistory && lastResponseBlockInHistory.classList.contains("response-block")) {
+			lastResponseBlockInHistory.style.minHeight = '';
+		}
+		// Also, clean up any loader bar that might still be present from a previous aborted generation
+		this.conversationArea.querySelector('ui-loader-bar')?.remove();
+
 		this._unsentPromptBuffer = null; // Clear the unsent prompt buffer on submission.
 		this._isProcessing = true
 		this._setButtonsDisabledState(true)
@@ -1144,10 +1152,11 @@ class AIManager {
 		});
 		
 		let userMessage = null;
+		let userMessageElement = null; // To hold the DOM element of the user's prompt
 		if(processedPrompt) {
 			userMessage = { role: "user", type: "user", content: processedPrompt, timestamp: Date.now(), id: crypto.randomUUID() };
 			this.activeSession.messages.push(userMessage);
-			this.historyManager.appendMessageElement(userMessage);
+			userMessageElement = this.historyManager.appendMessageElement(userMessage);
 		} else {
 			// Scenario: Context items were added, but no user prompt was given.
 			// In this case, we don't call the AI, acknowledge the context addition, and abort.
@@ -1178,56 +1187,51 @@ class AIManager {
 		// this.historyManager.render(); // NO LONGER NEEDED, using dynamic appends
 		this._dispatchContextUpdate("append_user"); // This will also save workspace metadata
 
-		// Prepare placeholder for AI response and spinner
+		// NEW: Create and append the new ui-loader-bar *before* the response block
+		const loaderBar = new LoaderBar();
+		this.conversationArea.append(loaderBar); // Loader bar comes first
+
+		// Prepare placeholder for AI response
 		const modelMessageId = crypto.randomUUID(); // Pre-generate ID for the upcoming model response
-		const responseBlock = new Block()
-		responseBlock.classList.add("response-block")
+		const responseBlock = new Block();
+		responseBlock.classList.add("response-block");
 		responseBlock.dataset.messageId = modelMessageId; // Assign ID for future reference
-		this.conversationArea.append(responseBlock)
+		// NEW: Set a temporary min-height to ensure the scroll area is large enough
+		this.conversationArea.append(responseBlock); // Then the response block
+		responseBlock.style.minHeight = `${this.conversationArea.clientHeight}px`; // Keep this for scroll stability
 
-		const spinner = new Block()
-		spinner.classList.add("spinner")
-		this.conversationArea.append(spinner)
-
-		this.conversationArea.scrollTop = this.conversationArea.scrollHeight
-
-		this.userScrolled = false
-		const scrollHandler = () => {
-			const { scrollTop, clientHeight, scrollHeight } = this.conversationArea
-			const isAtBottom = scrollTop + clientHeight >= scrollHeight - 32
-			this.userScrolled = !isAtBottom
+		// NEW: Scroll the conversation area so the user's prompt is near the top.
+		if (userMessageElement) {
+			// We account for the sticky file bar's height, just like you remembered!
+			const fileBarContainer = this.panel.querySelector('.ai-filebar-container');
+			const fileBarOffset = fileBarContainer ? fileBarContainer.offsetHeight : 0;
+			const PADDING_FROM_TOP = 8; // A little extra breathing room
+			this.conversationArea.scrollTop = userMessageElement.offsetTop - fileBarOffset - PADDING_FROM_TOP;
 		}
-		this.conversationArea.addEventListener("scroll", scrollHandler)
 
 		const callbacks = {
-			onUpdate: (fullResponse) => {
-				responseBlock.innerHTML = this.md.render(fullResponse)
+			onUpdate: (fullResponse) => { // Update the responseBlock directly
+				// Remove the loader bar once content starts streaming
+				if (loaderBar.parentNode) loaderBar.remove();
                 // NEW: _addCodeBlockButtons will now also handle diff rendering for streaming updates
+                responseBlock.innerHTML = this.md.render(fullResponse);
                 this._addCodeBlockButtons(responseBlock) 
-				if (!this.userScrolled) {
-					this.conversationArea.scrollTop = this.conversationArea.scrollHeight
-				}
 			},
 			onDone: async (fullResponse, contextRatioPercent) => { // Mark async to await set
 				// First, update the session data and add the delete button to the user's prompt.
 				// This is safer than doing it after rendering, which could fail.
-				const modelMessage = {
-					id: modelMessageId, // Use the pre-generated ID
-					role: "model",
-					type: "model",
-					content: fullResponse,
-					diffStatuses: [], // NEW: To store applied status for each diff block within this message
-					timestamp: Date.now(),
-				};
+				if (loaderBar.parentNode) loaderBar.remove(); // Ensure loader is removed
+
+				const modelMessage = { id: modelMessageId, role: "model", type: "model", content: fullResponse, diffStatuses: [], timestamp: Date.now() };
 				this.activeSession.messages.push(modelMessage);
 				this.historyManager.addInteractionToLastUserMessage(userMessage); // Add delete button to user prompt
 				this.activeSession.lastModified = Date.now();
 				await set(`ai-session-${this.activeSession.id}`, this.activeSession);
 
 				// Now, render the final response in the UI.
-				spinner.remove(); // Spinner removed first
-				this.conversationArea.removeEventListener("scroll", scrollHandler)
-				responseBlock.innerHTML = this.md.render(fullResponse); // Final render (this will rebuild the content inside responseBlock)
+				// DEV: For visual debugging, let's pop a loader bar on top of every model response.
+				responseBlock.innerHTML = this.md.render(fullResponse);
+				
 				this._addCodeBlockButtons(responseBlock, modelMessage); // Pass the message object here to read/write persistent state
 				
 				this._dispatchContextUpdate("append_model") // Dispatch after model response
@@ -1236,10 +1240,9 @@ class AIManager {
 				this._setButtonsDisabledState(false) // Re-enable buttons
 			},
 			onError: async (error) => { // Mark async to await set
+				responseBlock.style.minHeight = ''; // Reset min-height on error too
 				responseBlock.innerHTML = `Error: ${error.message}`
-				console.error(`Error calling ${this.ai.config.model} API:`, error)
-				spinner.remove()
-				this.conversationArea.removeEventListener("scroll", scrollHandler)
+				console.error(`Error calling ${this.ai.config.model} API:`, error);
 
 				const errorMessage = {
 					id: modelMessageId, // Use the pre-generated ID for the block

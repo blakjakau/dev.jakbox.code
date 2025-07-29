@@ -13,6 +13,7 @@
 	display: flex;
 	flex-direction: column;
 	overflow: hidden; /* Prevent scrollbars on the container itself */
+	position: relative; /* For positioning the floating spinner */
 }
 
 .ai-chat-container.hidden {
@@ -25,6 +26,7 @@
     padding: 8px;
     display: flex;
     flex-direction: column;
+    scroll-behavior: smooth;
 }
 .conversation-area>h1, .conversation-area>h2, .conversation-area>h3,
 .conversation-area>h4, .conversation-area>h5, .conversation-area>h6, 
@@ -202,10 +204,10 @@
 
 .response-block {
     margin-bottom: 16px;
-    background: rgba(0, 0, 0, 0.125);
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.125), rgba(0, 0, 0, 0));
     border-radius: 16px;
     padding: 0px 16px;
-    border: 1px solid var(--themeDark);
+    border: 2px solid rgba(0,0,0,0.125);
     position: relative;
 }
 
@@ -386,14 +388,14 @@
 }
 
 .spinner {
-	content: " ";
-    width: 20px;
-    min-height: 20px;
-    border: 2px solid var(--theme);
-    border-radius: 50%;
-    border-top-color: transparent;
-    animation: spin 1s linear infinite;
-    margin: 10px auto;
+    /* This class is now deprecated as ui-loader-bar is used */
+
+}
+
+ui-loader-bar {
+    display: flex; /* Make the custom element itself a flex container */
+    width: 100%;
+    height: 50px;
 }
 
 .progress-bar-inner {
@@ -418,12 +420,9 @@
 
 
 @keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+
 }
 
 .context-file-wrapper {
@@ -498,7 +497,7 @@ button:disabled,
 }
 
 .ai-filebar-container {
-	position: sticky;
+	position: sticky; /* Now it's sticky within the conversation-area */
 	top: 0;
 	background-color: var(--background-color);
 	z-index: 2;
@@ -506,7 +505,6 @@ button:disabled,
 	display: flex;
 	flex-direction: column;
 }
-
 
 .ai-filebar-container > .progress-bar {
 	width: calc(100% - 16px); /* Match padding of file-context-bar */
