@@ -45,6 +45,7 @@ class DiffHandler {
             let highlightedContentHtml = '';
 
             if (line.startsWith('--- ') || line.startsWith('+++ ') || line.startsWith('@@ ')) {
+            	inBlockComment = false
                 outputLines.push(`<div class="header">${escapeHtml(line)}</div>`);
                 continue;
             }
