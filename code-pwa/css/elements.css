@@ -792,37 +792,6 @@ ui-panel[type="modal"] h1 small {
 	}
 }
 
-#drawer {
-	position:fixed;
-	bottom:0;
-	left:0;
-	right:0;
-	width:100%;
-	background: var(--ui-pri-bg);
-	box-shadow: 0 -5px 5px var(--ui-shadow);
-}
-
-#sidebar {
-	display: flex;
-	flex-direction: row;
-    user-select:none;
-    -webkit-user-select:text;
-
-}
-
-#sidebar ui-icon-tabbar {
-	flex-shrink: 0;
-    user-select:none;
-    -webkit-user-select:none;
-
-}
-
-#sidebar-panels-container {
-	flex-grow: 1;
-	position: relative;
-	overflow: hidden;
-}
-
 ui-media-view {
 	position: absolute;
 	top: 0;

@@ -281,11 +281,16 @@ class Ollama extends AI {
                 return { role: msg.role, content: msg.content };
             });
 
+            // Add system prompt to the request body if it exists
             const requestBody = {
                 model: this.config?.model,
                 messages: messagesToSend, // Send full history prepared by AIManager
                 stream: true,
             };
+
+            if (this.config.system) {
+                requestBody.system = this.config.system;
+            }
 
             // Cannot provide contextRatio for Ollama /api/chat as token counts are not exposed.
             if (onContextRatioUpdate) {

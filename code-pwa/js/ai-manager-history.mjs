@@ -158,6 +158,7 @@ class AIManagerHistory {
 		if (element) {
 			this.conversationArea.append(element);
 		}
+		return element;
 	}
 
 	/**
