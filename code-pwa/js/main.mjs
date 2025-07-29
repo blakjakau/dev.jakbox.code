@@ -88,6 +88,7 @@ const workspace = {
 	name: "default",
 	folders: [],
 	files: [],
+	sidebarPanelWidths: {},
 	scratchpad: '',
 	// REMOVED: promptHistory: [], // This will be stored per AI session now
     aiConfig: {},
@@ -332,12 +333,12 @@ let workspaceUnloading = false
 const saveWorkspace = async () => {
 	if (workspaceUnloading) return
 	workspace.openFolders = fileList.openFolders;
-	workspace.sidebarWidth = ui.sidebar.offsetWidth;
 	workspace.activeSidebarTab = ui.iconTabBar?.activeTab?.iconId;
 	// REMOVED: workspace.promptHistory = ui.aiManager.promptHistory; // No longer here
     // AI sessions metadata is now stored directly in workspace (small footprint)
 	set(`workspace_${workspace.id}`, workspace); // This will save workspace.aiSessionsMetadata and workspace.activeAiSessionId
 }
+window.saveWorkspace = saveWorkspace;
 
 const updateWorkspaceSelectors = (() => {
 	const close = document.querySelector("#workspaceClose")
@@ -412,7 +413,11 @@ const openWorkspace = (() => {
 			workspace.openFolders = load.openFolders || [];
 			workspace.scratchpad = load.scratchpad || '';
 			ui.scratchEditor.setValue(workspace.scratchpad || '');
-			workspace.sidebarWidth = load.sidebarWidth || null;
+			workspace.sidebarPanelWidths = load.sidebarPanelWidths || {};
+			// Backward compatibility
+			if (load.sidebarWidth && Object.keys(workspace.sidebarPanelWidths).length === 0) {
+				workspace.sidebarPanelWidths['folder'] = load.sidebarWidth;
+			}
 			workspace.activeSidebarTab = load.activeSidebarTab || null;
 			workspace.id = load.id || safeString(workspace.name)
 			// REMOVED: workspace.promptHistory = load.promptHistory || []; // Removed
@@ -480,20 +485,19 @@ const openWorkspace = (() => {
 			saveAppConfig()
 			ui.showSidebar()
 			fileList.openFolders = workspace.openFolders || [];
-			updateWorkspaceSelectors()
+			updateWorkspaceSelectors();
 
-			
-			console.log("openWorkspace: workspace.activeSidebarTab =", workspace.activeSidebarTab);
-			console.log("openWorkspace: ui.iconTabBar =", ui.iconTabBar);
 			if (ui.iconTabBar) {
-				console.log("openWorkspace: ui.iconTabBar._tabs =", ui.iconTabBar._tabs);
-				ui.iconTabBar._tabs.forEach(tab => console.log("  Tab iconId:", tab.iconId));
-			}
-			if (workspace.sidebarWidth) {
-				ui.sidebar.width = workspace.sidebarWidth;
-			}
-			if (workspace.activeSidebarTab && ui.iconTabBar) {
-				ui.iconTabBar.activeTabById = workspace.activeSidebarTab;
+				if (workspace.activeSidebarTab) {
+					ui.iconTabBar.activeTabById = workspace.activeSidebarTab;
+				}
+				const activeTabId = ui.iconTabBar.activeTab?.iconId || 'folder';
+				const savedWidth = workspace.sidebarPanelWidths?.[activeTabId];
+
+				if (savedWidth) {
+					ui.sidebar.style.width = `${savedWidth}px`;
+					ui.mainContent.style.left = `${savedWidth}px`;
+				}
 			}
 		} else {
 			if (name === "default") {

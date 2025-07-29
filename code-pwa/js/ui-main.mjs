@@ -42,13 +42,14 @@ const toggleBodyClass = (className) => {
 		return true
 	}
 }
+var animRate = 250, constrainHolders, constrainHoldersTimeout, debounceConstrainHolders
+var saveSidepanelWidth
 
-var animRate = 250, constrainHolders
-
+let isResizingSidebar = false; // Flag to hide panel content during manual resize to prevent jank
 const uiManager = {
 	
 	create: (options = {}) => {
-
+		
 		document.documentElement.style.setProperty('--animRate', `${animRate}ms`);
 		
 		const defaults = {
@@ -56,23 +57,47 @@ const uiManager = {
 			mode: "ace/mode/javascript",
 			keyboard: "ace/keyboard/sublime",
 		}
-
+		
+		window.addEventListener("resize", ()=>{
+			debounceConstrainHolders()
+		})
+		
+		debounceConstrainHolders = ()=>{
+			clearTimeout(constrainHoldersTimeout); 
+			constrainHoldersTimeout = setTimeout(constrainHolders, 100); 
+		}
 		constrainHolders = ()=>{
+			void sidebar.offsetWidth
+			const minWidth = 350
+			const maxWidth = window.innerWidth - 300; // 50% of window width
+			if(sidebar.offsetWidth > maxWidth) {
+				sidebar.style.width = maxWidth + "px"
+				mainContent.style.left = maxWidth + "px";
+			} else if(sidebar.offsetWidth < minWidth) {
+				sidebar.style.width = minWidth + "px"
+				mainContent.style.left = minWidth + "px";
+			}
+			
+			drawer.style.left = (sidebar.offsetLeft + sidebarWidth) + "px";
+			
+			saveSidepanelWidth()
 			if(!document.body.classList.contains("showSplitView")) {
 				leftEdit.resize()
 				rightEdit.resize()
 				scratchEditor.resize();
 				return
 			}
+			
+			
 			const w = mainContent.offsetWidth
 			let l = leftHolder.offsetWidth/w
 			let r = rightHolder.offsetWidth/w
-			
 			l = Math.max(0.25, Math.min(0.75, l))
 			r = 1 - l
-			
 			leftHolder.style.width = ((l)*100)+"%"
 			rightHolder.style.width = ((r)*100)+"%"
+			
+			
 			
 			setTimeout(()=>{
 				leftEdit.resize()
@@ -131,17 +156,58 @@ const uiManager = {
 		sidebar.minSize = 240
 		sidebar.maxSize = 2440
 		
+		
+		let currentTab
+		saveSidepanelWidth = ()=>{
+			const activeTabId = iconTabBar.activeTab?.iconId;
+			if (activeTabId && window.workspace) {
+				window.workspace.sidebarPanelWidths = window.workspace.sidebarPanelWidths || {};
+				window.workspace.sidebarPanelWidths[activeTabId] = sidebar.offsetWidth;
+				if (window.saveWorkspace) {
+					window.saveWorkspace();
+				}
+			}
+		}
+
+		
 		iconTabBar.on('tabs-updated', ({ detail }) => {
 			const tab = detail.tab;
 			const panels = sidebar.querySelectorAll('ui-sidebar-panel');
-			panels.forEach(panel => panel.active = false);
-
+			
+			let nextActivePanel;
 			if (tab === filesTab) {
-				filesPanel.active = true;
+				nextActivePanel = filesPanel;
 			} else if (tab === aiTab) {
-				aiManagerPanel.active = true;
+				nextActivePanel = aiManagerPanel;
 			} else if (tab === scratchTab) {
-				scratchPanel.active = true;
+				nextActivePanel = scratchPanel;
+			}
+			const currentlyVisiblePanel = sidebar.querySelector('ui-sidebar-panel[active]');
+			const isSwitchingPanel = currentlyVisiblePanel !== nextActivePanel;
+			if (isSwitchingPanel) {
+				panels.forEach(panel => panel.active = false); // Hide all panels only if truly switching
+			}
+			const tabId = tab.iconId;
+			const newWidth = window.workspace?.sidebarPanelWidths?.[tabId];
+			if (newWidth && sidebar.offsetWidth !== newWidth) {
+				// Animate the resize and reveal the panel content after the animation completes
+				sidebar.style.transition = "width var(--animRate) ease-in-out";
+				mainContent.style.transition = "left var(--animRate) ease-in-out";
+				sidebar.style.width = `${newWidth}px`;
+				mainContent.style.left = `${newWidth}px`;
+				setTimeout(() => {
+					sidebar.style.transition = "";
+					mainContent.style.transition = "";
+					if (nextActivePanel) nextActivePanel.active = true; // Reveal the correct panel after animation
+					debounceConstrainHolders(); // Re-constrain holders after sidebar resize
+					saveSidepanelWidth()
+					
+				}, animRate);
+			} else {
+				// No animation needed, or it's the same width, just ensure the correct panel is active
+				if (nextActivePanel) nextActivePanel.active = true;
+				// If no animation, ensure current width is stored and saved
+				saveSidepanelWidth()
 			}
 		});
 
@@ -173,8 +239,7 @@ const uiManager = {
 				mainContent.style.left = ""
 			}
 			setTimeout(()=>{
-				drawer.style.left = (sidebar.offsetLeft+sidebarWidth)+"px"
-				constrainHolders()
+				debounceConstrainHolders()
 			},animRate)
 		})
 
@@ -266,31 +331,35 @@ const uiManager = {
 		rightHolder.exclusiveDropType = "editor-tab"
 
 		
-		sidebar.resizeListener((width)=>{
-			const maxWidth = window.innerWidth * 0.5; // 50% of window width
+		sidebar.resizeListener((width) => {
+			const maxWidth = window.innerWidth * 0.8; // 50% of window width
 			// sidebar.style.transition = "none";
 			sidebarWidth = Math.min(width, maxWidth); // Constrain width
 			mainContent.style.transition = "none";
 			mainContent.style.left = sidebarWidth + "px";
 			drawer.style.left = (sidebar.offsetLeft + sidebarWidth) + "px";
-		})
+		});
 		
 		sidebar.resizeEndListener(()=>{
+			// if (!isResizingSidebar && sidebarPanelsContainer) {
+			// 	isResizingSidebar = true;
+			// 	sidebarPanelsContainer.style.visibility = 'hidden';
+			// }
+			if (isResizingSidebar && sidebarPanelsContainer) {
+				isResizingSidebar = false;
+				sidebarPanelsContainer.style.visibility = 'hidden';
+			}
 			sidebar.style.transition = ""
 			mainContent.style.transition = ""
 
-			void sidebar.offsetWidth
-			const minWidth = 350
-			const maxWidth = window.innerWidth * 0.5; // 50% of window width
-			if(sidebar.offsetWidth > maxWidth) {
-				sidebar.style.width = maxWidth + "px"
-				mainContent.style.left = maxWidth + "px";
-			} else if(sidebar.offsetWidth < minWidth) {
-				sidebar.style.width = minWidth + "px"
-				mainContent.style.left = minWidth + "px";
-			}
+			debounceConstrainHolders()
 			
-			constrainHolders()
+			sidebar.on("transitionend", ()=>{
+				console.debug("save sidepanel resize event")
+				saveSidepanelWidth()
+				// sidebarPanelsContainer.style.visibility = 'hidden';
+			}, {once:true})
+			
 		})
 
 		rightHolder.resizeListener((width)=>{
@@ -302,7 +371,7 @@ const uiManager = {
 		})
 		rightHolder.resizeEndListener(()=>{
 			leftHolder.style.transition = ""
-			constrainHolders()
+			debounceConstrainHolders()
 		})
 
 		drawer = new Panel()
@@ -322,7 +391,7 @@ const uiManager = {
 
 		drawer.resizeEndListener(()=>{
 			mainContent.style.transition = ""
-			constrainHolders()
+			debounceConstrainHolders()
 		})
 		
 
@@ -707,7 +776,7 @@ const uiManager = {
 		mainContent.appendChild(rightHolder)
 		
 		document.body.appendChild(sidebar)
-		document.body.appendChild(drawer)
+		// document.body.appendChild(drawer)
 		document.body.appendChild(omni)
 
 		let cursorpos = new Inline()
@@ -902,7 +971,7 @@ const uiManager = {
 		}
 
 		setTimeout(()=>{
-			constrainHolders()
+			debounceConstrainHolders()
 		},animRate)
 	},
 
@@ -961,6 +1030,7 @@ const uiManager = {
 	
 	get installer() { return installer },
 	
+	get mainContent() { return mainContent },
 	get fileActions() { return fileActions },
 	get sidebar() { return sidebar },
 	get fileList() { return fileList },
@@ -981,7 +1051,7 @@ const uiManager = {
 	
 	get aiManager() { return aiManager },
 	
-	constrainHolders: constrainHolders,
+	constrainHolders: debounceConstrainHolders,
 	
 	set currentEditor(v) {
 		currentEditor = v;
