@@ -8,7 +8,6 @@ import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
 
 import DiffHandler from "./tools/diff-handler.mjs"
 import hljs from "./tools/highlightjs.mjs"
-
 const MAX_PROMPT_HISTORY = 50 // This is now PER-SESSION
 
 const promptEditorSettings = {
@@ -72,7 +71,6 @@ class AIManager {
 		this._settingsForm = null // Reference to the settings form element
 		this._workspaceSettingsCheckbox = null // Reference to the checkbox
 		this.useWorkspaceSettings = false
-		this.userScrolled = false
 		this._isProcessing = false // Flag to track if AI is busy (generating or summarizing)
 
 		// Reference to the AI info display element
@@ -226,6 +224,19 @@ class AIManager {
 		progressBarInner.classList.add("progress-bar-inner")
 		progressBar.appendChild(progressBarInner)
 		return progressBar;
+	}
+
+	/**
+	 * Creates a new spinner element wrapped in a container for centering.
+	 * @returns {HTMLElement} The spinner container element.
+	 */
+	_createSpinner() {
+		const spinnerContainer = document.createElement('div');
+		spinnerContainer.classList.add('spinner-container');
+		const spinner = document.createElement('div');
+		spinner.classList.add('loading-spinner');
+		spinnerContainer.append(spinner);
+		return spinnerContainer;
 	}
 
 	_createPromptContainer() {
@@ -1063,6 +1074,14 @@ class AIManager {
             return;
         }
 
+		// NEW: Clear min-height from the previous response block if it exists
+		const lastResponseBlockInHistory = this.conversationArea.lastElementChild;
+		if (lastResponseBlockInHistory && lastResponseBlockInHistory.classList.contains("response-block")) {
+			lastResponseBlockInHistory.style.minHeight = '';
+		}
+		// Also, clean up any loader bar that might still be present from a previous aborted generation
+		this.conversationArea.querySelector('ui-loader-bar')?.remove();
+
 		this._unsentPromptBuffer = null; // Clear the unsent prompt buffer on submission.
 		this._isProcessing = true
 		this._setButtonsDisabledState(true)
@@ -1144,10 +1163,11 @@ class AIManager {
 		});
 		
 		let userMessage = null;
+		let userMessageElement = null; // To hold the DOM element of the user's prompt
 		if(processedPrompt) {
 			userMessage = { role: "user", type: "user", content: processedPrompt, timestamp: Date.now(), id: crypto.randomUUID() };
 			this.activeSession.messages.push(userMessage);
-			this.historyManager.appendMessageElement(userMessage);
+			userMessageElement = this.historyManager.appendMessageElement(userMessage);
 		} else {
 			// Scenario: Context items were added, but no user prompt was given.
 			// In this case, we don't call the AI, acknowledge the context addition, and abort.
@@ -1177,57 +1197,54 @@ class AIManager {
 		// Render updated history in UI and dispatch event
 		// this.historyManager.render(); // NO LONGER NEEDED, using dynamic appends
 		this._dispatchContextUpdate("append_user"); // This will also save workspace metadata
+		// NEW: Create and append the new ui-loader-bar *before* the response block
+		// Ensure we calculate the space needed for the loader + response block, accounting for the file bar.
+		const fileBarContainer = this.panel.querySelector('.ai-filebar-container');
+		const fileBarHeight = fileBarContainer ? fileBarContainer.offsetHeight : 0;
+		const availableHeightForResponse = this.conversationArea.clientHeight - (fileBarHeight+16);
 
-		// Prepare placeholder for AI response and spinner
+		// Prepare placeholder for AI response
 		const modelMessageId = crypto.randomUUID(); // Pre-generate ID for the upcoming model response
-		const responseBlock = new Block()
-		responseBlock.classList.add("response-block")
+		const responseBlock = new Block();
+		responseBlock.classList.add("response-block");
 		responseBlock.dataset.messageId = modelMessageId; // Assign ID for future reference
-		this.conversationArea.append(responseBlock)
+		const spinner = this._createSpinner(); // Create the new spinner
+		responseBlock.append(spinner); // Add spinner to the response block
+		// NEW: Set a temporary min-height to ensure the scroll area is large enough
+		this.conversationArea.append(responseBlock);
+		responseBlock.style.minHeight = `${Math.max(50, availableHeightForResponse)}px`; // Ensure a minimum of 50px
 
-		const spinner = new Block()
-		spinner.classList.add("spinner")
-		this.conversationArea.append(spinner)
-
-		this.conversationArea.scrollTop = this.conversationArea.scrollHeight
-
-		this.userScrolled = false
-		const scrollHandler = () => {
-			const { scrollTop, clientHeight, scrollHeight } = this.conversationArea
-			const isAtBottom = scrollTop + clientHeight >= scrollHeight - 32
-			this.userScrolled = !isAtBottom
+		// NEW: Scroll the conversation area so the user's prompt is near the top.
+		if (userMessageElement) {
+			// We account for the sticky file bar's height, just like you remembered!
+			const fileBarContainer = this.panel.querySelector('.ai-filebar-container');
+			const fileBarOffset = fileBarContainer ? fileBarContainer.offsetHeight : 0;
+			const PADDING_FROM_TOP = 8; // A little extra breathing room
+			this.conversationArea.scrollTop = userMessageElement.offsetTop - fileBarOffset - PADDING_FROM_TOP;
 		}
-		this.conversationArea.addEventListener("scroll", scrollHandler)
 
 		const callbacks = {
-			onUpdate: (fullResponse) => {
-				responseBlock.innerHTML = this.md.render(fullResponse)
+			onUpdate: (fullResponse) => { // Update the responseBlock directly
+				if (spinner.parentNode) spinner.remove(); // Remove spinner on first stream chunk
                 // NEW: _addCodeBlockButtons will now also handle diff rendering for streaming updates
+                responseBlock.innerHTML = this.md.render(fullResponse);
                 this._addCodeBlockButtons(responseBlock) 
-				if (!this.userScrolled) {
-					this.conversationArea.scrollTop = this.conversationArea.scrollHeight
-				}
 			},
 			onDone: async (fullResponse, contextRatioPercent) => { // Mark async to await set
 				// First, update the session data and add the delete button to the user's prompt.
 				// This is safer than doing it after rendering, which could fail.
-				const modelMessage = {
-					id: modelMessageId, // Use the pre-generated ID
-					role: "model",
-					type: "model",
-					content: fullResponse,
-					timestamp: Date.now(),
-				};
+				// The spinner is removed when innerHTML is set, so no explicit removal is needed here.
+				const modelMessage = { id: modelMessageId, role: "model", type: "model", content: fullResponse, diffStatuses: [], timestamp: Date.now() };
 				this.activeSession.messages.push(modelMessage);
 				this.historyManager.addInteractionToLastUserMessage(userMessage); // Add delete button to user prompt
 				this.activeSession.lastModified = Date.now();
 				await set(`ai-session-${this.activeSession.id}`, this.activeSession);
 
 				// Now, render the final response in the UI.
-				spinner.remove()
-				this.conversationArea.removeEventListener("scroll", scrollHandler)
-				responseBlock.innerHTML = this.md.render(fullResponse) // Final render
-				this._addCodeBlockButtons(responseBlock) // Add buttons after final response is rendered
+				// DEV: For visual debugging, let's pop a loader bar on top of every model response.
+				responseBlock.innerHTML = this.md.render(fullResponse);
+				
+				this._addCodeBlockButtons(responseBlock, modelMessage); // Pass the message object here to read/write persistent state
 				
 				this._dispatchContextUpdate("append_model") // Dispatch after model response
 
@@ -1235,10 +1252,10 @@ class AIManager {
 				this._setButtonsDisabledState(false) // Re-enable buttons
 			},
 			onError: async (error) => { // Mark async to await set
+				// The spinner is also removed here when innerHTML is overwritten.
+				responseBlock.style.minHeight = ''; // Reset min-height on error too
 				responseBlock.innerHTML = `Error: ${error.message}`
-				console.error(`Error calling ${this.ai.config.model} API:`, error)
-				spinner.remove()
-				this.conversationArea.removeEventListener("scroll", scrollHandler)
+				console.error(`Error calling ${this.ai.config.model} API:`, error);
 
 				const errorMessage = {
 					id: modelMessageId, // Use the pre-generated ID for the block
@@ -1246,6 +1263,7 @@ class AIManager {
 					type: "error",
 					content: `Error: ${error.message}`,
 					timestamp: Date.now(),
+					diffStatuses: [], // Initialize even for errors, though no diffs expected here
 				};
 				this.activeSession.messages.push(errorMessage);
 				// Update lastModified timestamp and save the active session
@@ -1266,9 +1284,9 @@ class AIManager {
 		this.ai.chat(messagesForAI, callbacks)
 	}
 
-	_addCodeBlockButtons(responseBlock) {
+	_addCodeBlockButtons(responseBlock, messageObject = null) { // Add messageObject parameter
 		const preElements = responseBlock.querySelectorAll("pre")
-		preElements.forEach((pre) => {
+		preElements.forEach((pre, index) => {
             // Check if buttons are already added to this <pre> element
             if (pre.querySelector('.code-buttons')) {
                 return; // Skip if buttons already exist
@@ -1277,6 +1295,11 @@ class AIManager {
 			const codeElement = pre.querySelector("code") // Get the code element inside pre
 
 			const buttonContainer = new Block()
+
+            // Ensure messageObject.diffStatuses exists and is an array
+            if (messageObject && !Array.isArray(messageObject.diffStatuses)) {
+                messageObject.diffStatuses = [];
+            }
 			buttonContainer.classList.add("code-buttons")
 
 			// Common buttons for all code blocks
@@ -1380,8 +1403,23 @@ class AIManager {
                 // Add "Apply Diff" button
                 const applyDiffButton = new Button();
                 applyDiffButton.classList.add("code-button");
-                applyDiffButton.icon = "merge"; // Suitable icon for applying changes
-                applyDiffButton.title = "Apply diff to file";
+
+                // Check state from messageObject if available
+                if (messageObject && messageObject.diffStatuses && messageObject.diffStatuses[index]) {
+                    applyDiffButton.icon = "done";
+                    applyDiffButton.title = "Diff applied successfully!";
+
+                    // If diff is applied, start it in collapsed state
+                    pre.removeAttribute("expanded"); // Remove any expanded state
+                    pre.setAttribute("collapsed", ""); // Apply collapsed state
+                    expandCollapseButton.icon = "unfold_more";
+                    expandCollapseButton.title = "Expand code block";
+
+                } else {
+                    applyDiffButton.icon = "merge"; // Suitable icon for applying changes
+                    applyDiffButton.title = "Apply diff to file";
+                }
+
                 applyDiffButton.on("click", async () => {
                     const rawDiff = pre.dataset.originalDiffContent;
                     if (!rawDiff) {
@@ -1428,6 +1466,8 @@ class AIManager {
                     if (newFileContentFromDiff === null) {
                         alert(`Failed to apply diff to "${targetPath}". There might be a content mismatch with the file as it was originally sent to AI. Please review the diff manually.`);
                         console.error("Diff application failed:", { originalContentFromContext, rawDiff });
+                        applyDiffButton.classList.remove("diff-apply-success"); // Ensure success state is removed
+                        applyDiffButton.classList.add("diff-apply-failed");
                     } else {
                     	
                         // 4. Update the live file content in the editor, preserving undo history.
@@ -1443,12 +1483,15 @@ class AIManager {
                         // The user should manually save after applying.
 
                         // Provide visual feedback
+                        applyDiffButton.classList.remove("diff-apply-failed"); // Ensure failure state is removed
+                        applyDiffButton.classList.add("diff-apply-success");
                         applyDiffButton.icon = "done"; 
                         applyDiffButton.title = "Diff applied successfully!";
-                        setTimeout(() => {
-                            applyDiffButton.icon = "merge";
-                            applyDiffButton.title = "Apply diff to file";
-                        }, 2000);
+                        // NEW: Update the diff status in the message object and save
+                        if (messageObject) {
+                            messageObject.diffStatuses[index] = true;
+                            await set(`ai-session-${this.activeSession.id}`, this.activeSession); // Save the session immediately
+                        }
                         // Add a system message to chat history for persistent feedback
                         this.historyManager.addMessage({
                             type: "system_message",

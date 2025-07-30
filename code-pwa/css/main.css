@@ -638,6 +638,37 @@ ui-tabbar.show-split-view-indicator::after {
     z-index: 1;
 }
 
+#drawer {
+	position:fixed;
+	bottom:0;
+	left:0;
+	right:0;
+	width:100%;
+	background: var(--ui-pri-bg);
+	box-shadow: 0 -5px 5px var(--ui-shadow);
+}
+
+#sidebar {
+	display: flex;
+	flex-direction: row;
+    user-select:none;
+    -webkit-user-select:text;
+
+}
+
+#sidebar ui-icon-tabbar {
+	flex-shrink: 0;
+    user-select:none;
+    -webkit-user-select:none;
+    background: linear-gradient(to bottom, var(--themeDark) 33%, var(--theme));
+}
+
+#sidebar-panels-container {
+	flex-grow: 1;
+	position: relative;
+	overflow: hidden;
+}
+
 .background-element img {
 	opacity:0.25;
     filter: grayscale(100%);
@@ -701,6 +732,16 @@ ui-sidebar-panel {
 	right: 0;
 	bottom: 0;
 	/*overflow: hidden;*/
+	/* By default, panels are not displayed, which is handled by the component's logic. */
+}
+
+@keyframes panel-fade-in {
+	from { opacity: 0; }
+	to   { opacity: 1; }
+}
+
+ui-sidebar-panel[active] {
+	animation: panel-fade-in 200ms ease-in-out;
 }
 
 ui-sidebar-panel#ai-panel[active] {
@@ -754,6 +795,7 @@ ui-sidebar-panel pre::-webkit-scrollbar-thumb {
     /*display: flex; */ /* removed as this is handled by the active attribute*/
     flex-direction: column;
     height: 100%; /* Ensure the panel itself takes full height */
+    padding:0 4px;
 }
 
 /* Styles for the terminal content wrapper within the panel */

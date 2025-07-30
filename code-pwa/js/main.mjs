@@ -88,6 +88,7 @@ const workspace = {
 	name: "default",
 	folders: [],
 	files: [],
+	sidebarPanelWidths: {},
 	scratchpad: '',
 	// REMOVED: promptHistory: [], // This will be stored per AI session now
     aiConfig: {},
@@ -228,18 +229,55 @@ window.ui.commands = {
 
 window.ui.commands.bindToDocument()
 
-const saveFile = async (text, handle) => {
-	const tab = currentTabs.activeTab
-	const file = fileList.activeItem
+const getSuggestedStartDirectory = async () => {
+    const activeTab = currentTabs?.activeTab;
 
-	const writable = await handle.createWritable()
-	await writable.write(text)
-	await writable.close()
-	tab.changed = false
-	if (file) {
-		file.changed = false
+    // 1. From active tab's folder
+    if (activeTab?.config?.folder) {
+        return activeTab.config.folder;
+    }
+
+    // 2. From a sibling tab's folder
+    for (const tab of currentTabs?.tabs || []) {
+        if (tab.config?.folder) {
+            return tab.config.folder;
+        }
+    }
+    
+    // 3. From a tab in the other panel
+    const otherTabs = (currentTabs === leftTabs) ? rightTabs : leftTabs;
+    for (const tab of otherTabs?.tabs || []) {
+        if (tab.config?.folder) {
+            return tab.config.folder;
+        }
+    }
+
+    // 4. From any open folder in the workspace
+    if (workspace.folders?.length > 0) {
+        return workspace.folders[0];
+    }
+    
+    return null; // Fallback to default behavior
+};
+
+const saveFile = async (tab) => {
+	const handle = tab.config.handle;
+	const text = tab.config.session.getValue();
+	if (!handle) return;
+
+	const writable = await handle.createWritable();
+	await writable.write(text);
+	await writable.close();
+	
+	tab.changed = false;
+	
+	// Update filelist item state
+	fileList.active = handle;
+	const fileItem = fileList.activeItem;
+	if (fileItem && fileItem.item.handle === handle) {
+		fileItem.changed = false;
 	}
-}
+};
 
 const saveAppConfig = async () => {
 	app.sessionOptions = ui.leftEdit.session.getOptions()
@@ -295,12 +333,12 @@ let workspaceUnloading = false
 const saveWorkspace = async () => {
 	if (workspaceUnloading) return
 	workspace.openFolders = fileList.openFolders;
-	workspace.sidebarWidth = ui.sidebar.offsetWidth;
 	workspace.activeSidebarTab = ui.iconTabBar?.activeTab?.iconId;
 	// REMOVED: workspace.promptHistory = ui.aiManager.promptHistory; // No longer here
     // AI sessions metadata is now stored directly in workspace (small footprint)
 	set(`workspace_${workspace.id}`, workspace); // This will save workspace.aiSessionsMetadata and workspace.activeAiSessionId
 }
+window.saveWorkspace = saveWorkspace;
 
 const updateWorkspaceSelectors = (() => {
 	const close = document.querySelector("#workspaceClose")
@@ -375,7 +413,11 @@ const openWorkspace = (() => {
 			workspace.openFolders = load.openFolders || [];
 			workspace.scratchpad = load.scratchpad || '';
 			ui.scratchEditor.setValue(workspace.scratchpad || '');
-			workspace.sidebarWidth = load.sidebarWidth || null;
+			workspace.sidebarPanelWidths = load.sidebarPanelWidths || {};
+			// Backward compatibility
+			if (load.sidebarWidth && Object.keys(workspace.sidebarPanelWidths).length === 0) {
+				workspace.sidebarPanelWidths['folder'] = load.sidebarWidth;
+			}
 			workspace.activeSidebarTab = load.activeSidebarTab || null;
 			workspace.id = load.id || safeString(workspace.name)
 			// REMOVED: workspace.promptHistory = load.promptHistory || []; // Removed
@@ -443,20 +485,19 @@ const openWorkspace = (() => {
 			saveAppConfig()
 			ui.showSidebar()
 			fileList.openFolders = workspace.openFolders || [];
-			updateWorkspaceSelectors()
+			updateWorkspaceSelectors();
 
-			
-			console.log("openWorkspace: workspace.activeSidebarTab =", workspace.activeSidebarTab);
-			console.log("openWorkspace: ui.iconTabBar =", ui.iconTabBar);
 			if (ui.iconTabBar) {
-				console.log("openWorkspace: ui.iconTabBar._tabs =", ui.iconTabBar._tabs);
-				ui.iconTabBar._tabs.forEach(tab => console.log("  Tab iconId:", tab.iconId));
-			}
-			if (workspace.sidebarWidth) {
-				ui.sidebar.width = workspace.sidebarWidth;
-			}
-			if (workspace.activeSidebarTab && ui.iconTabBar) {
-				ui.iconTabBar.activeTabById = workspace.activeSidebarTab;
+				if (workspace.activeSidebarTab) {
+					ui.iconTabBar.activeTabById = workspace.activeSidebarTab;
+				}
+				const activeTabId = ui.iconTabBar.activeTab?.iconId || 'folder';
+				const savedWidth = workspace.sidebarPanelWidths?.[activeTabId];
+
+				if (savedWidth) {
+					ui.sidebar.style.width = `${savedWidth}px`;
+					ui.mainContent.style.left = `${savedWidth}px`;
+				}
 			}
 		} else {
 			if (name === "default") {
@@ -664,13 +705,13 @@ const execCommandRemoveAllFolders = () => {
 const execCommandRefreshFolders = () => {}
 
 const execCommandRestoreFolders = () => {
+	fileList.openFolders = workspace.openFolders;
 	fileAccess.click();
 	fileAccess.style.display = "none";
 	menuRestoreFolders.style.display = "none";
-	fileList.openFolders = workspace.openFolders;
-	setTimeout(()=>{
-		fileList.openFolders = workspace.openFolders;
-	}, 300)
+	// setTimeout(()=>{
+	// 	fileList.openFolders = workspace.openFolders;
+	// }, 300)
 }
 
 const execCommandCloseActiveTab = async () => {
@@ -701,51 +742,90 @@ const execCommandCloseActiveTab = async () => {
 	}
 }
 const execCommandSave = async () => {
-    isSavingFile = true; // Set flag at the beginning of save operation
-	const config = currentTabs.activeTab.config
+	isSavingFile = true; // Set flag at the beginning of save operation
+	const tab = currentTabs.activeTab;
+	const config = tab.config;
 	if (config.handle) {
-		const text = currentEditor.getValue()
-		await saveFile(text, config.handle)
-		config.session.baseValue = text
+		await saveFile(tab);
+		config.session.baseValue = config.session.getValue();
 	} else {
-		const newHandle = await window.showSaveFilePicker().catch(console.warn)
-		if (!newHandle) {
-			alert("File NOT saved")
-            isSavingFile = false; // Reset flag if save is cancelled
-			return
+		const startIn = await getSuggestedStartDirectory();
+		const options = {};
+		if (startIn) {
+			options.startIn = startIn;
 		}
-		config.handle = newHandle
-		config.name = newHandle.name
-		currentTabs.activeTab.text = config.name
-		const text = currentEditor.getValue()
-		await saveFile(text, config.handle)
-		config.session.baseValue = text
+		const newHandle = await window.showSaveFilePicker(options).catch(console.warn);
+		if (!newHandle) {
+			alert("File NOT saved");
+			isSavingFile = false; // Reset flag if save is cancelled
+			return;
+		}
+		config.handle = newHandle;
+		config.name = newHandle.name;
+		config.path = buildPath(newHandle);
+		config.folder = newHandle.container;
+		tab.name = config.name;
+		tab.setAttribute("title", config.path);
+
+		await saveFile(tab);
+		config.session.baseValue = config.session.getValue();
+		
+		// This is a new file, add it to the workspace
+		syncWorkspaceFile(tab);
+
+		// Refresh the folder in the file list to show the new file
+		await fileList.refreshFolder(newHandle.container);
 	}
-    setTimeout(() => { // Reset flag after a short delay
-        isSavingFile = false;
-    }, 500); // 500ms delay
-}
+	setTimeout(() => { // Reset flag after a short delay
+		isSavingFile = false;
+	}, 500); // 500ms delay
+};
 
 const execCommandSaveAs = async () => {
     isSavingFile = true; // Set flag at the beginning of save operation
-	const config = currentTabs.activeTab.config
-	const newHandle = await window.showSaveFilePicker().catch(console.warn)
+	const tab = currentTabs.activeTab;
+	const config = tab.config;
+	const oldHandle = config.handle;
+	const oldFolderHandle = oldHandle?.container;
+
+	const startIn = await getSuggestedStartDirectory();
+	const options = {};
+	if (startIn) {
+		options.startIn = startIn;
+	}
+	const newHandle = await window.showSaveFilePicker(options).catch(console.warn)
 	if (!newHandle) {
 		alert("File NOT saved")
         isSavingFile = false; // Reset flag if save is cancelled
 		return
 	}
+
+	if (oldHandle) {
+		workspace.files = workspace.files.filter(f => f.handle !== oldHandle);
+	}
+
 	config.handle = newHandle
 	config.name = newHandle.name
-	currentTabs.activeTab.text = config.name
-	saveFile(currentEditor.getValue(), config.handle)
+	config.path = buildPath(newHandle);
+	config.folder = newHandle.container;
+	tab.name = config.name;
+	tab.setAttribute("title", config.path);
+	await saveFile(tab);
+	syncWorkspaceFile(tab);
+
+	await fileList.refreshFolder(newHandle.container);
+	if (oldFolderHandle && oldFolderHandle !== newHandle.container) {
+		await fileList.refreshFolder(oldFolderHandle);
+	}
+
     setTimeout(() => { // Reset flag after a short delay
         isSavingFile = false;
     }, 500); // 500ms delay
 }
 
 const execCommandOpen = async () => {
-	const newHandle = await window.showOpenFilePicker().catch(console.warn)
+	const startIn = await getSuggestedStartDirectory();
+	const newHandle = await window.showOpenFilePicker({ startIn }).catch(console.warn)
 	if (!newHandle) {
 		return
 	}
@@ -831,6 +911,56 @@ window.ui.reloadFile = reloadFile;
 // 	return n
 // }
 
+const syncWorkspaceFile = (tab) => {
+	const config = tab.config;
+	const handle = config.handle;
+	if (!handle) return;
+
+	let matched = false;
+	for (const file of workspace.files) {
+		if (file.handle === handle) {
+			file.side = config.side;
+			matched = true;
+			break;
+		}
+	}
+
+	if (!matched) {
+		workspace.files.push({
+			name: config.name,
+			path: config.path,
+			handle: handle,
+			side: config.side,
+			containers: (() => {
+				const containers = [];
+				let current = handle.container;
+				while (current) {
+					containers.push(current);
+					current = current.container;
+				}
+				return containers;
+			})()
+		});
+	}
+	saveWorkspace();
+};
+const setupSessionChangeListener = (session, tab) => {
+    session.on('change', () => {
+        const isDirty = session.getValue() !== session.baseValue;
+        
+        // Update tab's changed status
+        tab.changed = isDirty;
+        
+        // Update corresponding file list item's changed status
+        const handle = tab.config.handle;
+        if (handle) {
+            const fileItem = fileList.byTitle(buildPath(handle));
+            if (fileItem) {
+                fileItem.changed = isDirty;
+            }
+        }
+    });
+};
 let currentEditor = leftEdit;
 let currentTabs = leftEdit;
 let currentMediaView = ui.leftMedia;
@@ -976,41 +1106,15 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 		handle: handle,
 		folder: handle.container,
 		fileModified: false, // Initialize fileModified flag
-	})
+	});
+	setupSessionChangeListener(newSession, tab);
 	tab.click()
-
 	observeFile(handle, onFileModified); // Observe the file for changes
 
-	let matched = false
-	for (let i = 0; i < workspace.files.length; i++) {
-		if (workspace.files[i].handle == tab.config.handle) {
-			matched = true
-			workspace.files[i].side = (targetEditor === leftEdit) ? "left" : "right";
-		}
+	// Only add to workspace and save if it's a newly opened file, not from a restore
+	if (knownPath === null) {
+		syncWorkspaceFile(tab);
 	}
-
-	if (knownPath != null) return
-
-	if (!matched) {
-		workspace.files.push({
-			name: file.name,
-			path: path,
-			handle: handle,
-			side: (targetEditor === leftEdit) ? "left" : "right",
-			containers: (() => {
-				const containers = []
-				const recurse = (container) => {
-					containers.push(container)
-					if (container.container) {
-						recurse(container.container)
-					}
-				}
-				recurse(handle.container)
-				return containers
-			})()
-		})
-	}
-	saveWorkspace()
 }
 
 const fileMenu = document.getElementById("file_context")
@@ -1165,7 +1269,8 @@ const defaultTab = (targetTabs) => {
 	}
 	const defaultSession = ace.createEditSession("", "")
 	const tab = targetTabs.add({ name: "untitled", mode: { mode: "" }, session: defaultSession })
-	
+	setupSessionChangeListener(newSession, tab);
+
 	// Determine which editor and media view to use based on the targetTabs
 	let editorToUse = leftEdit;
 	let mediaViewToUse = leftMedia;
@@ -1816,7 +1921,7 @@ setTimeout(async () => {
 		ui.toggleSidebar()
 		ui.currentTabs = ui.leftTabs
 		
-		defaultTab()
+		//defaultTab()
 		ui.fileList.open = openFileHandle;
 		fileList.unsupported = openFileHandle;
 		leftTabs.dropFileHandle = (handle, knownPath) => openFileHandle(handle, knownPath, leftEdit);

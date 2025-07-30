@@ -119,6 +119,20 @@ export class FileList extends ContentFill {
 	    }
 	}
 
+	async refreshFolder(folderHandle) {
+		if (!folderHandle) return;
+		const path = buildPath(folderHandle);
+		const folderItem = this.querySelector(`ui-file-item[title="${path}"]`);
+		if (folderItem && folderItem.item.kind === 'directory') {
+			folderItem.setAttribute("loading", "true");
+			folderItem.item.tree = await readAndOrderDirectory(folderItem.item);
+			if (folderItem.item.open) {
+				this._render(folderItem.holder, folderItem.item.tree);
+			}
+			folderItem.removeAttribute("loading");
+		}
+	}
+
 	set supported(v) {
 		let ok = true,
 			extensions = [],
@@ -287,14 +301,17 @@ export class FileList extends ContentFill {
 							)
 						}
 					})
-				} else {
-					if (this._openFolders.has(itemPath)) { 
-					e.icon = "folder_open"
-					item.open = true
-					e.open = true
-					e.setAttribute("open-folder", "true")
-					this._render(e.holder, item.tree,depth+1)
-				}
+				} else { // not locked
+					if (this._openFolders.has(itemPath)) {
+						e.icon = "folder_open";
+						item.open = true;
+						e.open = true;
+						e.setAttribute("open-folder", "true");
+						(async () => {
+							if (!item.tree) { e.setAttribute("loading", "true"); item.tree = await readAndOrderDirectory(item); e.removeAttribute("loading"); }
+							this._render(e.holder, item.tree, depth + 1);
+						})();
+					}
 					// } else if(depth<this._expandLevels) {
 					// 	(async()=>{
 					// 		if (!item.tree) { e.setAttribute("loading", "true"); item.tree = await readAndOrderDirectory(item) }

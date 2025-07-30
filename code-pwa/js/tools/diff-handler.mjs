@@ -45,6 +45,7 @@ class DiffHandler {
             let highlightedContentHtml = '';
 
             if (line.startsWith('--- ') || line.startsWith('+++ ') || line.startsWith('@@ ')) {
+            	inBlockComment = false
                 outputLines.push(`<div class="header">${escapeHtml(line)}</div>`);
                 continue;
             }
@@ -101,16 +102,42 @@ class DiffHandler {
     _findPatternIndices(pattern, sourceLines, searchStartIndex) {
         if (pattern.length === 0) return [];
         const foundIndices = [];
-        for (let i = searchStartIndex; i <= sourceLines.length - pattern.length; i++) {
-            let match = true;
-            for (let j = 0; j < pattern.length; j++) {
-                if (sourceLines[i + j] !== pattern[j]) {
-                    match = false;
+
+        // Iterate through each line of the source as a potential starting point for the pattern.
+        for (let i = searchStartIndex; i < sourceLines.length; i++) {
+            
+            let patternIdx = 0;
+            let sourceIdx = i;
+            let firstMatchIndex = -1; // To store the actual start index in the source.
+
+            // Attempt to match the entire pattern starting from the current source position.
+            while (patternIdx < pattern.length && sourceIdx < sourceLines.length) {
+                const patternLine = pattern[patternIdx].trim();
+                const sourceLine = sourceLines[sourceIdx].trim();
+
+                if (patternLine === sourceLine) {
+                    // Lines match.
+                    if (firstMatchIndex === -1) {
+                        firstMatchIndex = sourceIdx;
+                    }
+                    patternIdx++;
+                    sourceIdx++;
+                } else if (sourceLine === '') {
+                    // Source line is empty, but pattern line is not. This could be an omitted empty line.
+                    // Skip the empty line in the source and try to match the same pattern line again.
+                    sourceIdx++;
+                } else {
+                    // A non-empty line mismatch. This is not a match.
+                    firstMatchIndex = -1; // Invalidate the match
                     break;
                 }
             }
-            if (match) {
-                foundIndices.push(i);
+
+            // If we've matched the entire pattern
+            if (patternIdx === pattern.length && firstMatchIndex !== -1) {
+                if (!foundIndices.includes(firstMatchIndex)) {
+                    foundIndices.push(firstMatchIndex);
+                }
             }
         }
         return foundIndices;
@@ -142,7 +169,11 @@ class DiffHandler {
 	            .map(hLine => hLine.substring(1)); // Remove the diff prefix
 	        // If a hunk consists only of additions, its position is ambiguous for fuzzy matching.
 	        if (searchPattern.length === 0) {
-	            console.error("Error: Cannot re-align a diff hunk that only contains additions, as its precise location is ambiguous without context or deletions.");
+	            console.error("Error: Cannot re-align diff. A hunk's context could not be found in the original file at or after current position.", {
+                    searchPattern,
+                    sourceSnippet: originalLines.slice(originalFilePtr, originalFilePtr + searchPattern.length + 5),
+                    originalFilePtr
+                });
 	            return null; // Indicate failure to correct
 	        }
 	        // Find the actual starting line of this pattern in the original file
@@ -153,7 +184,7 @@ class DiffHandler {
 	            return null;
 	        }
 	        if (foundIndices.length > 1) {
-	            console.error("Error: Cannot re-align diff. A hunk's context is ambiguous (found in multiple locations).");
+	            console.error("Error: Cannot re-align diff. A hunk's context is ambiguous (found in multiple locations).", { searchPattern, foundIndices, originalFilePtr });
 	            return null;
 	        }
 	        const actualOldStartIdx = foundIndices[0]; // 0-indexed start of the pattern in originalLines
@@ -246,7 +277,7 @@ class DiffHandler {
      * @param {string} diffString The diff in unified format.
      * @returns {string | null} The string after applying the diff, or null if the diff cannot be applied uniquely.
      */
-    applyStatelessFuzzy(originalString, diffString) {
+    applyStatelessFuzzy(originalString, diffString, reverseContextMatch = false) {
         const originalLines = originalString.split(/\r?\n/);
         const diffLines = diffString.split(/\r\n|\n|\r/);
         
@@ -290,16 +321,119 @@ class DiffHandler {
                 // for multiple hunks, or re-apply an already processed hunk.
                 const foundIndices = this._findPatternIndices(searchPattern, originalLines, originalIdx);
 
-                if (foundIndices.length === 0) {
-                    console.error("Error: Cannot apply diff. A hunk's context could not be found in the original file. The file may have changed too much.", { searchPattern, originalIdx, originalLinesDebug: originalLines.slice(originalIdx, originalIdx + searchPattern.length + 5) });
-                    return null;
+                let primaryFoundIndices = [];
+                
+                // NEW OPTIMIZATION: If the first *modification* in the hunk is a deletion,
+                // try matching just that single deletion line first for a quick, unique match.
+                let firstModificationLine = null;
+                let firstModificationIndexInHunk = -1;
+                for (let i = 0; i < hunkLines.length; i++) {
+                    if (hunkLines[i].startsWith('-') || hunkLines[i].startsWith('+')) {
+                        firstModificationLine = hunkLines[i];
+                        firstModificationIndexInHunk = i;
+                        break;
+                    }
                 }
-                if (foundIndices.length > 1) {
-                    console.error("Error: Cannot apply diff. A hunk's context is ambiguous (found in multiple locations).", { searchPattern, foundIndices });
+
+                if (firstModificationLine && firstModificationLine.startsWith('-')) {
+                    const singleDeletionContent = firstModificationLine.substring(1);
+                    const singleDeletionPattern = [singleDeletionContent];
+                    
+                    // Calculate the appropriate search start index for this single deletion line.
+                    // It's the originalIdx plus any preceding context/deletion lines within the hunk.
+                    let precedingOriginalLinesCount = 0;
+                    for (let i = 0; i < firstModificationIndexInHunk; i++) {
+                        if (hunkLines[i].startsWith(' ') || hunkLines[i].startsWith('-')) {
+                            precedingOriginalLinesCount++;
+                        }
+                    }
+
+                    const searchStartForSingleDeletion = originalIdx + precedingOriginalLinesCount;
+                    
+                    const singleDeletionResults = this._findPatternIndices(singleDeletionPattern, originalLines, searchStartForSingleDeletion);
+                    
+                    if (singleDeletionResults.length === 1) {
+                        // Adjust the found index back to where the hunk's overall context should start.
+                        const calculatedApplyIndex = singleDeletionResults[0] - precedingOriginalLinesCount;
+                        if (calculatedApplyIndex >= originalIdx) { // Ensure it's not before the current originalIdx
+                            primaryFoundIndices.push(calculatedApplyIndex);
+                        }
+                    }
+                }
+
+                // If the forward search fails, try a reverse context search as a fallback.
+                let finalFoundIndices = [...primaryFoundIndices]; // Start with results from the quick deletion search (if any)
+
+                // If the single deletion optimization didn't find a unique match, try the full search pattern
+                if (finalFoundIndices.length !== 1) {
+                    // Use the original search pattern (context + deletions)
+                    const regularSearchResults = this._findPatternIndices(searchPattern, originalLines, originalIdx);
+                    finalFoundIndices = regularSearchResults;
+                }
+
+                // Now, if still no unique match, try the reverse context search
+                if (finalFoundIndices.length === 0 && reverseContextMatch) {
+                    // Find the last modification line (+ or -) to identify where post-change context begins.
+                    let lastModificationIndex = -1; // This index is within hunkLines
+                    for (let i = hunkLines.length - 1; i >= 0; i--) {
+                        if (hunkLines[i].startsWith('+') || hunkLines[i].startsWith('-')) {
+                            lastModificationIndex = i;
+                            break;
+                        }
+                    }
+                    // Collect all context lines that appear after the last modification.
+                    const allReverseContextLines = [];
+                    let reverseContextHunkStartIndex = -1; // The index in hunkLines where this context starts.
+                    if (lastModificationIndex !== -1) {
+                        for (let i = lastModificationIndex + 1; i < hunkLines.length; i++) {
+                            if (hunkLines[i].startsWith(' ')) {
+                                if (reverseContextHunkStartIndex === -1) reverseContextHunkStartIndex = i;
+                                allReverseContextLines.push(hunkLines[i].substring(1));
+                            }
+                        }
+                    }
+
+                    // Iteratively expand the reverse pattern until it's unique.
+                    if (allReverseContextLines.length > 0) {
+                        for (let i = 0; i < allReverseContextLines.length; i++) {
+                            const currentPattern = allReverseContextLines.slice(0, i + 1);
+                            const searchResult = this._findPatternIndices(currentPattern, originalLines, originalIdx);
+
+                            // We only use the reverse match if it's unique
+                            if (searchResult.length === 1) {
+                                const reverseMatchStartIndex = searchResult[0];
+                                // Calculate how many original lines (`-` and ` `) precede the reverse context.
+                                let linesBeforeReverseContext = 0;
+                                for (let j = 0; j < reverseContextHunkStartIndex; j++) {
+                                    if (hunkLines[j].startsWith(' ') || hunkLines[j].startsWith('-')) {
+                                        linesBeforeReverseContext++;
+                                    }
+                                }
+                                // Calculate the actual start index of the hunk and add it to foundIndices.
+                                const calculatedApplyIndex = reverseMatchStartIndex - linesBeforeReverseContext;
+                                if (calculatedApplyIndex >= originalIdx) {
+                                    finalFoundIndices.push(calculatedApplyIndex);
+                                }
+                                break; // Unique match found, exit loop.
+                            }
+                            if (searchResult.length === 0) break; // Pattern no longer matches, useless to expand.
+                        }
+                    }
+                }
+
+                if (finalFoundIndices.length === 0) {
+                    console.error("Error: Cannot apply diff. Hunk context not found. The file may have changed too much.", {
+                        expectedPattern: searchPattern,
+                        sourceSnippet: originalLines.slice(originalIdx, originalIdx + searchPattern.length + 5),
+                        originalIndexAttempted: originalIdx
+                    });
+                }
+                if (finalFoundIndices.length > 1) {
+                    console.error("Error: Cannot apply diff. A hunk's context is ambiguous (found in multiple locations).", { ambiguousPattern: searchPattern, foundLocations: finalFoundIndices, originalIndexAttempted: originalIdx });
                     return null;
                 }
 
-                const applyAtIndex = foundIndices[0]; // This is the starting line in originalLines for our pattern
+                const applyAtIndex = finalFoundIndices[0]; // This is the starting line in originalLines for our pattern
 
                 // Add the lines from the original file that come BEFORE this hunk's starting context
                 while (originalIdx < applyAtIndex) {

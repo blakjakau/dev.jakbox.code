@@ -65,6 +65,7 @@ class TerminalManager {
 				await addStylesheet("https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css");
 				await loadScript("https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js");
 				await loadScript("https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js");
+				await loadScript("https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.8.0/lib/xterm-addon-web-links.min.js"); // Load WebLinksAddon
 				this._initialized = true; // Mark scripts loaded
 			} catch (error) {
 				this.panel.textContent = "Error loading terminal scripts."; // Display error on the panel
@@ -89,6 +90,10 @@ class TerminalManager {
 		// Load the fit addon for this specific terminal instance
 		const fitAddon = new window.FitAddon.FitAddon();
 		term.loadAddon(fitAddon);
+
+		// Load the weblinks addon for this specific terminal instance
+		const webLinksAddon = new window.WebLinksAddon.WebLinksAddon();
+		term.loadAddon(webLinksAddon);
 		// Open the terminal in the provided container
 		term.open(containerElement);
 
@@ -110,7 +115,40 @@ class TerminalManager {
 		};
 		ws.onmessage = (event) => {
 			// Write data received from the server (PTY) to the terminal
-			term.write(event.data);
+			const CWD_UPDATE_REGEX = /\x1b]9;9;([^\x1b]*)\x1b\\/g; // OSC 9;9;path followed by String Terminator (ST)
+			let messageHandled = false;
+			let rawData = event.data;
+			// First, try to parse as a JSON control message (like "terminalInfo")
+			try {
+				const msg = JSON.parse(rawData);
+				if (msg.type === "terminalInfo") {
+					const session = this._sessions.get(sessionId);
+					if (session) {
+						session.hostname = msg.hostname;
+						session.cwd = msg.cwd;
+						this._updateTerminalTabName(sessionId);
+					}
+					messageHandled = true;
+				}
+			} catch (e) {
+				// Not a JSON message, or parse error. Treat as raw terminal data.
+			}
+			// If not a JSON control message, check for CWD update escape sequence
+			let match;
+			while ((match = CWD_UPDATE_REGEX.exec(rawData)) !== null) {
+				const newCwd = match[1];
+				const session = this._sessions.get(sessionId);
+				if (session) {
+					session.cwd = newCwd;
+					this._updateTerminalTabName(sessionId);
+				}
+				// Remove the escape sequence from the data written to xterm.js
+				rawData = rawData.replace(match[0], '');
+			}
+
+			if (!messageHandled) {
+				term.write(rawData); // Write the (potentially modified) raw data to the terminal
+			}
 		};
 		ws.onerror = (error) => {
 			console.error(`WebSocket Error for session ${sessionId}:`, error);
@@ -283,6 +321,31 @@ class TerminalManager {
 			if (activeSession.term && activeSession.fitAddon && activeSession.containerElement.offsetParent !== null) {
 				activeSession.fitAddon.fit();
 			}
+		}
+	}
+
+	/**
+	 * Updates the name of a terminal tab based on the session's hostname and CWD.
+	 * @param {string} sessionId - The ID of the session whose tab name needs updating.
+	 */
+	_updateTerminalTabName(sessionId) {
+		const session = this._sessions.get(sessionId);
+		if (session && session.tabItem) {
+			let tabDisplayName = `Terminal ${sessionId.split('-')[1]}`; // Default name
+			let fullPathTooltip = '';
+
+			if (session.hostname && session.cwd) {
+				const pathSegments = session.cwd.split(/[\\/]/).filter(s => s !== ''); // Split by / or \ and remove empty
+				if (pathSegments.length > 2) {
+					tabDisplayName = `(${session.hostname}): .../${pathSegments[pathSegments.length - 2]}/${pathSegments[pathSegments.length - 1]}`;
+				} else {
+					tabDisplayName = `(${session.hostname}):${session.cwd}`;
+				}
+				fullPathTooltip = `(${session.hostname}):${session.cwd}`;
+			}
+			// Update the tab item's display name
+			session.tabItem.name = tabDisplayName;
+			session.tabItem.setAttribute('title', fullPathTooltip); // Add full path as a title attribute (tooltip)
 		}
 	}
 
