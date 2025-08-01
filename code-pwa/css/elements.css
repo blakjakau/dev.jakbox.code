@@ -303,7 +303,7 @@ ui-tabbar[slim] > ui-button {
 	height: 39px;
 }
 ui-tabbar[slim] > ui-button ui-icon {
-	line-height: 39px;
+	line-height: 34px;
 }
 
 ui-button[active],

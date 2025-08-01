@@ -336,6 +336,17 @@ const saveWorkspace = async () => {
 }
 window.saveWorkspace = saveWorkspace;
 
+const updateFileListBackground = () => {
+    if (ui.fileListBackground) {
+        if (workspace.folders?.length > 0) {
+            ui.fileListBackground.style.display = 'none';
+        } else {
+            ui.fileListBackground.style.display = 'flex';
+        }
+    }
+};
+
+
 const updateWorkspaceSelectors = (() => {
 	const close = document.querySelector("#workspaceClose")
 	const rename = document.querySelector("#workspaceRename")
@@ -435,6 +446,7 @@ const openWorkspace = (() => {
             // After loading workspace, ensure aiManager is initialized with the correct provider's config
             // This assumes ui.aiManager.aiProvider is already set by ui.aiManager.loadSettings() in its init
             const currentProvider = ui.aiManager.aiProvider;
+            updateFileListBackground();
             if (workspace.aiConfig[currentProvider]) {
                 ui.aiManager.ai.setOptions(workspace.aiConfig[currentProvider], null, null, true, 'workspace');
             } else if (app.aiConfig[currentProvider]) {
@@ -504,6 +516,7 @@ const openWorkspace = (() => {
 				// NEW: Initialize empty AI session metadata
                 workspace.aiSessionsMetadata = [];
                 workspace.activeAiSessionId = null;
+                updateFileListBackground();
                 // AIManager will handle creating the first session when it gets loadSessions call
 				hideActions()
 				let item = document.createElement("ui-menu-item")
@@ -690,6 +703,7 @@ const execCommandRemoveAllFolders = () => {
 				while (workspace.folders.length > 0) {
 					workspace.folders.pop()
 				}
+				updateFileListBackground();
 				ui.showSidebar()
 				// saveAppConfig()
 				saveWorkspace()
@@ -818,37 +832,85 @@ const execCommandOpen = async () => {
 }
 
 const execCommandNewFile = async () => {
-	const srcTab = ui.currentTabs.activeTab
-	const mode = srcTab?.config?.mode?.mode || "";
-	const folder = srcTab?.config?.folder || undefined;
-	const newSession = ace.createEditSession("", mode);	
-
-	// Check for active element focus to determine context
 	const activeEl = document.activeElement;
-
-	// If the active element is within a terminal instance
+	let context = 'editor'; // Default context
+	// 1. Check for specific focused elements first
 	if (activeEl && activeEl.closest('.terminal-instance-container')) {
-		window.terminalManager.createNewTerminalSession();
-		return;
+		context = 'terminal';
+	} else if (activeEl && activeEl.closest('#ai-prompt-editor-container')) {
+		context = 'ai';
+	} else if (activeEl && (activeEl.closest('.ace_editor') || activeEl.classList.contains('ace_text-input'))) {
+		context = 'editor';
+	} else {
+		// 2. If no editor is focused, use the active sidebar panel as the context
+		const activeSidebarTabId = ui.iconTabBar?.activeTab?.iconId;
+		switch (activeSidebarTabId) {
+			case 'developer_board':
+				context = 'ai';
+				break;
+			case 'terminal':
+				context = 'terminal';
+				break;
+			default:
+				context = 'editor';
+				break;
+		}
 	}
-	// If the active element is within the AI prompt editor
-	if (activeEl && activeEl.closest('#ai-prompt-editor-container')) {
-		ui.aiManager.createNewSession();
-		return;
+	// Execute the 'new' action based on the determined context
+	switch (context) {
+		case 'ai':
+			return ui.aiManager.createNewSession();
+		case 'terminal':
+			return window.terminalManager.createNewTerminalSession();
+		case 'editor':
+		default:
+			const srcTab = ui.currentTabs.activeTab;
+			const mode = srcTab?.config?.mode?.mode || "";
+			const folder = srcTab?.config?.folder || undefined;
+			const newSession = ace.createEditSession("", mode);
+			if (app.sessionOptions) newSession.setOptions(app.sessionOptions);
+			newSession.baseValue = "";
+			const targetTabs = ui.currentTabs;
+			const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder, side: (targetTabs === leftTabs) ? "left" : "right" });
+			return tab.click();
 	}
+	
+	// const srcTab = ui.currentTabs.activeTab
+	// const mode = srcTab?.config?.mode?.mode || "";
+	// const folder = srcTab?.config?.folder || undefined;
+	// const newSession = ace.createEditSession("", mode);	
 
-	// Apply stored session options to the new session
-	if (app.sessionOptions) {
-		newSession.setOptions(app.sessionOptions);
-	}
-	newSession.baseValue = "";
+	// // Check for active element focus to determine context
+	// const activeEl = document.activeElement;
 
-	let targetTabs = ui.currentTabs
+	// if(activeEl.tagName !== "TEXTAREA") {
+	// 	// we're NOT on a text area at all, we'll use the actice sidebar instead
+	// 	//GEMINI do this bit? trigger based on the curret active icon in the side iconbar
+	// }
 
-	const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder, side: (targetTabs === leftTabs) ? "left" : "right" });
+	// // If the active element is within a terminal instance
+	// if (activeEl && activeEl.closest('.terminal-instance-container')) {
+	// 	window.terminalManager.createNewTerminalSession();
+	// 	return;
+	// }
+	// // If the active element is within the AI prompt editor
+	// if (activeEl && activeEl.closest('#ai-prompt-editor-container')) {
+	// 	ui.aiManager.createNewSession();
+	// 	return;
+	// }
+
+	// // Apply stored session options to the new session
+	// if (app.sessionOptions) {
+	// 	newSession.setOptions(app.sessionOptions);
+	// }
+	// newSession.baseValue = "";
+
+	// let targetTabs = ui.currentTabs
+
+	// const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder, side: (targetTabs === leftTabs) ? "left" : "right" });
 
 	
-	tab.click();
+	// tab.click();
 }
 
 const execCommandNewWindow = async () => {
@@ -1362,6 +1424,7 @@ fileOpen.on("click", async () => {
 	// verifyPermission
 	await verifyPermission(folderHandle)
 	if (addToFolders) workspace.folders.push(folderHandle)
+	updateFileListBackground();
 	// 	saveAppConfig()
 	saveWorkspace()
 	ui.showSidebar()
@@ -1681,6 +1744,7 @@ const keyBinds = [
 				workspace.files = []
 				workspace.openFolders = [];
                 // NEW: Initialize empty AI session metadata for new workspace
+                updateFileListBackground();
                 workspace.aiSessionsMetadata = [];
                 workspace.activeAiSessionId = null;
 

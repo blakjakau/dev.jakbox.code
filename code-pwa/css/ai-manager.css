@@ -107,15 +107,11 @@
 
 
 .prompt-container {
-    /* position: sticky; */ /* This can cause layout issues with flexbox; flex handles this better */
-    /* bottom: 0; */
-    /*padding-top: 8px;*/
-    padding: 8px 0;
+    padding: 0px 0;
     background-color: var(--background-color);
-    /*border-top: 1px solid var(--themeDark);*/
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     flex-shrink: 0; /* Prevents the container from being shrunk by the parent flexbox, allowing it to grow with its content. */
 }
 
@@ -533,6 +529,7 @@ button:disabled,
     display: flex;
     justify-content: space-between;
     align-items: center; 
+    padding-bottom:4px;
 }
 
 .settings-button {

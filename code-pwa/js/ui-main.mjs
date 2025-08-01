@@ -31,7 +31,7 @@ var drawer, statusbar, statusTheme, statusMode, statusWorkspace
 var themeMenu, modeMenu, workspaceMenu
 var darkmodeMenu, darkmodeSelect
 var openDir, themeModeToggle, toggleSplitViewBtn, scratchEditor, iconTabBar;
-
+var fileListBackground
 var currentEditor, currentTabs, currentMediaView
 
 const toggleBodyClass = (className) => {
@@ -135,12 +135,18 @@ const uiManager = {
 		const terminalTab = new IconTab('terminal');
 		iconTabBar.addTab(filesTab);
 		iconTabBar.addTab(aiTab);
-		iconTabBar.addTab(scratchTab);
 		iconTabBar.addTab(terminalTab);
+		iconTabBar.addTab(scratchTab);
 		
 		const filesPanel = new SidebarPanel();
 		filesPanel.append(fileActions);
 		filesPanel.append(fileList);
+
+		fileListBackground = document.createElement("div");
+		fileListBackground.classList.add("file-list-background-element");
+		fileListBackground.innerHTML = `<ui-icon icon="folder_open" style="font-size: 48px; opacity: 0.5;"></ui-icon><div class="caption">No folders in workspace<br/>Add a folder to begin.</div>`;
+		filesPanel.append(fileListBackground);
+
 		// The AI Panel creation is delegated to aiManager.init(aiManagerPanel)
         // Ensure aiManagerPanel exists for aiManager to append its UI
 		// aiManager.panel is set here for the first time
@@ -160,6 +166,7 @@ const uiManager = {
 		
 		window.terminalManager = TerminalManager; // Create the manager instance
 		window.terminalManager.init(terminalPanel); // Initialize the manager with its panel
+		window.terminalManager._checkConduitStatus()
 
 		const sidebarPanelsContainer = new Block();
 		sidebarPanelsContainer.setAttribute("id", "sidebar-panels-container");
@@ -1073,6 +1080,7 @@ const uiManager = {
 	get terminalManager() { return terminalManager }, // Export the terminal's SidebarPanel
 	get aiManager() { return aiManager },
 	
+	fileListBackground: fileListBackground, // Expose the new element
 	_sidebarFitTerminalAfterTransition: null, // To hold the bound function for removal
 	constrainHolders: debounceConstrainHolders,
 

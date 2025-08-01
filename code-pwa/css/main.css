@@ -854,6 +854,28 @@ ui-tabbar.tabs-inverted {
     line-height: 1.5;
 }
 
+.file-list-background-element {
+    position: absolute;
+    top: 38px; /* Position below the file actions bar */
+    left: 0;
+    width: 100%;
+    height: calc(100% - 38px);
+    z-index: 0;
+    display: none; /* Initially hidden, controlled by JS */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: var(--mid);
+}
+
+.file-list-background-element .caption {
+    margin-top: 1em;
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+
 .terminal-background-element {
     position: absolute;
     top: 0;
@@ -893,7 +915,7 @@ ui-tabbar.tabs-inverted {
 ui-tabbar.tabs-inverted[slim] > ui-tab-item {
 
     margin-top: 0;
-    margin-bottom: 0; /* Sits flush with the bottom of the container */
+    margin-bottom: 4px; /* Sits flush with the bottom of the container */
     border-radius: 0 0 8px 8px; /* Rounded TOP corners */
 }
 

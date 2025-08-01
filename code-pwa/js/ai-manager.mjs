@@ -93,6 +93,7 @@ class AIManager {
 		// NEW: Session TabBar properties
 		this.sessionTabBar = null;
 		this.newSessionButton = null;
+		this.settingsButton = null; // NEW: Reference for settings button
 
 		this.saveWorkspaceTimeout = null; // For debouncing workspace saves from _dispatchContextUpdate
 	}
@@ -171,7 +172,12 @@ class AIManager {
 		this.newSessionButton.classList.add('new-session-button');
 		this.newSessionButton.on('click', () => this.createNewSession());
 		
-		this.sessionTabBar.append(this.newSessionButton)
+		this.settingsButton = new Button("");
+		this.settingsButton.icon = "settings";
+		this.settingsButton.classList.add("settings-button");
+		this.settingsButton.onclick = () => this.toggleSettingsPanel();
+
+		this.sessionTabBar.append(this.newSessionButton, this.settingsButton)
 		
 		// --- NEW FileBar and Context Progress Bar ---
 		const fileBarContainer = new Block();
@@ -266,13 +272,6 @@ class AIManager {
 		buttonContainer.append(this.aiInfoDisplay); // Element is created, but content will be set by _updateAIInfoDisplay()
 		buttonContainer.append(spacer)
 		buttonContainer.append(this.submitButton)
-
-		// Settings button remains last on the right
-		const settingsButton = new Button()
-		settingsButton.classList.add("settings-button")
-		settingsButton.icon = "settings"
-		settingsButton.on("click", () => this.toggleSettingsPanel())
-		buttonContainer.append(settingsButton) // Append settings button to the right
 
 		promptContainer.append(this.promptArea)
 		promptContainer.append(buttonContainer)
@@ -445,7 +444,7 @@ class AIManager {
 		const el = document.createElement('div');
 		el.className = 'ai-background-element';
 		el.innerHTML = `
-			<ui-icon icon="auto_awesome" style="font-size: 48px; opacity: 0.5;">auto_awesome</ui-icon>
+			<ui-icon icon="developer_board" style="font-size: 48px; opacity: 0.5;">developer_board</ui-icon>
 			<div class="caption">AI Assistant Ready<br/>Type a prompt to begin.</div>
 		`;
 		el.style.display = 'none'; // Initially hidden
@@ -952,13 +951,28 @@ class AIManager {
 		this.activeSession = newSessionData;
 		this.activeSessionId = sessionId;
 		this._unsentPromptBuffer = null; // Clear any pending unsent prompt from the previous session
+
+		// disapear the panel first		
+		this.conversationArea.style.scrollBehavior = 'auto'; // Make scroll instant
+		this.conversationArea.style.transition = "opacity 100ms linear"
+		this.conversationArea.style.opacity = 0
 		
-		// Update the rest of the UI based on the new data
-		// Do NOT auto-scroll to bottom. Instead, restore saved scroll position.
-		this.historyManager.loadSessionMessages(this.activeSession.messages, false); 
-		// Restore scroll position after content has been rendered
-		// A small timeout ensures the DOM has updated before setting scroll.
-		setTimeout(() => { this.conversationArea.scrollTop = this.activeSession.scrollTop || 0; }, 0); 
+		setTimeout(()=>{
+			void this.conversationArea.scrollTop
+			// Update the rest of the UI based on the new data
+			// Do NOT auto-scroll to bottom. Instead, restore saved scroll position.
+			this.historyManager.loadSessionMessages(this.activeSession.messages, false); 
+			
+			// Restore scroll position after content has been rendered
+			// A small timeout ensures the DOM has updated before setting scroll.
+			setTimeout(()=>{
+				void this.conversationArea.scrollTop
+				this.conversationArea.scrollTop = this.activeSession.scrollTop || 0;
+				this.conversationArea.style.scrollBehavior = ''; // Restore smooth scrolling
+				this.conversationArea.style.opacity = 1
+			}, 100)
+		}, 100)
+		
 		this.promptEditor.setValue(this.activeSession.promptInput || "", -1);
 		this.promptIndex = (this.activeSession.promptHistory?.length || 0);
 		this._resizePromptArea();
@@ -983,14 +997,21 @@ class AIManager {
 
         // Only ask for confirmation if the session has a history AND it's not the only session left
         if (fullSessionData?.messages?.length > 0) {
-            if (!confirm(`Are you sure you want to delete the chat "${sessionMeta.name}"? This chat has history.`)) {
-                return;
+			if (!confirm(`Are you sure you want to delete the chat "${sessionMeta.name}"? This action cannot be undone.`)) {
+				return;
             }
         }
 		
 		// Delete data
 		await del(`ai-session-${sessionId}`);
 		this.allSessionMetadata = this.allSessionMetadata.filter(s => s.id !== sessionId);
+
+		// If that was the last tab, we need to manually clean up the state.
+		if (this.allSessionMetadata.length === 0) {
+			this.activeSession = null;
+			this.activeSessionId = null;
+			this.historyManager.clear(true); // Force clear the UI without confirmation
+		}
 
 		// Remove UI element. The TabBar component handles activating the next tab and firing its click event.
 		this.sessionTabBar.remove(tab);
@@ -1088,11 +1109,15 @@ class AIManager {
             return;
         }
 
-		// NEW: Clear min-height from the previous response block if it exists
-		const lastResponseBlockInHistory = this.conversationArea.lastElementChild;
-		if (lastResponseBlockInHistory && lastResponseBlockInHistory.classList.contains("response-block")) {
-			lastResponseBlockInHistory.style.minHeight = '';
-		}
+		// Clear min-height from all previous response blocks to let them reflow naturally.
+		this.conversationArea.querySelectorAll('.response-block').forEach(block => {
+			block.style.minHeight = '';
+		});
+		// // NEW: Clear min-height from the previous response block if it exists
+		// const lastResponseBlockInHistory = this.conversationArea.lastElementChild;
+		// if (lastResponseBlockInHistory && lastResponseBlockInHistory.classList.contains("response-block")) {
+		// 	lastResponseBlockInHistory.style.minHeight = '';
+		// }
 		// Also, clean up any loader bar that might still be present from a previous aborted generation
 		this.conversationArea.querySelector('ui-loader-bar')?.remove();
 
