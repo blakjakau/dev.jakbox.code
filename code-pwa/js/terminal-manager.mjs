@@ -1,14 +1,27 @@
 import { Button, Icon } from "./elements.mjs";
-import { loadScript, addStylesheet, isFunction } from "./elements/utils.mjs";
+import { loadScript, addStylesheet } from "./elements/utils.mjs";
 import { TabBar } from "./elements/tabbar.mjs";
 import { TabItem } from "./elements/tabitem.mjs";
+import conduitSetupGuide from './conduit-setup-guide.mjs';
 
 // The URL for the backend WebSocket server
-const TERMINAL_WEBSOCKET_URL = `ws://${window.location.hostname}:3022/terminal`;
+const TERMINAL_WEBSOCKET_URL = `ws://localhost:3022/terminal`;
+const CONDUIT_UP_URL = `http://localhost:3022/up`;
+const CONDUIT_INSTALL_URL = `http://localhost:3022/install-user`;
+const CONDUIT_UNINSTALL_URL = `http://localhost:3022/uninstall`;
+const CONDUIT_KILL_URL = `http://localhost:3022/kill`;
+const CONDUIT_PROTOCOL_URL = 'conduit://';
 
 class TerminalManager {
 	constructor() {
 		this._initialized = false;
+		this.setupGuideElement = null;
+		this.settingsPanel = null;
+		this.settingsButton = null;
+		this.conduitStatus = { isRunning: false, isInstalled: false, version: 'N/A' };
+		this.config = { autoLaunch: true }; // Let's default to true, it's a better experience
+		this.isPolling = false;
+
 		this._sessions = new Map(); // Map: sessionId -> { term, fitAddon, ws, containerElement, tabItem }
 		this._activeSessionId = null;
 		this._nextSessionId = 1; // Simple counter for session IDs
@@ -22,6 +35,8 @@ class TerminalManager {
      * @param {HTMLElement} panel - The SidebarPanel instance that will host the terminal UI.
      */
 	async init(panel) {
+		this._loadSettings();
+
 		this.panel = panel;
 		this.panel.classList.add('terminal-panel-container'); // Add a class for specific styling if needed
 
@@ -39,18 +54,30 @@ class TerminalManager {
 		newTerminalButton.classList.add("new-terminal-button");
 		newTerminalButton.onclick = () => this.createNewTerminalSession();
 		newTerminalButton.showClose = false; // Hide close button for 'New Terminal' button
-		this.sessionTabBar.append(newTerminalButton);
+
+		this.settingsButton = new Button("");
+		this.settingsButton.icon = "settings";
+		this.settingsButton.classList.add("settings-button");
+		this.settingsButton.onclick = () => this.toggleSettingsPanel();
+		this.sessionTabBar.append(newTerminalButton, this.settingsButton);
 
 		// Wrapper for individual terminal instance containers
 		this.terminalContainersWrapper = document.createElement("div");
 		this.terminalContainersWrapper.classList.add("terminal-containers-wrapper");
-  
-        // Append order changed: content wrapper first, then tab bar at the bottom
-        this.panel.append(this.terminalContainersWrapper, this.sessionTabBar);
-  
-  		// ResizeObserver to fit the *active* terminal when its container (this panel) resizes
+		
+		// NEW: Create elements for loading and empty states
+		this._loadingStateElement = this._createLoadingStateElement();
+		this._emptyStateElement = this._createEmptyStateElement();
+		this.terminalContainersWrapper.append(this._loadingStateElement, this._emptyStateElement);
+
+		this.settingsPanel = this._createSettingsPanel();
+
+		// Append UI elements. The containing panel should use flexbox to manage layout.
+		this.panel.append(this.terminalContainersWrapper, this.settingsPanel, this.sessionTabBar);
+
+		// ResizeObserver to fit the *active* terminal when its container (this panel) resizes
 		const resizeObserver = new ResizeObserver(() => this.fit());
-		resizeObserver.observe(this.panel); // Observe the hosting panel
+		resizeObserver.observe(this.panel);
 	}
 
 	/**
@@ -244,6 +271,9 @@ class TerminalManager {
 			tabItem: tab,
 		};
 		this._sessions.set(sessionId, sessionData);
+		// Hide the empty state message now that we have a session
+		if (this._emptyStateElement) this._emptyStateElement.style.display = 'none';
+
 		sessionData.tabItem.click(); // Activate the tab which triggers switchTerminalSession
 		sessionData.term.focus(); // Focus the new terminal for immediate typing after tab activation
 	}
@@ -304,6 +334,11 @@ class TerminalManager {
 				// We just need to clear the old one here.
 				this._activeSessionId = null;
 			}
+			// If this was the last session, show the empty state message
+			if (this._sessions.size === 0 && this.conduitStatus.isRunning) {
+				this._emptyStateElement.style.display = 'flex';
+			}
+			
 		} else {
 			console.warn(`Attempted to delete non-existent session: ${sessionId}`);
 		}
@@ -355,25 +390,405 @@ class TerminalManager {
 	 * This method is intended to be called when the terminal sidebar panel becomes active.
 	 */
 	async connect() {
-		if (this._sessions.size === 0) {
-			// If no terminal sessions exist yet, create the very first one
-			await this.createNewTerminalSession();
+		// 1. Show loading spinner state
+		this._removeSetupGuide();
+		this.settingsPanel.style.display = 'none';
+		this._emptyStateElement.style.display = 'none';
+		this.terminalContainersWrapper.style.display = 'block'; // Show parent wrapper
+		this._sessions.forEach(session => session.containerElement.style.display = 'none'); // Hide instances
+		this._loadingStateElement.style.display = 'flex';
+		this.sessionTabBar.style.display = 'flex';
+		// 2. Perform checks
+		
+		// Use a client-side flag to decide if we should attempt auto-launching.
+		const clientThinksInstalled = localStorage.getItem('conduitInstalled') === 'true';
+
+		// If not running, but auto-launch is on, try to start it.
+		if (!this.conduitStatus.isRunning && this.config.autoLaunch && !clientThinksInstalled) {
+			await this._launchConduitViaProtocol();
+			await this._checkConduitStatus(); // Check status again after the launch attempt.
+		}
+		// 3. Hide loading spinner
+		this._loadingStateElement.style.display = 'none';
+		// 4. Decide final UI state
+		if (this.conduitStatus.isRunning) { // This now covers both installed and temporary runners
+			if (this.conduitStatus.isInstalled) {
+				this._removeSetupGuide();
+				if (this._sessions.size === 0) {
+					this._emptyStateElement.style.display = 'flex'; // Show empty state
+				} else {
+					// A session exists, ensure it's visible
+					const activeSession = this._sessions.get(this._activeSessionId) || this._sessions.values().next().value;
+					if (activeSession?.tabItem) activeSession.tabItem.click();
+				}
+			} else {
+				this._showSetupGuide('install', { showLaunchButton: false });
+			}
 		} else {
-			// If sessions already exist, just ensure the currently selected one is visible and fitted
-			let targetSession = this._sessions.get(this._activeSessionId);
-			if (!targetSession && this._sessions.size > 0) {
-				// Fallback if _activeSessionId is null or invalid (e.g., after refresh, not persisted)
-				targetSession = this._sessions.values().next().value; // Get the first session
-				this._activeSessionId = targetSession.tabItem.config.id; // Update active ID
+			this._showSetupGuide('download', { showLaunchButton: true });
+		}
+	}
+
+	/**
+	 * Loads settings from localStorage.
+	 */
+	_loadSettings() {
+		const storedAutoLaunch = localStorage.getItem('conduitAutoLaunch');
+		// Only override the default if a value is explicitly stored.
+		if (storedAutoLaunch !== null) {
+			this.config.autoLaunch = storedAutoLaunch === 'true';
+		}
+	}
+
+	/**
+	 * Saves settings to localStorage.
+	 */
+	_saveSettings() {
+		localStorage.setItem('conduitAutoLaunch', this.config.autoLaunch);
+	}
+
+	/**
+	 * Checks if the Conduit backend service is running and updates internal status.
+	 */
+	async _checkConduitStatus() {
+		// Reset status before check, but preserve version info if server goes down.
+		this.conduitStatus.isRunning = false;
+		// Do not reset isInstalled here; we want to preserve the last known state if the server is down.
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 200); // Short timeout
+		try {
+			const response = await fetch(CONDUIT_UP_URL, { signal: controller.signal });
+			clearTimeout(timeoutId);
+
+			if (response.ok) { // Server is up, get authoritative status.
+				const data = await response.json();
+				this.conduitStatus.isRunning = true;
+				this.conduitStatus.isInstalled = data.is_installed || false;
+				this.conduitStatus.version = data.version || 'N/A';
+			} else { // Server is up but returned an error. Treat as not running.
+				this.conduitStatus.isRunning = false;
+			}
+		} catch (error) {
+			clearTimeout(timeoutId);
+			this.conduitStatus.isRunning = false;
+		}
+	}
+
+	/**
+	 * Determines the correct Conduit download link based on user's platform.
+	 * @returns {{url: string, name: string, filename: string}|null}
+	 */
+	_getDownloadLink() {
+		const ua = navigator.userAgent.toLowerCase();
+		const platform = navigator.platform.toLowerCase();
+		const links = {
+			"linux-x64": "https://raw.githubusercontent.com/blakjakau/dev.jakbox.conduit/main/dist/conduit-linux-x64",
+			"linux-arm64": "https://raw.githubusercontent.com/blakjakau/dev.jakbox.conduit/main/dist/conduit-linux-arm64",
+			"macos-x64": "https://raw.githubusercontent.com/blakjakau/dev.jakbox.conduit/main/dist/conduit-macos-x64",
+			"macos-arm64": "https://raw.githubusercontent.com/blakjakau/dev.jakbox.conduit/main/dist/conduit-macos-arm64",
+			"windows-x64.exe": "https://raw.githubusercontent.com/blakjakau/dev.jakbox.conduit/main/dist/conduit-windows-x64.exe"
+		};
+
+		if (platform.includes('win')) return { url: links['windows-x64.exe'], name: 'Windows (x64)', filename: 'conduit-windows-x64.exe' };
+		if (platform.includes('mac')) {
+			// Defaulting to Apple Silicon as it's the modern standard and detection is tricky.
+			return { url: links['macos-arm64'], name: 'macOS (Apple Silicon)', filename: 'conduit-macos-arm64' };
+		}
+		if (platform.includes('linux')) {
+			if (ua.includes('aarch64') || ua.includes('arm64')) return { url: links['linux-arm64'], name: 'Linux (ARM64)', filename: 'conduit-linux-arm64' };
+			return { url: links['linux-x64'], name: 'Linux (x64)', filename: 'conduit-linux-x64' };
+		}
+		return null; // Unsupported
+	}
+
+	_showSetupGuide(step = 'download', options = { showLaunchButton: false }) {
+		if (!this.setupGuideElement) {
+			this.setupGuideElement = document.createElement('div');
+			this.setupGuideElement.className = 'conduit-setup-guide';
+			this.panel.prepend(this.setupGuideElement);
+		}
+
+		this.sessionTabBar.style.display = 'none';
+		this.terminalContainersWrapper.style.display = 'none';
+		this.settingsPanel.style.display = 'none';
+		this.setupGuideElement.style.display = 'block';
+		this.setupGuideElement.innerHTML = ''; // Clear previous content
+
+		const guideContent = document.createElement('div');
+		guideContent.innerHTML = conduitSetupGuide
+			.replace(/^# (.*$)/gm, "<h2>$1</h2>")
+			.replace(/^## (.*$)/gm, "<h3>$1</h3>")
+			.replace(/\*\*(.*)\*\*/g, "<strong>$1</strong>")
+			.replace(/`(.*?)`/g, "<code>$1</code>")
+			.replace(/---/g, "<hr>");
+		this.setupGuideElement.append(guideContent);
+
+		const actionsContainer = this.setupGuideElement.querySelector('#conduit-actions-section');
+		actionsContainer.innerHTML = ''; // Clear placeholder
+
+		if (step === 'download') {
+			const downloadInfo = this._getDownloadLink();
+			if (downloadInfo) {
+				const link = document.createElement('a');
+				link.href = downloadInfo.url;
+				link.textContent = `Download for ${downloadInfo.name}`;
+				link.className = 'themed';
+				link.setAttribute('target', '_blank');
+				link.setAttribute('download', downloadInfo.filename);
+				actionsContainer.append(link);
+			} else {
+				actionsContainer.textContent = "Sorry, your platform is not currently supported.";
 			}
 
-			if (targetSession && targetSession.tabItem) {
-				// Click the tab, which will trigger switchTerminalSession via TabBar's click handler
-				targetSession.tabItem.click();
-			} else {
-				console.warn("TerminalManager: No valid session to activate.");
-				// Fallback: If no sessions could be found/activated, ensure one is created
-				await this.createNewTerminalSession();
+			if (options.showLaunchButton) {
+				const preamble = document.createElement('p');
+				preamble.textContent = 'Already installed Conduit?';
+				preamble.style.marginTop = '1.5em';
+				preamble.style.marginBottom = '0.5em';
+
+				const launchButton = new Button("Launch Conduit Helper");
+				launchButton.classList.add('themed', 'launch-button');
+				launchButton.onclick = () => {
+					this._launchConduitViaProtocol();
+					this._startPollingConduit();
+				};
+				actionsContainer.append(preamble, launchButton);
+			}
+
+			this._startPollingConduit(); // Start polling in the background immediately
+		} else if (step === 'install' && !options.showLaunchButton) {
+			const downloadInfo = this._getDownloadLink();
+			const cliCommand = downloadInfo ? `\`./${downloadInfo.filename} --install-user\`` : 'the CLI';
+
+			const preamble = document.createElement('p');
+			preamble.innerHTML = `Excellent! The Conduit helper is running. For the best experience, click below to complete the one-time installation. This allows the app to launch the helper automatically.<br><br>You can also skip this and install later from the settings panel or by running ${cliCommand} in your terminal.`;
+			preamble.style.marginBottom = '1em';
+
+			const installButton = new Button("Install Conduit Helper");
+			installButton.classList.add('themed');
+			installButton.onclick = () => this._installConduit(installButton);
+
+			const skipButton = new Button("Skip For Now");
+			skipButton.onclick = async () => {
+				this._removeSetupGuide();
+				if (this._sessions.size === 0) {
+					await this.createNewTerminalSession();
+				}
+			};
+
+			const buttonGroup = document.createElement('div');
+			buttonGroup.className = 'button-group';
+			buttonGroup.append(installButton, skipButton);
+			actionsContainer.append(preamble, buttonGroup);
+		}
+	}
+
+	_removeSetupGuide() {
+		if (this.setupGuideElement) {
+			this.setupGuideElement.style.display = 'none';
+		}
+		this.sessionTabBar.style.display = 'flex';
+		this.terminalContainersWrapper.style.display = 'block';
+		this._stopPollingConduit();
+	}
+
+	_startPollingConduit() {
+		if (this.isPolling) return;
+		this.isPolling = true;
+		
+		this._pollingIntervalId = setInterval(async () => {
+			// Stop if panel is hidden
+			if (!this.panel.offsetParent) return this._stopPollingConduit();
+			
+			await this._checkConduitStatus();
+			if (this.conduitStatus.isRunning) {
+				this._stopPollingConduit();
+				this.toggleSettingsPanel(false);
+				
+				// Now that it's running, re-run the full connection logic.
+				this.connect();
+			}
+		}, 2000); // Poll every 2 seconds
+	}
+
+	_stopPollingConduit() {
+		if (this._pollingIntervalId) {
+			clearInterval(this._pollingIntervalId);
+			this._pollingIntervalId = null;
+		}
+		this.isPolling = false;
+	}
+
+	async _installConduit(button) {
+		button.textContent = 'Installing...';
+		button.disabled = true;
+		const actionsContainer = this.setupGuideElement?.querySelector('#conduit-actions-section');
+		try {
+			const response = await fetch(CONDUIT_INSTALL_URL);
+			const outputText = await response.text();
+			
+			if (actionsContainer) {
+				let outputPre = actionsContainer.querySelector('.install-output');
+				if (!outputPre) {
+					outputPre = document.createElement('pre');
+					outputPre.className = 'install-output';
+					actionsContainer.append(outputPre);
+				}
+				outputPre.textContent = outputText;
+			}
+			if (!response.ok) {
+				throw new Error(`Installation failed. Server responded with ${response.status}`);
+			}
+			
+			button.textContent = 'Restarting Conduit...';
+			localStorage.setItem('conduitInstalled', 'true'); // Set client-side flag
+			this.config.autoLaunch = true;
+			this._saveSettings();
+			
+			try { await fetch(CONDUIT_KILL_URL); } catch (e) { /* Expected */ }
+			await this._launchConduitViaProtocol();
+			button.textContent = 'Waiting for restart...';
+			this._startPollingConduit(); // Polling will detect the new instance and call connect().
+
+		} catch (error) {
+			console.error("Conduit installation failed:", error);
+			button.textContent = 'Installation Failed (Retry)';
+			button.disabled = false;
+		}
+	}
+
+	/**
+	 * Launches the Conduit helper via its protocol URL using a temporary iframe.
+	 * This is async and includes a delay to allow the OS to process the request.
+	 */
+	async _launchConduitViaProtocol() {
+		const iframe = document.createElement('iframe');
+		iframe.style.display = 'none';
+		document.body.appendChild(iframe);
+		iframe.src = CONDUIT_PROTOCOL_URL;
+		// The iframe is removed after a short delay to ensure the protocol launch is triggered.
+		await new Promise(resolve => setTimeout(() => { iframe.remove(); resolve(); }, 500));
+	}
+
+	async _uninstallConduit(button) {
+		button.textContent = 'Uninstalling...';
+		button.disabled = true;
+
+		// Terminate all open terminal sessions before uninstalling
+		for (const [sessionId, session] of this._sessions.entries()) {
+			this.deleteTerminalSession(sessionId, session.tabItem);
+		}
+
+		try {
+			const response = await fetch(CONDUIT_UNINSTALL_URL);
+			if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+			
+			localStorage.removeItem('conduitInstalled'); // Clear client-side flag
+			this.conduitStatus.isInstalled = false; // Update local state immediately
+			try { await fetch(CONDUIT_KILL_URL); } catch(e) { /* Expected to fail if server is already gone */ }
+			
+			alert("Conduit has been uninstalled and all terminal sessions have been closed.");
+			this.toggleSettingsPanel(false); // Hide settings panel
+			this._showSetupGuide('download', { showLaunchButton: true }); // Show setup guide again
+
+		} catch (error) {
+			console.error("Conduit uninstallation failed:", error);
+			alert(`Uninstallation failed: ${error.message}`);
+			button.textContent = 'Uninstall Conduit';
+			button.disabled = false;
+		}
+	}
+
+	_createSettingsPanel() {
+		const panel = document.createElement('div');
+		panel.className = 'settings-panel';
+		panel.style.display = 'none'; // Initially hidden
+		return panel;
+	}
+
+	async _renderSettingsPanel() {
+		this.settingsPanel.innerHTML = ''; // Clear previous content
+
+
+		await this._checkConduitStatus(); // Get latest status
+
+		const statusLine = document.createElement('p');
+		statusLine.innerHTML = `Conduit Status: <strong class="${this.conduitStatus.isRunning ? 'success' : 'error'}">${this.conduitStatus.isRunning ? 'Running' : 'Not Running'}</strong> (v${this.conduitStatus.version})`;
+		this.settingsPanel.append(statusLine);
+
+		// --- Auto-launch setting ---
+		const settingsContainer = document.createElement('div');
+		settingsContainer.className = 'settings-group';
+		const checkboxLabel = document.createElement('label');
+		const checkbox = document.createElement('input');
+		checkbox.type = 'checkbox';
+		checkbox.checked = this.config.autoLaunch;
+		checkbox.onchange = () => {
+			this.config.autoLaunch = checkbox.checked;
+			this._saveSettings();
+		};
+		checkboxLabel.append(checkbox, " Automatically try to launch Conduit helper on startup");
+		settingsContainer.append(checkboxLabel);
+		this.settingsPanel.append(settingsContainer);
+
+		// --- Install/Uninstall Button ---
+		if (this.conduitStatus.isInstalled) {
+			const uninstallButton = new Button('Uninstall Conduit');
+			uninstallButton.classList.add('themed', 'cancel');
+			uninstallButton.onclick = () => {
+				if (confirm("Are you sure you want to uninstall the Conduit helper? This will close all active terminal sessions and stop the helper process.")) {
+					this._uninstallConduit(uninstallButton);
+				}
+			};
+			this.settingsPanel.append(uninstallButton);
+		} else if (this.conduitStatus.isRunning) {
+			const installButton = new Button('Install Conduit');
+			installButton.classList.add('themed');
+			installButton.onclick = () => {
+				this._installConduit(installButton);
+			}
+			this.settingsPanel.append(installButton);
+		}
+	}
+	_createLoadingStateElement() {
+		const el = document.createElement('div');
+		el.className = 'terminal-background-element';
+		el.innerHTML = `
+			<div class="spinner-container">
+				<div class="loading-spinner"></div>
+			</div>
+			<div class="caption">Connecting to Conduit...</div>
+		`;
+		el.style.display = 'none';
+		return el;
+	}
+	_createEmptyStateElement() {
+		const el = document.createElement('div');
+		el.className = 'terminal-background-element';
+		el.innerHTML = `
+			<ui-icon style="font-size: 48px; opacity: 0.5;">terminal</ui-icon>
+			<div class="caption">Connected to Conduit<br/>Press Ctrl+N to create a new terminal session.</div>
+		`;
+		el.style.display = 'none';
+		return el;
+	}
+	toggleSettingsPanel(forceState=undefined) {
+		const isHidden = this.settingsPanel.style.display === 'none';
+		if (isHidden && (forceState===true || forceState!==false)) {
+			// Show settings
+			this.terminalContainersWrapper.style.display = 'none';
+			if (this.setupGuideElement) this.setupGuideElement.style.display = 'none'; // Hide setup guide if visible
+			this._renderSettingsPanel(); // Populate with fresh data
+			this.settingsPanel.style.display = 'block';
+		} else {
+			// Hide settings
+			this.settingsPanel.style.display = 'none';
+			// Rerun the connection logic to determine if we should show the
+			// terminal sessions or the setup guide.
+			this.connect();
+			// If we have sessions, ensure the active one is resized properly.
+			if (this._sessions.size > 0) {
+				this.fit();
 			}
 		}
 	}

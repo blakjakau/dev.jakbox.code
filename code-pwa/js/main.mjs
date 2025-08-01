@@ -43,7 +43,6 @@ function safeString(string) {
 }
 
 let permissionNotReloaded = true // should we re-request permission for folders added
-let isSavingFile = false; // New flag for file saving status
 
 ui.create()
 window.ui = ui
@@ -261,22 +260,22 @@ const getSuggestedStartDirectory = async () => {
 };
 
 const saveFile = async (tab) => {
-	const handle = tab.config.handle;
-	const text = tab.config.session.getValue();
-	if (!handle) return;
+    const handle = tab.config.handle;
+    const text = tab.config.session.getValue();
+    if (!handle) return;
 
-	const writable = await handle.createWritable();
-	await writable.write(text);
-	await writable.close();
-	
-	tab.changed = false;
-	
-	// Update filelist item state
-	fileList.active = handle;
-	const fileItem = fileList.activeItem;
-	if (fileItem && fileItem.item.handle === handle) {
-		fileItem.changed = false;
-	}
+    unobserveFile(handle); // Stop listening to prevent self-triggering modification events
+    try {
+        const writable = await handle.createWritable();
+        await writable.write(text);
+        await writable.close();
+        tab.changed = false;
+    } catch (error) {
+        console.error("Error saving file:", error);
+        alert(`Failed to save ${handle.name}: ${error.message}`);
+    } finally {
+        observeFile(handle, onFileModified); // Always resume listening
+    }
 };
 
 const saveAppConfig = async () => {
@@ -300,9 +299,6 @@ const saveAppConfig = async () => {
 
 // New function to handle file modifications from FileSystemObserver
 const onFileModified = (fileHandle) => {
-    if (isSavingFile) { // Ignore changes if a save operation is in progress
-        return;
-    }
     // Find the tab associated with the modified fileHandle
     let foundTab = null;
     for (const tab of leftTabs.tabs) {
@@ -742,7 +738,6 @@ const execCommandCloseActiveTab = async () => {
 	}
 }
 const execCommandSave = async () => {
-	isSavingFile = true; // Set flag at the beginning of save operation
 	const tab = currentTabs.activeTab;
 	const config = tab.config;
 	if (config.handle) {
@@ -757,7 +752,6 @@ const execCommandSave = async () => {
 		const newHandle = await window.showSaveFilePicker(options).catch(console.warn);
 		if (!newHandle) {
 			alert("File NOT saved");
-			isSavingFile = false; // Reset flag if save is cancelled
 			return;
 		}
 		config.handle = newHandle;
@@ -776,13 +770,9 @@ const execCommandSave = async () => {
 		// Refresh the folder in the file list to show the new file
 		await fileList.refreshFolder(newHandle.container);
 	}
-	setTimeout(() => { // Reset flag after a short delay
-		isSavingFile = false;
-	}, 500); // 500ms delay
 };
 
 const execCommandSaveAs = async () => {
-    isSavingFile = true; // Set flag at the beginning of save operation
 	const tab = currentTabs.activeTab;
 	const config = tab.config;
 	const oldHandle = config.handle;
@@ -796,7 +786,6 @@ const execCommandSaveAs = async () => {
 	const newHandle = await window.showSaveFilePicker(options).catch(console.warn)
 	if (!newHandle) {
 		alert("File NOT saved")
-        isSavingFile = false; // Reset flag if save is cancelled
 		return
 	}
 
@@ -817,10 +806,6 @@ const execCommandSaveAs = async () => {
 	if (oldFolderHandle && oldFolderHandle !== newHandle.container) {
 		await fileList.refreshFolder(oldFolderHandle);
 	}
-
-    setTimeout(() => { // Reset flag after a short delay
-        isSavingFile = false;
-    }, 500); // 500ms delay
 }
 
 const execCommandOpen = async () => {
@@ -1814,6 +1799,7 @@ setTimeout(async () => {
     		ui.aiManager.focus()
     	}
 		if(e.detail?.tab?._iconId == "terminal") {
+			window.terminalManager.connect(); // call intial connect
 			window.terminalManager.fit(); // Fit active terminal when its tab is focused
 		}
     })

@@ -107,23 +107,30 @@ class AIManagerHistory {
 	 * Clears the existing UI and rebuilds it from the current chatHistory.
 	 */
 	render({ isNewMessage = false } = {}) {
-		if (!this.conversationArea) return
-		this.conversationArea.innerHTML = "" // Clear existing UI
+		if (!this.conversationArea) return;
 
-		// Populate the file context bar separately
-		this.populateFileBar();
+		this.conversationArea.innerHTML = ""; // Clear existing messages
+		this.populateFileBar(); // Always populate file bar
 
-        // If history is empty, but AI is configured (which implies chatContainer is visible),
-        // just leave the chat area blank. The welcome message is handled by AIManager._checkAndDisplayWelcomeOrChat
-        // when the AI is not configured, which hides the chatContainer itself.
-        if (this.chatHistory.length === 0) {
-            return;
-        }
+		// If AI is not configured, show the setup guide and hide empty state.
+		if (!this.manager.ai.isConfigured()) {
+			this._showDefaultWelcomeMessage();
+			this.manager._emptyStateElement.style.display = 'none';
+			return;
+		}
+
+		// If history is empty, show the empty state background.
+		if (this.chatHistory.length === 0) {
+			this.manager._emptyStateElement.style.display = 'flex';
+			return; // Nothing else to render
+		}
+
+		// If we have history, hide empty state and render messages.
+		this.manager._emptyStateElement.style.display = 'none';
 
 		// Use the new element factory for each message in the history
 		for (let i = 0; i < this.chatHistory.length; i++) {
 			const message = this.chatHistory[i];
-			// Skip file_context messages as they are only in the fileBar for initial render
 			if (message.type === 'file_context') continue;
 			const element = this._createMessageElement(message, i); // No isNewMessage for full render
 			if (element) this.conversationArea.append(element);
@@ -137,17 +144,14 @@ class AIManagerHistory {
 	 */
 	appendMessageElement(message) {
 		if (!this.conversationArea) return;
+		
+		// Hide empty state background if it's visible
+		this.manager._emptyStateElement.style.display = 'none';
 
-		// If the welcome message is currently displayed, clear it before appending real content.
-		// We check for the specific h1 content and if the history size is small (e.g., this is the first real message).
-		if (this.chatHistory.length === 1 && message.type !== 'system_message') { // If this is the first "real" message
-			const firstChild = this.conversationArea.firstElementChild;
-			if (firstChild && firstChild.classList.contains('response-block')) {
-				const h1 = firstChild.querySelector('h1');
-				if (h1 && h1.textContent.includes("Welcome to the AI Assistant")) {
-					this.conversationArea.innerHTML = ""; // Clear the welcome message
-				}
-			}
+		// If this is the first message being added to an empty history,
+		// ensure the conversation area is clear of any welcome/setup text.
+		if (this.chatHistory.length === 1) {
+			this.conversationArea.innerHTML = '';
 		}
 		
 		// Find the index of the message within the chatHistory array.

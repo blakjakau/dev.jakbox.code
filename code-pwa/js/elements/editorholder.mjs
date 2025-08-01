@@ -167,12 +167,10 @@ export class EditorHolder extends Panel {
         // Add background element for empty state
         const backgroundElement = document.createElement("div");
         backgroundElement.classList.add("background-element");
-        const image = document.createElement("img");
-        image.src = "/images/code-192.png";
+        backgroundElement.innerHTML = `<ui-icon style="font-size: 48px; opacity: 0.5;">code</ui-icon>`;
         const caption = document.createElement("div");
         caption.classList.add("caption");
         caption.innerHTML = "CTRL+O to open a file <br/> CTRL+N to create a new file";
-        backgroundElement.appendChild(image);
         backgroundElement.appendChild(caption);
         this.appendChild(backgroundElement);
         this._backgroundElement = backgroundElement; // Store reference

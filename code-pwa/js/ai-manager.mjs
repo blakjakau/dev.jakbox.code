@@ -67,6 +67,7 @@ class AIManager {
 		
 		this.settingsPanel = null
 		this.contextStaleNotice = null; // New element for context currency check
+		this._emptyStateElement = null; // NEW: For empty state background
 		this._contextStaleResolve = null; // To resolve/reject the context stale promise
 		this._settingsForm = null // Reference to the settings form element
 		this._workspaceSettingsCheckbox = null // Reference to the checkbox
@@ -203,7 +204,8 @@ class AIManager {
 
 		this.chatContainer = new Block();
 		this.chatContainer.classList.add('ai-chat-container');
-		this.chatContainer.append(fileBarContainer, this.conversationArea);
+		this._emptyStateElement = this._createEmptyStateElement();
+		this.chatContainer.append(fileBarContainer, this.conversationArea, this._emptyStateElement);
 
 		this.panel.append(this.chatContainer, this.settingsPanel, this.sessionTabBar, promptContainer);
 	}
@@ -438,6 +440,18 @@ class AIManager {
 		return noticeBlock;
 	}
 	
+	// NEW: Create the background element for when the chat is empty
+	_createEmptyStateElement() {
+		const el = document.createElement('div');
+		el.className = 'ai-background-element';
+		el.innerHTML = `
+			<ui-icon icon="auto_awesome" style="font-size: 48px; opacity: 0.5;">auto_awesome</ui-icon>
+			<div class="caption">AI Assistant Ready<br/>Type a prompt to begin.</div>
+		`;
+		el.style.display = 'none'; // Initially hidden
+		return el;
+	}
+
 	_showContextStaleNotice(message) {
 		this.contextStaleNotice = this._createContextStaleNoticeElement();
 		this.contextStaleNotice.querySelector(".message").innerHTML = this.md.render(message);
@@ -958,10 +972,10 @@ class AIManager {
 	 * The TabBar will then automatically activate another tab, triggering our switchSession handler.
 	 */
 	async deleteSession(sessionId, tab) {
-		if (this.allSessionMetadata.length <= 1) {
-			alert("Cannot delete the last remaining chat session.");
-			return;
-		}
+		// if (this.allSessionMetadata.length <= 1) {
+		// 	alert("Cannot delete the last remaining chat session.");
+		// 	return;
+		// }
 
 		const sessionMeta = this.allSessionMetadata.find(s => s.id === sessionId);
         // Find the full session data to check its message count
