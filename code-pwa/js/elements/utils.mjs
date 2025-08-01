@@ -38,6 +38,22 @@ export const addStylesheet = (u, id) => {
 	})
 }
 
+// Load a script dynamically with a promise return
+export const loadScript = (src) => {
+	return new Promise((resolve, reject) => {
+		// if the script already exists, resolve immediately
+		if (document.querySelector(`script[src="${src}"]`)) {
+			resolve();
+			return;
+		}
+		const script = document.createElement('script');
+		script.src = src;
+		script.onload = () => resolve();
+		script.onerror = () => reject(new Error(`Script load error for ${src}`));
+		document.head.append(script);
+	});
+}
+
 export function sortOnName(a, b) { return a.name < b.name ? -1 : 1 }
 
 export async function readAndOrderDirectory(handle) {

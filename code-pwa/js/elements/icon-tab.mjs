@@ -8,7 +8,6 @@ export class IconTab extends Element {
 		this._iconId = icon; // Store the icon ID
 		this._icon = new Icon(icon);
 		this.append(this._icon);
-		console.log("IconTab created with iconId:", this._iconId); // ADD THIS LINE
 	}
 
 	get iconId() {

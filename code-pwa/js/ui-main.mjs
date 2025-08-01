@@ -1,4 +1,5 @@
 import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder, IconTabBar, IconTab, SidebarPanel } from './elements.mjs';
+import TerminalManager from './terminal-manager.mjs'; // Import the new TerminalManager
 import aiManager from './ai-manager.mjs';
 import ollama from './ai-ollama.mjs';
 
@@ -30,7 +31,7 @@ var drawer, statusbar, statusTheme, statusMode, statusWorkspace
 var themeMenu, modeMenu, workspaceMenu
 var darkmodeMenu, darkmodeSelect
 var openDir, themeModeToggle, toggleSplitViewBtn, scratchEditor, iconTabBar;
-
+var fileListBackground
 var currentEditor, currentTabs, currentMediaView
 
 const toggleBodyClass = (className) => {
@@ -80,6 +81,14 @@ const uiManager = {
 			
 			drawer.style.left = (sidebar.offsetLeft + sidebarWidth) + "px";
 			
+			// Call fit on the terminal manager's instance
+			if (window.terminalManager) {
+				window.terminalManager.fit();
+				// Ensure fit after sidebar transition
+				sidebar.removeEventListener("transitionend", uiManager._sidebarFitTerminalAfterTransition); // Prevent duplicate listeners
+				uiManager._sidebarFitTerminalAfterTransition = () => window.terminalManager.fit();
+				sidebar.addEventListener("transitionend", uiManager._sidebarFitTerminalAfterTransition, { once: true });
+			}
 			saveSidepanelWidth()
 			if(!document.body.classList.contains("showSplitView")) {
 				leftEdit.resize()
@@ -104,6 +113,7 @@ const uiManager = {
 				rightEdit.resize()
 				scratchEditor.resize();
 			}, animRate)
+
 		}
 
 		options = { ...defaults, ...options }
@@ -122,13 +132,21 @@ const uiManager = {
 		const filesTab = new IconTab('folder');
 		const aiTab = new IconTab('developer_board');
 		const scratchTab = new IconTab('edit_note');
+		const terminalTab = new IconTab('terminal');
 		iconTabBar.addTab(filesTab);
 		iconTabBar.addTab(aiTab);
+		iconTabBar.addTab(terminalTab);
 		iconTabBar.addTab(scratchTab);
-
+		
 		const filesPanel = new SidebarPanel();
 		filesPanel.append(fileActions);
 		filesPanel.append(fileList);
+
+		fileListBackground = document.createElement("div");
+		fileListBackground.classList.add("file-list-background-element");
+		fileListBackground.innerHTML = `<ui-icon icon="folder_open" style="font-size: 48px; opacity: 0.5;"></ui-icon><div class="caption">No folders in workspace<br/>Add a folder to begin.</div>`;
+		filesPanel.append(fileListBackground);
+
 		// The AI Panel creation is delegated to aiManager.init(aiManagerPanel)
         // Ensure aiManagerPanel exists for aiManager to append its UI
 		// aiManager.panel is set here for the first time
@@ -143,11 +161,19 @@ const uiManager = {
 		scratchEditorElement.style.height = "100%";
 		scratchPanel.append(scratchEditorElement);
 
+		const terminalPanel = new SidebarPanel(); // Create a SidebarPanel to host the terminal
+		terminalPanel.setAttribute("id", "terminal-panel");
+		
+		window.terminalManager = TerminalManager; // Create the manager instance
+		window.terminalManager.init(terminalPanel); // Initialize the manager with its panel
+		window.terminalManager._checkConduitStatus()
+
 		const sidebarPanelsContainer = new Block();
 		sidebarPanelsContainer.setAttribute("id", "sidebar-panels-container");
 		sidebarPanelsContainer.append(filesPanel);
 		sidebarPanelsContainer.append(aiManagerPanel);
 		sidebarPanelsContainer.append(scratchPanel);
+		sidebarPanelsContainer.append(terminalPanel);
 
 		sidebar = new Panel()
 		sidebar.setAttribute("id", "sidebar")
@@ -180,8 +206,11 @@ const uiManager = {
 			} else if (tab === aiTab) {
 				nextActivePanel = aiManagerPanel;
 			} else if (tab === scratchTab) {
-				nextActivePanel = scratchPanel;
+				nextActivePanel = scratchPanel
+			} else if (tab === terminalTab) {
+				nextActivePanel = terminalPanel
 			}
+			
 			const currentlyVisiblePanel = sidebar.querySelector('ui-sidebar-panel[active]');
 			const isSwitchingPanel = currentlyVisiblePanel !== nextActivePanel;
 			if (isSwitchingPanel) {
@@ -359,7 +388,6 @@ const uiManager = {
 				saveSidepanelWidth()
 				// sidebarPanelsContainer.style.visibility = 'hidden';
 			}, {once:true})
-			
 		})
 
 		rightHolder.resizeListener((width)=>{
@@ -1049,10 +1077,13 @@ const uiManager = {
 	get scratchEditor() { return scratchEditor },
 	get iconTabBar() { return iconTabBar },
 	
+	get terminalManager() { return terminalManager }, // Export the terminal's SidebarPanel
 	get aiManager() { return aiManager },
 	
+	fileListBackground: fileListBackground, // Expose the new element
+	_sidebarFitTerminalAfterTransition: null, // To hold the bound function for removal
 	constrainHolders: debounceConstrainHolders,
-	
+
 	set currentEditor(v) {
 		currentEditor = v;
 		if (v === leftEdit) {
