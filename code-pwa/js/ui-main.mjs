@@ -84,6 +84,7 @@ const uiManager = {
 			// Call fit on the terminal manager's instance
 			if (window.terminalManager) {
 				window.terminalManager.fit();
+				window.terminalManager._launchConduitViaProtocol();
 				// Ensure fit after sidebar transition
 				sidebar.removeEventListener("transitionend", uiManager._sidebarFitTerminalAfterTransition); // Prevent duplicate listeners
 				uiManager._sidebarFitTerminalAfterTransition = () => window.terminalManager.fit();

@@ -6,6 +6,8 @@ import conduitSetupGuide from './conduit-setup-guide.mjs';
 
 // The URL for the backend WebSocket server
 const TERMINAL_WEBSOCKET_URL = `ws://localhost:3022/terminal`;
+const CONDUIT_RELEASE_TAG = "v0.0.9";
+const CONDUIT_DOWNLOAD_PATH = `https://github.com/blakjakau/dev.jakbox.conduit/releases/download/${CONDUIT_RELEASE_TAG}`
 const CONDUIT_UP_URL = `http://localhost:3022/up`;
 const CONDUIT_INSTALL_URL = `http://localhost:3022/install-user`;
 const CONDUIT_UNINSTALL_URL = `http://localhost:3022/uninstall`;
@@ -404,7 +406,7 @@ class TerminalManager {
 		const clientThinksInstalled = localStorage.getItem('conduitInstalled') === 'true';
 
 		// If not running, but auto-launch is on, try to start it.
-		if (!this.conduitStatus.isRunning && this.config.autoLaunch && !clientThinksInstalled) {
+		if (!this.conduitStatus.isRunning && this.config.autoLaunch && clientThinksInstalled) {
 			await this._launchConduitViaProtocol();
 			await this._checkConduitStatus(); // Check status again after the launch attempt.
 		}
@@ -476,29 +478,26 @@ class TerminalManager {
 
 	/**
 	 * Determines the correct Conduit download link based on user's platform.
-	 * @returns {{url: string, name: string, filename: string}|null}
+	 * @returns {{primary: Array, other: Array}}
 	 */
-	_getDownloadLink() {
+	_getDownloadLinks() {
 		const ua = navigator.userAgent.toLowerCase();
 		const platform = navigator.platform.toLowerCase();
-		const links = {
-			"linux-x64": "https://raw.githubusercontent.com/blakjakau/dev.jakbox.conduit/main/dist/conduit-linux-x64",
-			"linux-arm64": "https://raw.githubusercontent.com/blakjakau/dev.jakbox.conduit/main/dist/conduit-linux-arm64",
-			"macos-x64": "https://raw.githubusercontent.com/blakjakau/dev.jakbox.conduit/main/dist/conduit-macos-x64",
-			"macos-arm64": "https://raw.githubusercontent.com/blakjakau/dev.jakbox.conduit/main/dist/conduit-macos-arm64",
-			"windows-x64.exe": "https://raw.githubusercontent.com/blakjakau/dev.jakbox.conduit/main/dist/conduit-windows-x64.exe"
-		};
+		const isArm = ua.includes('aarch64') || ua.includes('arm64');
 
-		if (platform.includes('win')) return { url: links['windows-x64.exe'], name: 'Windows (x64)', filename: 'conduit-windows-x64.exe' };
-		if (platform.includes('mac')) {
-			// Defaulting to Apple Silicon as it's the modern standard and detection is tricky.
-			return { url: links['macos-arm64'], name: 'macOS (Apple Silicon)', filename: 'conduit-macos-arm64' };
-		}
-		if (platform.includes('linux')) {
-			if (ua.includes('aarch64') || ua.includes('arm64')) return { url: links['linux-arm64'], name: 'Linux (ARM64)', filename: 'conduit-linux-arm64' };
-			return { url: links['linux-x64'], name: 'Linux (x64)', filename: 'conduit-linux-x64' };
-		}
-		return null; // Unsupported
+		const allDownloads = [
+			{ name: 'macOS (Apple Silicon)', filename: 'conduit-macos-arm64', platformTest: p => p.includes('mac') },
+			{ name: 'macOS (Intel)', filename: 'conduit-macos-x64', platformTest: p => p.includes('mac') },
+			{ name: 'Windows (x64)', filename: 'conduit-windows-x64.exe', platformTest: p => p.includes('win') },
+			{ name: 'Linux (x64)', filename: 'conduit-linux-x64', platformTest: p => p.includes('linux') && !isArm },
+			{ name: 'Linux (ARM64)', filename: 'conduit-linux-arm64', platformTest: p => p.includes('linux') && isArm }
+		].map(d => ({ ...d, url: `${CONDUIT_DOWNLOAD_PATH}/${d.filename}` }));
+
+		const primary = allDownloads.filter(d => d.platformTest(platform));
+		const primaryFilenames = new Set(primary.map(p => p.filename));
+		const other = allDownloads.filter(d => !primaryFilenames.has(d.filename));
+
+		return { primary, other };
 	}
 
 	_showSetupGuide(step = 'download', options = { showLaunchButton: false }) {
@@ -527,16 +526,45 @@ class TerminalManager {
 		actionsContainer.innerHTML = ''; // Clear placeholder
 
 		if (step === 'download') {
-			const downloadInfo = this._getDownloadLink();
-			if (downloadInfo) {
-				const link = document.createElement('a');
-				link.href = downloadInfo.url;
-				link.textContent = `Download for ${downloadInfo.name}`;
-				link.className = 'themed';
-				link.setAttribute('target', '_blank');
-				link.setAttribute('download', downloadInfo.filename);
-				actionsContainer.append(link);
-			} else {
+			const { primary, other } = this._getDownloadLinks();
+
+			if (primary.length > 0) {
+				primary.forEach(info => {
+					const link = document.createElement('a');
+					link.href = info.url;
+					link.textContent = `Download for ${info.name}`;
+					link.className = 'themed';
+					link.setAttribute('target', '_blank');
+					link.setAttribute('download', info.filename);
+					actionsContainer.append(link);
+					actionsContainer.append(document.createElement("br"));
+				});
+			}
+			
+			actionsContainer.append(document.createElement("br"));
+			actionsContainer.innerHTML = "<p>"+actionsContainer.innerHTML+"</p>"
+			
+			if (other.length > 0) {
+				const details = document.createElement('details');
+				details.className = 'other-platforms-details';
+				const summary = document.createElement('summary');
+				summary.textContent = 'Show other platforms';
+				details.append(summary);
+				const otherList = document.createElement('div');
+				otherList.className = 'other-platforms-list';
+				other.forEach(info => {
+					const link = document.createElement('a');
+					link.href = info.url;
+					link.textContent = info.name;
+					link.className = 'themed';
+					link.setAttribute('target', '_blank');
+					link.setAttribute('download', info.filename);
+					otherList.append(link);
+					otherList.append(document.createElement("br"));
+				});
+				details.append(otherList);
+				actionsContainer.append(details);
+			} else if (primary.length === 0) {
 				actionsContainer.textContent = "Sorry, your platform is not currently supported.";
 			}
 
@@ -557,9 +585,9 @@ class TerminalManager {
 
 			this._startPollingConduit(); // Start polling in the background immediately
 		} else if (step === 'install' && !options.showLaunchButton) {
-			const downloadInfo = this._getDownloadLink();
-			const cliCommand = downloadInfo ? `\`./${downloadInfo.filename} --install-user\`` : 'the CLI';
-
+			const { primary } = this._getDownloadLinks();
+			const primaryDownload = primary[0];
+			const cliCommand = primaryDownload ? `\`./${primaryDownload.filename} --install-user\`` : 'the CLI';
 			const preamble = document.createElement('p');
 			preamble.innerHTML = `Excellent! The Conduit helper is running. For the best experience, click below to complete the one-time installation. This allows the app to launch the helper automatically.<br><br>You can also skip this and install later from the settings panel or by running ${cliCommand} in your terminal.`;
 			preamble.style.marginBottom = '1em';
@@ -667,7 +695,11 @@ class TerminalManager {
 		document.body.appendChild(iframe);
 		iframe.src = CONDUIT_PROTOCOL_URL;
 		// The iframe is removed after a short delay to ensure the protocol launch is triggered.
-		await new Promise(resolve => setTimeout(() => { iframe.remove(); resolve(); }, 500));
+		// await new Promise(resolve => setTimeout(() => { iframe.remove(); resolve(); }, 500));
+		iframe.addEventListener("loaded", ()=>{ 
+			console.debug("conduit:// loaded via iframe")
+			iframe.remove()
+		})
 	}
 
 	async _uninstallConduit(button) {
