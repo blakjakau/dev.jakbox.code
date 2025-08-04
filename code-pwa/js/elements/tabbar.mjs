@@ -340,6 +340,9 @@ export class TabBar extends Block {
 	add(config) {
 		const tab = new TabItem(config.name)
 		if (config.handle) tab.setAttribute("title", buildPath(config.handle))
+		if (config.defaultStatusIcon) { // New: Set the default status icon if provided in config
+			tab.defaultStatusIcon = config.defaultStatusIcon;
+		}
 		tab.config = config
 		// CORRECTED: Increment tabCounter only once here
 		const newTabId = `tab-${tabCounter++}`; 
@@ -357,10 +360,12 @@ export class TabBar extends Block {
 				t.removeAttribute("active")
 			})
 			tab.setAttribute("active", "active")
+
 			if ("function" == typeof tabBar._click) {
 				event.tab = tab
 				tabBar._click(event)
 				this.dispatch('tabs-updated', { isEmpty: this._tabs.length === 0 });
+				// tabBar.updateTabCloseIcons(); // Logic is now in the click handler
 			}
 		}
 
@@ -398,6 +403,7 @@ export class TabBar extends Block {
 				this._close(event)
 			}
 		}
+		// this.updateTabCloseIcons();
 		this.dispatch('tabs-updated', { isEmpty: this._tabs.length === 0 });
 		return tab
 	}
@@ -428,8 +434,8 @@ export class TabBar extends Block {
 		this.resetMargins();
 		
 		this.dispatch('tabs-updated', { isEmpty: this._tabs.length === 0 });
+		// this.updateTabCloseIcons();
 	}
-
 	resetMargins() {
 		// Reset margins on all tabs to prevent visual gaps from interrupted drag operations.
 		const sibs = this.children
@@ -495,6 +501,8 @@ export class TabBar extends Block {
         
         this.dispatch('tabs-updated', { isEmpty: this._tabs.length === 0 });
         otherTabBar.dispatch('tabs-updated', { isEmpty: otherTabBar._tabs.length === 0 });
+		// this.updateTabCloseIcons();
+		// otherTabBar.updateTabCloseIcons();
 	}
 
     reclaimTabs(otherTabBar, mark) {
@@ -551,6 +559,8 @@ export class TabBar extends Block {
 
         this.dispatch('tabs-updated', { isEmpty: this._tabs.length === 0 });
         otherTabBar.dispatch('tabs-updated', { isEmpty: otherTabBar.tabs.length === 0 });
+		// this.updateTabCloseIcons();
+		// otherTabBar.updateTabCloseIcons();
     }
 }
 

@@ -70,12 +70,30 @@ body {
 
 /*ui-tab-item[active] + ui-tab-item::after { opacity:0; }*/
 
-ui-tabbar[slim]>ui-tab-item { 
-	border-radius: 4px 4px 0 0; background:none; 
+ui-tabbar[slim] > ui-tab-item {
+	background: none;
 	color: inherit;
-	border: 0px; transition: background 150ms ease-in-out, margin 100ms ease-in-out; }
-ui-tabbar[slim]>ui-tab-item[active] {  background: var(--themeDark);  border:0px; color: var(--light)}
-.current ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme); }
+	border-style: solid;
+	border-color: var(--themeDark);
+	border-width: 0 1px;
+	margin-left: -1px;
+	transition: background 150ms ease-in-out, margin 100ms ease-in-out;
+	min-width:32px;
+}
+ui-tabbar[slim] > ui-tab-item:first-of-type {
+	margin-left: 0;
+}
+ui-tabbar[slim] > ui-tab-item[active] {
+	background: var(--themeDark);
+	color: var(--light);
+	position: relative;
+	z-index: 1;
+}
+.current ui-tabbar[slim] > ui-tab-item[active] {
+	border-radius: 4px 4px 0 0;
+	background: var(--theme);
+	border-color: var(--theme);
+}
 
 /*ui-tabbar[slim]>ui-tab-item:hover+ui-tab-item { background: var(--dark);  }*/
 ui-tabbar[slim]>ui-tab-item:not([active]):hover {
@@ -182,14 +200,16 @@ body:not(.showSplitView) #rightHolder {
 .ace_scrollbar::-webkit-scrollbar,
 ui-file-list .inner::-webkit-scrollbar,
 ui-menu::-webkit-scrollbar,
-#ace_settingsmenu::-webkit-scrollbar {
+#ace_settingsmenu::-webkit-scrollbar,
+.xterm-viewport::-webkit-scrollbar {
 	width: .66em; height: .66em;
 }
 
 .ace_scrollbar-v::-webkit-scrollbar-track,
 ui-file-list .inner::-webkit-scrollbar-track,
 ui-menu::-webkit-scrollbar-track,
-#ace_settingsmenu::-webkit-scrollbar-track {
+#ace_settingsmenu::-webkit-scrollbar-track,
+.xterm-viewport::-webkit-scrollbar-track {
 	width: .66em; height: .66em;
 	box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
 }
@@ -197,7 +217,8 @@ ui-menu::-webkit-scrollbar-track,
 .ace_scrollbar::-webkit-scrollbar-thumb,
 ui-file-list .inner::-webkit-scrollbar-thumb,
 ui-menu::-webkit-scrollbar-thumb,
-#ace_settingsmenu::-webkit-scrollbar-thumb {
+#ace_settingsmenu::-webkit-scrollbar-thumb,
+.xterm-viewport::-webkit-scrollbar-thumb {
 	background-color: darkgrey;
 	border-radius:4px;
 }
@@ -369,12 +390,19 @@ ui-file-item[icon=javascript] ui-icon:first-child { color:#cd0; }
 ui-file-item[icon=css] ui-icon:first-child { color:#0ca; }
 ui-file-item[icon=html] ui-icon:first-child { color:#d77; }
 ui-file-item[icon=php] ui-icon:first-child { color:#b0b; }
-ui-file-item[icon=data_object] ui-icon:first-child { var(--light); opacity: 0.75; }
-ui-file-item[icon=image_not_supported] ui-icon:first-child { var(--light); opacity: 0.33; }
-
+ui-file-item[icon=data_object] ui-icon:first-child { color: var(--light); opacity: 0.75; }
+ui-file-item[icon=image_not_supported] ui-icon:first-child { color: var(--light); opacity: 0.33; }
 
 ui-file-item[active] ui-icon:first-child { color: var(--light); }
 
+/* Tab icon colors for inactive tabs, mirroring file list */
+ui-tab-item[data-status-icon-type=javascript]:not([active]) .status-icon { color:#cd0; }
+ui-tab-item[data-status-icon-type=css]:not([active]) .status-icon { color:#0ca; }
+ui-tab-item[data-status-icon-type=html]:not([active]) .status-icon { color:#d77; }
+ui-tab-item[data-status-icon-type=php]:not([active]) .status-icon { color:#b0b; }
+ui-tab-item[data-status-icon-type=data_object]:not([active]) .status-icon { color: var(--mid); }
+ui-tab-item[data-status-icon-type=code]:not([active]) .status-icon { color: var(--mid); }
+ui-tab-item[data-status-icon-type=image]:not([active]) .status-icon { color: var(--mid); }
 
 #leftTabs,
 #rightTabs{
@@ -387,6 +415,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	overflow-x: auto;
     box-sizing: border-box;
     border-bottom:2px solid var(--themeDark);
+    padding-right:40px;
 }
 
 ui-tabbar.show-split-view-indicator::after {
@@ -405,6 +434,11 @@ ui-tabbar.show-split-view-indicator::after {
 .current #rightTabs {
     border-bottom:2px solid var(--theme);
 }
+
+body.showSplitView #leftTabs {
+	padding-right:2px;
+}
+
 
 #sidebar {
 	z-index:5;
@@ -748,6 +782,11 @@ ui-sidebar-panel#ai-panel[active] {
 	display: flex;
 }
 
+ui-sidebar-panel#terminal-panel[active] {
+    display: flex;
+}
+
+
 ui-sidebar-panel .conversation-area::-webkit-scrollbar {
 	width: .66em; height: .66em;
 }
@@ -783,4 +822,148 @@ ui-sidebar-panel pre::-webkit-scrollbar-track {
 ui-sidebar-panel pre::-webkit-scrollbar-thumb {
 	background-color: darkgrey;
 	border-radius:4px;
+}
+
+
+.terminal-panel-container { /* Renamed from ui-terminal-panel */
+    /*display: flex; */ /* removed as this is handled by the active attribute*/
+    flex-direction: column;
+    height: 100%; /* Ensure the panel itself takes full height */
+    padding:0 4px;
+}
+
+/* Styles for the terminal content wrapper within the panel */
+ui-sidebar-panel.terminal-panel-container .terminal-containers-wrapper {
+    flex: 1; /* Allows the terminal content area to grow and fill available space */
+    min-height: 0; /* Important for flex items to shrink correctly */
+    position: relative; /* For absolutely positioned terminal instances */
+}
+
+/* Ensure individual terminal instance containers fill their space */
+ui-sidebar-panel.terminal-panel-container .terminal-containers-wrapper .terminal-instance-container {
+    position: absolute; /* Needed for xterm.js to size correctly within a relative parent */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #222;
+}
+
+ui-tabbar.tabs-inverted {
+	display: flex;
+    overflow-x: auto;
+    box-sizing: border-box;
+    border-top: 3px solid var(--themeDark);
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.5);
+    z-index: 2;
+}
+
+.install-output {
+    background-color: #222;
+    color: #ccc;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.ai-background-element {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: var(--mid);
+}
+.ai-background-element .caption {
+    margin-top: 1em;
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+.file-list-background-element {
+    position: absolute;
+    top: 38px; /* Position below the file actions bar */
+    left: 0;
+    width: 100%;
+    height: calc(100% - 38px);
+    z-index: 0;
+    display: none; /* Initially hidden, controlled by JS */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: var(--mid);
+}
+
+.file-list-background-element .caption {
+    margin-top: 1em;
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+
+.terminal-background-element {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: var(--mid);
+}
+.terminal-background-element .caption {
+    margin-top: 1em;
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+.spinner-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 1em;
+}
+.loading-spinner {
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    border-top: 4px solid var(--theme);
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+}
+
+
+/* "Inverted" tabs are now styled to sit on top of the prompt area */
+ui-tabbar.tabs-inverted[slim] > ui-tab-item {
+
+    margin-top: 0;
+    margin-bottom: 4px; /* Sits flush with the bottom of the container */
+    border-radius: 0 0 8px 8px; /* Rounded TOP corners */
+}
+
+ui-tabbar[slim] > ui-tab-item[is-changed] {
+	background:var(--red-soft);
+}
+
+/* Override to ensure bottom corners are square */
+ui-tabbar.tabs-inverted[slim] > ui-tab-item,
+ui-tabbar.tabs-inverted[slim] > ui-tab-item[active] {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    /*background: var(--dark); */
+    /*color: var(--button-text-color);*/
+}
+
+ui-tabbar.tabs-inverted[slim] > ui-tab-item[active] {
+	/*background: var(--themeDark);*/
+ /*   color: var(--light);*/
 }

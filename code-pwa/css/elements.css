@@ -303,7 +303,8 @@ ui-tabbar[slim] > ui-button {
 	height: 39px;
 }
 ui-tabbar[slim] > ui-button ui-icon {
-	line-height: 39px;
+	line-height: 40px;
+
 }
 
 ui-button[active],
@@ -363,15 +364,20 @@ ui-icon-tab ui-icon {
 
 ui-tabbar {
 	overflow-y: hidden;
-	overflow-x: auto;
-	display: table-row;
+	overflow-x: hidden; /* Squeeze tabs instead of scrolling */
+	display: flex;
+	flex-wrap: nowrap;
 }
 
 ui-tabbar[slim] {
 	height: 39px;
 }
 ui-tabbar[slim] > ui-tab-item {
-	display: inline-block;
+	display: inline-flex; /* Use flex to layout text and close button */
+	align-items: center; /* Vertically align content */
+	flex: 1 1 0; /* Grow and shrink equally, making tabs same width */
+	min-width: 0; /* Crucial for allowing shrinkage */
+	max-width: 180px; /* Set a maximum width for the tabs */
 	cursor: pointer;
 	position: relative;
 	min-height: 30px;
@@ -379,31 +385,59 @@ ui-tabbar[slim] > ui-tab-item {
 	background: var(--ui-sec-bg);
 	color: var(--ui-highlight-fg);
 	margin-top: 6px;
-	padding-right: 0px;
-	padding-left: 8px;
-	white-space: nowrap;
+	padding-right: 3px; /* Add some space on the right for the close icon */
+	padding-left: 3px; /* Adjust padding for new status icon */
+	overflow:hidden;
 }
 
 ui-tabbar[slim] > ui-tab-item::before {
 	display: inline-block;
 	width: 2px;
 }
+ui-tabbar[slim] > ui-tab-item .status-icon {
+	vertical-align: middle;
+	margin-right: 4px; /* Space between icon and text */
+	opacity: 0.5; /* Default opacity for 'draft' icon */
+	transition: opacity 150ms ease-in-out;
+}
+
+ui-tabbar[slim] > ui-tab-item[is-changed] .status-icon {
+	opacity: 1; /* Full opacity for 'circle' icon */
+	font-size:1em;
+	color: var(--light);
+}
 
 ui-tabbar[slim] > ui-tab-item ui-inline {
 	pointer-events: none;
-	margin-left: 8px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-align: center;
+	flex-grow: 1; /* Allow text to expand and fill space */
 }
 ui-tabbar[slim] > ui-tab-item[active] {
 	background: var(--ui-highlight-bg);
 }
-
+ui-tabbar[slim] > ui-tab-item .status-icon,
 ui-tabbar[slim] > ui-tab-item ui-icon[close] {
 	vertical-align: middle;
 	line-height: 30px;
 	height: 32px;
 	text-align: center;
-	margin-left: 6px;
-	width: 22px;
+	width: 16px;
+	opacity:1;
+}
+
+ui-tabbar[slim] > ui-tab-item .status-icon {
+	margin-right: 4px;
+}
+
+ui-tabbar[slim] > ui-tab-item ui-icon[close] {
+	display:none;
+	margin-left: 0px;
+}
+ui-tabbar[slim] > ui-tab-item:hover ui-icon[close] {
+	/*display:inline-block;*/
 }
 ui-tabbar[slim] > ui-tab-item ui-icon[close]:hover {
 	text-shadow: 0px 1px 4px rgba(0, 0, 0, 0.5);

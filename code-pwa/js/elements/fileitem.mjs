@@ -51,12 +51,13 @@ export class FileItem extends Button {
 	connectedCallback() {
 		super.connectedCallback.apply(this)
 		this.append(this._refresh)
+		this.prepend( this._text, this._icon,)
 	}
 
 	set changed(v) {
 		this._changed = !!v
 		if (this._changed) {
-			this._refresh.innerHTML = "circle"
+			this._refresh.innerHTML = "do_not_disturb_on_total_silence"
 		} else {
 			this._refresh.innerHTML = "radio_button_unchecked"
 		}

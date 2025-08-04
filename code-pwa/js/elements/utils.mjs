@@ -105,3 +105,39 @@ export const buildPath = (f) => {
 	if (f.container) n = buildPath(f.container) + "/" + n
 	return n
 }
+
+// Add this function to your utils.mjs file
+
+/**
+ * Determines a Material Symbols icon name for a file based on its extension.
+ * @param {string} name - The full name of the file (e.g., 'styles.css').
+ * @returns {string} The name of the icon.
+ */
+export function getIconForFileName(name) {
+    // This map is now the single source of truth for file extension icons!
+    const fileTypes = {
+        "javascript": ["js", "mjs", "cjs"],
+        "code": ["c", "cpp", "h", "hpp", "cs", "java", "py", "rb", "go", "rs", "sh"],
+        "html": ["htm", "html", "dhtml"],
+        "css": ["css", "scss", "less"],
+        "php": ["php"],
+        "picture_as_pdf": ["pdf"],
+        "data_object": ["json", "xml", "yaml", "yml"],
+        "image": ["svg", "jpg", "jpeg", "gif", "tiff", "png", "ico", "bmp", "webp"],
+        "movie": ["avi", "mp4", "webm", "wmv", "mov", "flv", "f4v", "mkv", "3gp"],
+        "music_note": ["mp3", "aac", "wma", "ogg", "wav", "flac"],
+        "folder_zip": ["zip", "rar", "7z", "tar", "gz"],
+        "table": ["csv", "xls", "xlsx"],
+    };
+
+    const extension = name.split('.').pop().toLowerCase();
+
+    for (const icon in fileTypes) {
+        if (fileTypes[icon].includes(extension)) {
+            return icon;
+        }
+    }
+
+    // Default icon for any other file type.
+    return 'description';
+}
