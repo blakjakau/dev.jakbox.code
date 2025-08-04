@@ -45,7 +45,7 @@ export class Button extends Element {
 		}
 
 		this.append(this._effect)
-		this.prepend(this._text, this._icon)
+		this.prepend(this._icon, this._text)
 
 		let icon = this.getAttribute("icon")
 		if (icon != null) {
