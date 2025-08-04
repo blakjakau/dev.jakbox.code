@@ -893,7 +893,7 @@ class AIManager {
     _populateInitialTabs() {
         const sortedSessions = [...this.allSessionMetadata].sort((a, b) => b.lastModified - a.lastModified);
         sortedSessions.forEach(meta => {
-            const tab = this.sessionTabBar.add({ name: meta.name, id: meta.id });
+            const tab = this.sessionTabBar.add({ name: meta.name, id: meta.id, defaultStatusIcon: 'developer_board' });
             tab.on('dblclick', () => this.renameCurrentSession());
         });
     }
@@ -913,7 +913,7 @@ class AIManager {
 		this.allSessionMetadata.push({ id: newId, name: newName, createdAt: newSessionData.createdAt, lastModified: newSessionData.lastModified });
 
 		// Add the tab to the UI.
-        const newTab = this.sessionTabBar.add({ name: newName, id: newId });
+        const newTab = this.sessionTabBar.add({ name: newName, id: newId, defaultStatusIcon: 'developer_board' });
         newTab.on('dblclick', () => this.renameCurrentSession());
 
         // Activate it using the component's own mechanism.

@@ -4,6 +4,7 @@ import parserHtml from "https://unpkg.com/prettier@2.4.1/esm/parser-html.mjs"
 import parserCss from "https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs"
 import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm" // Keep these imports
 
+import { getIconForFileName } from './elements/utils.mjs';
 import ui from './ui-main.mjs';
 import { ActionBar, Block, Button, ContentFill, CounterButton, Element, Effects, Effect, FileItem, FileList, Icon, Inline, Input, Inner, MediaView, Panel, Ripple, TabBar, TabItem, View, Menu, MenuItem, FileUploadList, actionBars, addStylesheet, buildPath, clone, isElement, isFunction, isNotNull, isset, readAndOrderDirectory, readAndOrderDirectoryRecursive, sortOnName } from './elements.mjs';
 import { observeFile, unobserveFile } from "./fileSystemObserver.mjs"
@@ -909,7 +910,10 @@ const execCommandNewFile = async () => {
 
 	// const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder, side: (targetTabs === leftTabs) ? "left" : "right" });
 
-	
+	const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder, side: (targetTabs === leftTabs) ? "left" : "right" });
+	// Set a default icon for new untitled tabs
+	tab.defaultStatusIcon = 'description';
+
 	// tab.click();
 }
 
@@ -1136,15 +1140,14 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 	removeEmptyUntitledTab(leftTabs);
 	removeEmptyUntitledTab(rightTabs);
 
+	const tabIcon = getIconForFileName(file.name);
 	const newSession = ace.createEditSession(text, fileMode.mode)
 	newSession.baseValue = text
 
 	targetEditor.setSession(newSession)
 	execCommandEditorOptions()
 
-	let targetTabs = targetEditor.tabs
-
-	const tab = targetTabs.add({
+	const tab = targetEditor.tabs.add({
 		name: file.name,
 		path: path,
 		mode: fileMode,
@@ -1152,7 +1155,8 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 		side: (targetEditor === leftEdit) ? "left" : "right",
 		handle: handle,
 		folder: handle.container,
-		fileModified: false, // Initialize fileModified flag
+		fileModified: false,
+		defaultStatusIcon: tabIcon, // Pass the determined icon to the new tab.
 	});
 	setupSessionChangeListener(newSession, tab);
 	tab.click()
@@ -1314,8 +1318,8 @@ const defaultTab = (targetTabs) => {
 	if(!targetTabs) {
 		targetTabs = ui.currentTabs
 	}
-	const defaultSession = ace.createEditSession("", "")
-	const tab = targetTabs.add({ name: "untitled", mode: { mode: "" }, session: defaultSession })
+	const defaultSession = ace.createEditSession("", "") // Already defined
+	const tab = targetTabs.add({ name: "untitled", mode: { mode: "" }, session: defaultSession, defaultStatusIcon: 'description' })
 	setupSessionChangeListener(newSession, tab);
 
 	// Determine which editor and media view to use based on the targetTabs

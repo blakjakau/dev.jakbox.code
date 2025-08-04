@@ -1,7 +1,7 @@
 import { ContentFill, Block } from './element.mjs';
 import { Icon } from './icon.mjs';
 import { FileItem } from './fileitem.mjs';
-import { isFunction } from './utils.mjs';
+import { isFunction, getIconForFileName } from './utils.mjs';
 import { readAndOrderDirectory, readAndOrderDirectoryRecursive, buildPath } from './utils.mjs';
 
 let tabIndexGroup = 1;
@@ -223,28 +223,7 @@ export class FileList extends ContentFill {
 
 	_render(base, tree, depth=0) {
 		// trigger an index generation (if not already done)
-		
-		const fileTypes = {
-		    "javascript": "js mjs jsm".split(" "),
-		    "code": "c cpp h hpp".split(" "),
-		    "html": "htm html dhtml".split(" "),
-		    "css":"css".split(" "),
-		    "php":"php".split(" "),
-		    "picture_as_pdf":"pdf".split(" "),
-		    "data_object": "json".split(" "),
-		    "image": "svg jpg jpeg gif tiff png ico bmp webp webm".split(" "),
-		    "movie": "avi mp4 webm wmv mov flv f4v mkv 3gp".split(" "),
-		    "music_note": "mp3 acc wma ogg wav flac".split(" "),
-		}
-		
 		const hideMask = "Zone.Identifier .swo .swp".split(" ");
-		
-		const codeFiles = "json js mjs c cpp h hpp css html".split(" ")
-		const imageFiles = "svg jpg jpeg gif tiff png ico bmp webp webm".split(" ")
-		const videoFiles = "avi mp4 webm wmv mov flv f4v mkv 3gp".split(" ")
-		const audioFiles = "mp3 aac wma ogg wav flac".split(" ")
-
-
 		this._contextElement = null
 		if (base.empty) {
 			base.empty()
@@ -432,21 +411,7 @@ export class FileList extends ContentFill {
 						}
 					})
 				}
-
-				e.icon = "insert_drive_file"
-				if (triggerOpen) e.icon = "description"
-				
-				for(const key in fileTypes) {
-				    const type = fileTypes[key]
-				    if(type.indexOf(item.name.split(".").pop()) !== -1) e.icon = key
-				}
-				
-				// if (codeFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "code"
-				if (imageFiles.indexOf(item.name.split(".").pop()) !== -1)
-					e.icon = triggerOpen ? "image" : "image_not_supported"
-				// if (videoFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "movie"
-				// if (audioFiles.indexOf(item.name.split(".").pop()) !== -1) e.icon = "music_note"
-
+				e.icon = getIconForFileName(item.name);
 				e.text = " " + item.name
 
 				base.append(e)

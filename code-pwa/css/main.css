@@ -70,12 +70,30 @@ body {
 
 /*ui-tab-item[active] + ui-tab-item::after { opacity:0; }*/
 
-ui-tabbar[slim]>ui-tab-item { 
-	border-radius: 4px 4px 0 0; background:none; 
+ui-tabbar[slim] > ui-tab-item {
+	background: none;
 	color: inherit;
-	border: 0px; transition: background 150ms ease-in-out, margin 100ms ease-in-out; }
-ui-tabbar[slim]>ui-tab-item[active] {  background: var(--themeDark);  border:0px; color: var(--light)}
-.current ui-tabbar[slim]>ui-tab-item[active] {  background: var(--theme); }
+	border-style: solid;
+	border-color: var(--themeDark);
+	border-width: 0 1px;
+	margin-left: -1px;
+	transition: background 150ms ease-in-out, margin 100ms ease-in-out;
+	min-width:32px;
+}
+ui-tabbar[slim] > ui-tab-item:first-of-type {
+	margin-left: 0;
+}
+ui-tabbar[slim] > ui-tab-item[active] {
+	background: var(--themeDark);
+	color: var(--light);
+	position: relative;
+	z-index: 1;
+}
+.current ui-tabbar[slim] > ui-tab-item[active] {
+	border-radius: 4px 4px 0 0;
+	background: var(--theme);
+	border-color: var(--theme);
+}
 
 /*ui-tabbar[slim]>ui-tab-item:hover+ui-tab-item { background: var(--dark);  }*/
 ui-tabbar[slim]>ui-tab-item:not([active]):hover {
@@ -372,12 +390,19 @@ ui-file-item[icon=javascript] ui-icon:first-child { color:#cd0; }
 ui-file-item[icon=css] ui-icon:first-child { color:#0ca; }
 ui-file-item[icon=html] ui-icon:first-child { color:#d77; }
 ui-file-item[icon=php] ui-icon:first-child { color:#b0b; }
-ui-file-item[icon=data_object] ui-icon:first-child { var(--light); opacity: 0.75; }
-ui-file-item[icon=image_not_supported] ui-icon:first-child { var(--light); opacity: 0.33; }
-
+ui-file-item[icon=data_object] ui-icon:first-child { color: var(--light); opacity: 0.75; }
+ui-file-item[icon=image_not_supported] ui-icon:first-child { color: var(--light); opacity: 0.33; }
 
 ui-file-item[active] ui-icon:first-child { color: var(--light); }
 
+/* Tab icon colors for inactive tabs, mirroring file list */
+ui-tab-item[data-status-icon-type=javascript]:not([active]) .status-icon { color:#cd0; }
+ui-tab-item[data-status-icon-type=css]:not([active]) .status-icon { color:#0ca; }
+ui-tab-item[data-status-icon-type=html]:not([active]) .status-icon { color:#d77; }
+ui-tab-item[data-status-icon-type=php]:not([active]) .status-icon { color:#b0b; }
+ui-tab-item[data-status-icon-type=data_object]:not([active]) .status-icon { color: var(--mid); }
+ui-tab-item[data-status-icon-type=code]:not([active]) .status-icon { color: var(--mid); }
+ui-tab-item[data-status-icon-type=image]:not([active]) .status-icon { color: var(--mid); }
 
 #leftTabs,
 #rightTabs{
@@ -390,6 +415,7 @@ ui-file-item[active] ui-icon:first-child { color: var(--light); }
 	overflow-x: auto;
     box-sizing: border-box;
     border-bottom:2px solid var(--themeDark);
+    padding-right:40px;
 }
 
 ui-tabbar.show-split-view-indicator::after {
@@ -408,6 +434,11 @@ ui-tabbar.show-split-view-indicator::after {
 .current #rightTabs {
     border-bottom:2px solid var(--theme);
 }
+
+body.showSplitView #leftTabs {
+	padding-right:2px;
+}
+
 
 #sidebar {
 	z-index:5;
@@ -917,6 +948,10 @@ ui-tabbar.tabs-inverted[slim] > ui-tab-item {
     margin-top: 0;
     margin-bottom: 4px; /* Sits flush with the bottom of the container */
     border-radius: 0 0 8px 8px; /* Rounded TOP corners */
+}
+
+ui-tabbar[slim] > ui-tab-item[is-changed] {
+	background:var(--red-soft);
 }
 
 /* Override to ensure bottom corners are square */

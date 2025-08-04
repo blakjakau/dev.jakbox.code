@@ -1,36 +1,39 @@
 // File: tabitem.mjs
 import { Button } from './button.mjs';
 import { Icon } from './icon.mjs';
-// import { TabBar } from './tabbar.mjs'; // TabBar is not directly used in TabItem, can be removed if not imported elsewhere
+import { Inline } from './element.mjs';
 import { isset } from './utils.mjs';
 
 export class TabItem extends Button {
 	constructor(content) {
-		super()
-        // Initialize _name. The setter will handle initial content and subsequent updates.
-        this._name = ''; 
-        if (isset(content)) {
-            // Use the setter if content is provided to ensure innerHTML update
-            this.name = content; 
-        }
+		super();
+		
+		this._statusIcon = new Icon();
+		this._defaultStatusIcon = 'draft'; // Private property to hold the default icon
+		this._statusIcon.innerHTML = this._defaultStatusIcon; // Initialize with the default 'draft' icon
+		this._statusIcon.classList.add('status-icon');
+
+		this._text = new Inline();
+		this._name = '';
+		if (isset(content)) {
+			this._text.textContent = content;
+			this._name = content;
+		}
 
 		this._close = new Icon()
 		this._close.innerHTML = "close"
-		this._close.style.visibility = "visible"
 		this._close.setAttribute("close", "close")
-		this._close.setAttribute("size", "tiny")
-		this.setAttribute("draggable", true)
-
+		this.setAttribute("draggable", true);
 		this.ondragstart = (e) => {
 			this.originalParent = this.parentElement;
-			this.dropPosition = ""
-			e.dataTransfer.effectAllowed = "move"
-			e.dataTransfer.setData("text/plain", this.getAttribute("id"))
-			e.dataTransfer.setData("application/x-tab-item", this.getAttribute("id"))
-			
-			if(this.parentElement.exclusiveDropType != null) {
-				e.dataTransfer.setData("application/x-exclusive-drop-type", this.parentElement.exclusiveDropType)
-			} 
+			this.dropPosition = "";
+			e.dataTransfer.effectAllowed = "move";
+			e.dataTransfer.setData("text/plain", this.getAttribute("id"));
+			e.dataTransfer.setData("application/x-tab-item", this.getAttribute("id"));
+
+			if (this.parentElement.exclusiveDropType != null) {
+				e.dataTransfer.setData("application/x-exclusive-drop-type", this.parentElement.exclusiveDropType);
+			}
 
 			this.parentElement.animating = true
 			this.parentElement.setAttribute("dragging", "true")
@@ -160,32 +163,35 @@ export class TabItem extends Button {
 
 	connectedCallback() {
 		super.connectedCallback.apply(this)
-		this._effect.remove()
-		this.append(this._close) // Ensure _close is appended after initial innerHTML set by 'name' setter
+		this.append(this._statusIcon, this._text, this._close);
+		this._effect.remove(); // Removes the ripple effect element, not the button itself.
 	}
 
-    /**
-     * Sets the displayed name of the tab and updates its internal state.
-     * @param {string} newName The new name for the tab.
-     */
-    set name(newName) {
-        if (this._name === newName) {
-            return; // No change needed
-        }
-        this._name = newName;
-        // Safely update innerHTML by detaching and re-appending the close button.
-        // const closeButtonReference = this._close;
-        // if (closeButtonReference.parentElement === this) {
-        //     closeButtonReference.remove(); // Temporarily remove the close button
-        // }
-        this.innerHTML = newName; // Update the text content of the tab
-        this.append(this._close); // Re-append the close button
+	/**
+	 * Sets the default icon for the status indicator when the tab is not 'changed'.
+	 * @param {string} iconName The name of the Material Symbols icon (e.g., 'description', 'javascript', etc.).
+	 */
+	set defaultStatusIcon(iconName) {
+		if (this._defaultStatusIcon === iconName) return; // No change needed
+		this._defaultStatusIcon = iconName;
+		this.setAttribute('data-status-icon-type', iconName);
+		// Only update the displayed icon if the tab is currently not in a 'changed' state
+		if (!this._changed) {
+			this._statusIcon.innerHTML = iconName;
+		}
+	}
 
-        // Also update the config.name to keep consistency with the tab's configuration
-        if (this.config) {
-            this.config.name = newName;
-        }
-    }
+	set name(newName) {
+		if (this._name === newName) {
+			return; // No change needed
+		}
+		this._name = newName;
+		this._text.textContent = newName;
+
+		if (this.config) {
+			this.config.name = newName;
+		}
+	}
 
     /**
      * Gets the displayed name of the tab.
@@ -195,15 +201,25 @@ export class TabItem extends Button {
         return this._name;
     }
 
+	get textElement() {
+		return this._text;
+	}
+
 	set changed(v) {
 		this._changed = !!v;
-		// Update the icon based on both internal 'changed' and external 'fileModified'
+		// Status icon: 'draft' for clean, 'circle' for dirty (unsaved changes)
+		if (this._changed) {
+			this._statusIcon.innerHTML = 'do_not_disturb_on_total_silence';
+			this.setAttribute('is-changed', '');
+		} else { // If not changed, use the set defaultStatusIcon
+			this._statusIcon.innerHTML = this._defaultStatusIcon;
+			this.removeAttribute('is-changed');
+		}
+
+		// Close icon: 'sync' for externally modified, 'close' otherwise
 		if (this.config && this.config.fileModified) {
 			this._close.innerHTML = "sync"; // Or "warning", "refresh", etc.
 			this._close.style.color = "orange"; // Optional: add a color hint
-		} else if (this._changed) {
-			this._close.innerHTML = "circle";
-			this._close.style.color = ""; // Reset color
 		} else {
 			this._close.innerHTML = "close";
 			this._close.style.color = ""; // Reset color
@@ -212,14 +228,6 @@ export class TabItem extends Button {
 
 	get changed() {
 		return this._changed
-	}
-
-	set showClose(v) {
-		if (!!v) {
-			this._close.style.visibility = "visible"
-		} else {
-			this._close.style.visibility = "hidden"
-		}
 	}
 
 	get close() {
