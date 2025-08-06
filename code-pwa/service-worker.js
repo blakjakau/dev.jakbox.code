@@ -1,4 +1,4 @@
-const APP_VERSION = "0.3.8"
+const APP_VERSION = "0.3.9"
 const CACHE_PRELOAD = "preload_resources"
 const CACHE_OFFLINE = "offline_access"
 
@@ -11,6 +11,8 @@ const deploy = true
 // --- List of hostnames for services that should NOT be cached ---
 const NON_CACHEABLE_HOSTS = [
     "generativelanguage.googleapis.com", // Gemini API hostname
+    "localhost:3022",
+    "github.com",
     // Add other external API hostnames here, e.g.:
     // "maps.googleapis.com",
     // "api.stripe.com",
@@ -95,7 +97,7 @@ self.addEventListener("install", function (event) {
 					// Check if the static asset should be cached
                     const assetUrl = new URL(staticAssets[i], self.location.origin);
                     if (!NON_CACHEABLE_HOSTS.includes(assetUrl.hostname)) {
-                        await cache.add(new Request(staticAssets[i]))
+                        await cache.add(new Request(staticAssets[i], { cache: "reload" }))
                         await offline.add(new Request(staticAssets[i]))
                     } else {
                         console.debug("[service] Not pre-caching non-cacheable static asset:", staticAssets[i]);
@@ -155,9 +157,13 @@ self.addEventListener("fetch", (event) => {
 			if (url.pathname.endsWith("/version.json")) {
 				console.debug("[service] Intercepting and responding to /version.json");
 				const responseBody = { appName: "code.jakbox.dev", version: APP_VERSION };
-				return new Response(JSON.stringify(responseBody), {
+				
+				const response = new Response(JSON.stringify(responseBody), {
 					headers: { "Content-Type": "application/json" },
 				});
+				
+				cache.put(event.request, networkResponse.clone());
+				return response;
 			}
 
 			// Do not cache calls to external or internal APIs.

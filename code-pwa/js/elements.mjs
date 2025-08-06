@@ -23,7 +23,7 @@ export { EditorHolder } from './elements/editorholder.mjs';
 export { IconTabBar } from './elements/icon-tabbar.mjs';
 export { IconTab } from './elements/icon-tab.mjs';
 export { SidebarPanel } from './elements/sidebar-panel.mjs';
-export { isset, isNotNull, isFunction, isElement, clone, addStylesheet, sortOnName, readAndOrderDirectory, readAndOrderDirectoryRecursive, buildPath } from './elements/utils.mjs';
+export { isset, isNotNull, isFunction, isElement, clone, addStylesheet, sortOnName, readAndOrderDirectory, readAndOrderDirectoryRecursive, buildPath, loadScript } from './elements/utils.mjs';
 export { LoaderBar } from "./elements/loader-bar.mjs"
 
 import { Element } from './elements/element.mjs';

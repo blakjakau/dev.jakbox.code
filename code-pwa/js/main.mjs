@@ -44,7 +44,6 @@ function safeString(string) {
 }
 
 let permissionNotReloaded = true // should we re-request permission for folders added
-let isSavingFile = false; // New flag for file saving status
 
 ui.create()
 window.ui = ui
@@ -262,22 +261,22 @@ const getSuggestedStartDirectory = async () => {
 };
 
 const saveFile = async (tab) => {
-	const handle = tab.config.handle;
-	const text = tab.config.session.getValue();
-	if (!handle) return;
+    const handle = tab.config.handle;
+    const text = tab.config.session.getValue();
+    if (!handle) return;
 
-	const writable = await handle.createWritable();
-	await writable.write(text);
-	await writable.close();
-	
-	tab.changed = false;
-	
-	// Update filelist item state
-	fileList.active = handle;
-	const fileItem = fileList.activeItem;
-	if (fileItem && fileItem.item.handle === handle) {
-		fileItem.changed = false;
-	}
+    unobserveFile(handle); // Stop listening to prevent self-triggering modification events
+    try {
+        const writable = await handle.createWritable();
+        await writable.write(text);
+        await writable.close();
+        tab.changed = false;
+    } catch (error) {
+        console.error("Error saving file:", error);
+        alert(`Failed to save ${handle.name}: ${error.message}`);
+    } finally {
+        observeFile(handle, onFileModified); // Always resume listening
+    }
 };
 
 const saveAppConfig = async () => {
@@ -301,9 +300,6 @@ const saveAppConfig = async () => {
 
 // New function to handle file modifications from FileSystemObserver
 const onFileModified = (fileHandle) => {
-    if (isSavingFile) { // Ignore changes if a save operation is in progress
-        return;
-    }
     // Find the tab associated with the modified fileHandle
     let foundTab = null;
     for (const tab of leftTabs.tabs) {
@@ -340,6 +336,17 @@ const saveWorkspace = async () => {
 	set(`workspace_${workspace.id}`, workspace); // This will save workspace.aiSessionsMetadata and workspace.activeAiSessionId
 }
 window.saveWorkspace = saveWorkspace;
+
+const updateFileListBackground = () => {
+    if (ui.fileListBackground) {
+        if (workspace.folders?.length > 0) {
+            ui.fileListBackground.style.display = 'none';
+        } else {
+            ui.fileListBackground.style.display = 'flex';
+        }
+    }
+};
+
 
 const updateWorkspaceSelectors = (() => {
 	const close = document.querySelector("#workspaceClose")
@@ -440,6 +447,7 @@ const openWorkspace = (() => {
             // After loading workspace, ensure aiManager is initialized with the correct provider's config
             // This assumes ui.aiManager.aiProvider is already set by ui.aiManager.loadSettings() in its init
             const currentProvider = ui.aiManager.aiProvider;
+            updateFileListBackground();
             if (workspace.aiConfig[currentProvider]) {
                 ui.aiManager.ai.setOptions(workspace.aiConfig[currentProvider], null, null, true, 'workspace');
             } else if (app.aiConfig[currentProvider]) {
@@ -509,6 +517,7 @@ const openWorkspace = (() => {
 				// NEW: Initialize empty AI session metadata
                 workspace.aiSessionsMetadata = [];
                 workspace.activeAiSessionId = null;
+                updateFileListBackground();
                 // AIManager will handle creating the first session when it gets loadSessions call
 				hideActions()
 				let item = document.createElement("ui-menu-item")
@@ -663,13 +672,19 @@ const execCommandToggleSidebarPanel = (panelId) => {
 
 	if (isSidebarVisible && currentPanel === panelId) {
 		if(panelId == 'developer_board') {
-			if(!document.activeElement.classList.contains("prompt-area")) {
+			if(!document.activeElement.classList.contains("ace_text-input")) {
 				// just focus the tab
 				ui.iconTabBar.activeTabById = panelId;
 				return
 			}
 		}
-		
+		if(panelId == 'terminal') {
+			if(!document.activeElement.classList.contains("xterm-helper-textarea")) {
+				// just focus the tab
+				ui.iconTabBar.activeTabById = panelId;
+				return
+			}
+		}
 		ui.toggleSidebar(); // Close the sidebar
 	} else if (!isSidebarVisible) {
 		ui.toggleSidebar(); // Open the sidebar
@@ -689,6 +704,7 @@ const execCommandRemoveAllFolders = () => {
 				while (workspace.folders.length > 0) {
 					workspace.folders.pop()
 				}
+				updateFileListBackground();
 				ui.showSidebar()
 				// saveAppConfig()
 				saveWorkspace()
@@ -710,11 +726,72 @@ const execCommandRestoreFolders = () => {
 }
 
 const execCommandCloseActiveTab = async () => {
-	const tab = leftTabs.activeTab
-	tab.close.click()
+	const activeEl = document.activeElement;
+
+	// If the active element is within a terminal instance
+	if (activeEl && activeEl.closest('.terminal-instance-container')) {
+		if (window.terminalManager && window.terminalManager._activeSessionId) {
+			const session = window.terminalManager._sessions.get(window.terminalManager._activeSessionId);
+			if (session && session.tabItem) {
+				window.terminalManager.deleteTerminalSession(session.tabItem.config.id, session.tabItem);
+	            window.terminalManager.sessionTabBar.activeTab?.click(); // Re-clicking the new active tab ensures focus
+			}
+		}
+		return;
+	}
+	// If the active element is within the AI prompt editor
+	if (activeEl && activeEl.closest('#ai-prompt-editor-container')) {
+		if (ui.aiManager && ui.aiManager.activeSession) {
+			ui.aiManager.deleteSession(ui.aiManager.activeSession.id, ui.aiManager.sessionTabBar.activeTab);
+		}
+		return;
+	}
+
+	// Fallback to closing the current editor file if neither terminal nor AI is focused
+	const tab = ui.currentTabs.activeTab;
+	if (tab) {
+		tab.close.click();
+	}
+}
+const execCommandNextBuffer = () => {
+    const activeEl = document.activeElement;
+    // Check if focus is within the Terminal panel
+    if (activeEl && activeEl.closest('.terminal-instance-container')) {
+        if (window.terminalManager?.sessionTabBar) {
+	        window.terminalManager.sessionTabBar.next(); // Switches the tab
+            window.terminalManager.sessionTabBar.activeTab?.click(); // Re-clicking the new active tab ensures focus
+ 
+        }
+        return;
+    }
+    // Check if focus is within the AI panel
+    if (activeEl && activeEl.closest('#ai-panel')) {
+        if (ui.aiManager?.sessionTabBar) {
+            ui.aiManager.sessionTabBar.next();
+        }
+        return;
+    }
+    // Default to the current editor's tabs
+    if (ui.currentTabs) {
+        ui.currentTabs.next();
+    }
+};
+const execCommandPrevBuffer = () => {
+    const activeEl = document.activeElement;
+    if (activeEl && activeEl.closest('.terminal-instance-container')) {
+        if (window.terminalManager?.sessionTabBar) {
+            window.terminalManager.sessionTabBar.prev(); // Switches the tab
+            window.terminalManager.sessionTabBar.activeTab?.click(); // Re-clicking the new active tab ensures focus
+        }
+    } else if (activeEl && activeEl.closest('#ai-panel')) {
+        if (ui.aiManager?.sessionTabBar) {
+            ui.aiManager.sessionTabBar.prev();
+        }
+    } else if (ui.currentTabs) {
+        ui.currentTabs.prev();
+    }
 }
 const execCommandSave = async () => {
-	isSavingFile = true; // Set flag at the beginning of save operation
 	const tab = currentTabs.activeTab;
 	const config = tab.config;
 	if (config.handle) {
@@ -729,7 +806,6 @@ const execCommandSave = async () => {
 		const newHandle = await window.showSaveFilePicker(options).catch(console.warn);
 		if (!newHandle) {
 			alert("File NOT saved");
-			isSavingFile = false; // Reset flag if save is cancelled
 			return;
 		}
 		config.handle = newHandle;
@@ -748,13 +824,9 @@ const execCommandSave = async () => {
 		// Refresh the folder in the file list to show the new file
 		await fileList.refreshFolder(newHandle.container);
 	}
-	setTimeout(() => { // Reset flag after a short delay
-		isSavingFile = false;
-	}, 500); // 500ms delay
 };
 
 const execCommandSaveAs = async () => {
-    isSavingFile = true; // Set flag at the beginning of save operation
 	const tab = currentTabs.activeTab;
 	const config = tab.config;
 	const oldHandle = config.handle;
@@ -768,7 +840,6 @@ const execCommandSaveAs = async () => {
 	const newHandle = await window.showSaveFilePicker(options).catch(console.warn)
 	if (!newHandle) {
 		alert("File NOT saved")
-        isSavingFile = false; // Reset flag if save is cancelled
 		return
 	}
 
@@ -789,10 +860,6 @@ const execCommandSaveAs = async () => {
 	if (oldFolderHandle && oldFolderHandle !== newHandle.container) {
 		await fileList.refreshFolder(oldFolderHandle);
 	}
-
-    setTimeout(() => { // Reset flag after a short delay
-        isSavingFile = false;
-    }, 500); // 500ms delay
 }
 
 const execCommandOpen = async () => {
@@ -805,23 +872,88 @@ const execCommandOpen = async () => {
 }
 
 const execCommandNewFile = async () => {
-	const srcTab = ui.currentTabs.activeTab
-	const mode = srcTab?.config?.mode?.mode || "";
-	const folder = srcTab?.config?.folder || undefined;
-	const newSession = ace.createEditSession("", mode);	
-	// Apply stored session options to the new session
-	if (app.sessionOptions) {
-		newSession.setOptions(app.sessionOptions);
+	const activeEl = document.activeElement;
+	let context = 'editor'; // Default context
+	// 1. Check for specific focused elements first
+	if (activeEl && activeEl.closest('.terminal-instance-container')) {
+		context = 'terminal';
+	} else if (activeEl && activeEl.closest('#ai-prompt-editor-container')) {
+		context = 'ai';
+	} else if (activeEl && (activeEl.closest('.ace_editor') || activeEl.classList.contains('ace_text-input'))) {
+		context = 'editor';
+	} else {
+		// 2. If no editor is focused, use the active sidebar panel as the context
+		const activeSidebarTabId = ui.iconTabBar?.activeTab?.iconId;
+		switch (activeSidebarTabId) {
+			case 'developer_board':
+				context = 'ai';
+				break;
+			case 'terminal':
+				context = 'terminal';
+				break;
+			default:
+				context = 'editor';
+				break;
+		}
 	}
-	newSession.baseValue = "";
+	// Execute the 'new' action based on the determined context
+	switch (context) {
+		case 'ai':
+			return ui.aiManager.createNewSession();
+		case 'terminal':
+			return window.terminalManager.createNewTerminalSession();
+		case 'editor':
+		default:
+			const srcTab = ui.currentTabs.activeTab;
+			const mode = srcTab?.config?.mode?.mode || "";
+			const folder = srcTab?.config?.folder || undefined;
+			const newSession = ace.createEditSession("", mode);
+			if (app.sessionOptions) newSession.setOptions(app.sessionOptions);
+			newSession.baseValue = "";
+			const targetTabs = ui.currentTabs;
+			const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder, side: (targetTabs === leftTabs) ? "left" : "right" });
+			return tab.click();
+	}
+	
+	// const srcTab = ui.currentTabs.activeTab
+	// const mode = srcTab?.config?.mode?.mode || "";
+	// const folder = srcTab?.config?.folder || undefined;
+	// const newSession = ace.createEditSession("", mode);	
 
-	let targetTabs = ui.currentTabs
+	// // Check for active element focus to determine context
+	// const activeEl = document.activeElement;
+
+	// if(activeEl.tagName !== "TEXTAREA") {
+	// 	// we're NOT on a text area at all, we'll use the actice sidebar instead
+	// 	//GEMINI do this bit? trigger based on the curret active icon in the side iconbar
+	// }
+
+	// // If the active element is within a terminal instance
+	// if (activeEl && activeEl.closest('.terminal-instance-container')) {
+	// 	window.terminalManager.createNewTerminalSession();
+	// 	return;
+	// }
+	// // If the active element is within the AI prompt editor
+	// if (activeEl && activeEl.closest('#ai-prompt-editor-container')) {
+	// 	ui.aiManager.createNewSession();
+	// 	return;
+	// }
+
+	// // Apply stored session options to the new session
+	// if (app.sessionOptions) {
+	// 	newSession.setOptions(app.sessionOptions);
+	// }
+	// newSession.baseValue = "";
+
+	// let targetTabs = ui.currentTabs
+
+	// const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder, side: (targetTabs === leftTabs) ? "left" : "right" });
 
 	const tab = targetTabs.add({ name: "untitled", mode: { mode: mode }, session: newSession, folder: folder, side: (targetTabs === leftTabs) ? "left" : "right" });
 	// Set a default icon for new untitled tabs
 	tab.defaultStatusIcon = 'description';
-	
-	tab.click();
+
+	// tab.click();
 }
 
 const execCommandNewWindow = async () => {
@@ -1335,6 +1467,7 @@ fileOpen.on("click", async () => {
 	// verifyPermission
 	await verifyPermission(folderHandle)
 	if (addToFolders) workspace.folders.push(folderHandle)
+	updateFileListBackground();
 	// 	saveAppConfig()
 	saveWorkspace()
 	ui.showSidebar()
@@ -1427,18 +1560,14 @@ const keyBinds = [
 	{
 		target: "app",
 		name: "next-buffer",
-		bindKey: { win: "Ctrl+Tab", mac: "Command+Tab" },
-		exec: () => {
-			leftTabs.next()
-		},
+		bindKey: { win: "Ctrl+Tab", mac: "Ctrl+Tab" },
+		exec: execCommandNextBuffer,
 	},
 	{
 		target: "app",
 		name: "prev-buffer",
-		bindKey: { win: "Ctrl+Shift+Tab", mac: "Command+Shift+Tab" },
-		exec: () => {
-			leftTabs.prev()
-		},
+		bindKey: { win: "Ctrl+Shift+Tab", mac: "Ctrl+Shift+Tab" },
+		exec: execCommandPrevBuffer,
 	},
 	{
 		target: "app",
@@ -1511,6 +1640,14 @@ const keyBinds = [
 		bindKey: { win: "Alt+N", mac: "Option+N" },
 		exec: () => {
 			execCommandToggleSidebarPanel('edit_note');
+		},
+	},
+	{
+		target: "app",
+		name: "show-terminal",
+		bindKey: { win: "Alt+T", mac: "Option+T" },
+		exec: () => {
+			execCommandToggleSidebarPanel('terminal');
 		},
 	},
 	{
@@ -1646,6 +1783,7 @@ const keyBinds = [
 				workspace.files = []
 				workspace.openFolders = [];
                 // NEW: Initialize empty AI session metadata for new workspace
+                updateFileListBackground();
                 workspace.aiSessionsMetadata = [];
                 workspace.activeAiSessionId = null;
 
@@ -1763,6 +1901,10 @@ setTimeout(async () => {
     	if(e.detail?.tab?._iconId == "developer_board") {
     		ui.aiManager.focus()
     	}
+		if(e.detail?.tab?._iconId == "terminal") {
+			window.terminalManager.connect(); // call intial connect
+			window.terminalManager.fit(); // Fit active terminal when its tab is focused
+		}
     })
     // REMOVED: ui.aiManager.panel.addEventListener('new-prompt', (event) => { /* ... */ });
     // This is now handled within ai-manager for activeSession.promptHistory

@@ -1,4 +1,5 @@
 # todo
+- fix light theme
 
 ## fixes
 - filelist activity indicators (line wrapping)
