@@ -673,6 +673,7 @@ class TerminalManager {
 	async _installConduit(button) {
 		button.textContent = 'Installing...';
 		button.disabled = true;
+		const downloadContainer = this.setupGuideElement.querySelector('#conduit-download-section');
 		const actionsContainer = this.setupGuideElement?.querySelector('#conduit-actions-section');
 		try {
 			const response = await fetch(CONDUIT_INSTALL_URL);

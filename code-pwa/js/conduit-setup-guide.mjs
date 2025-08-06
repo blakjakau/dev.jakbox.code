@@ -17,6 +17,8 @@ This is a one-time setup (hopefully). Follow the steps below.
 
 {{PLATFORM_INSTRUCTIONS}}
 
+<div id="conduit-actions-section" class="conduit-actions"></div>
+
 ---
 
 <div id="conduit-launch-section" class="conduit-actions"></div>
