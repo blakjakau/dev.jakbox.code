@@ -323,16 +323,17 @@ ui-button:hover {
 
 ui-button.themed {
     border-radius: 8px;
-    background: var(--theme);
-    color: var(--light);
+    background: var(--low);
+    color: var(--button-text-color);
 }
 ui-button.themed ui-icon {
     color: inherit;
 }
 
 ui-button.cancel {
-    border-radius: 8px;
-    color: #777;
+	border-radius: 8px;
+    color: var(--mid);
+    background: var(--dark);
 }
 ui-button.cancel ui-icon {
     color: inherit
