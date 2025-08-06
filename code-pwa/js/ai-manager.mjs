@@ -160,6 +160,7 @@ class AIManager {
 	_createUI() {
 		// --- Session TabBar UI ---
 		this.sessionTabBar = new TabBar();
+		this.sessionTabBar.classList.add('ai-session-tabs');
 		this.sessionTabBar.setAttribute('slim', '');
 		this.sessionTabBar.classList.add('tabs-inverted');
 		this.sessionTabBar.exclusiveDropType = "ai-tab"
@@ -979,6 +980,7 @@ class AIManager {
         this._setButtonsDisabledState(this._isProcessing);
         this._updatePromptAreaPlaceholder(); // Update placeholder after session switch
 		this._dispatchContextUpdate("session_switched");
+		this.promptEditor.focus(); // Ensure focus returns to the prompt editor after a switch
 	}
 
 	/**

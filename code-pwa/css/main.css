@@ -78,7 +78,7 @@ ui-tabbar[slim] > ui-tab-item {
 	border-width: 0 1px;
 	margin-left: -1px;
 	transition: background 150ms ease-in-out, margin 100ms ease-in-out;
-	min-width:32px;
+	min-width:48px;
 }
 ui-tabbar[slim] > ui-tab-item:first-of-type {
 	margin-left: 0;
@@ -403,6 +403,17 @@ ui-tab-item[data-status-icon-type=php]:not([active]) .status-icon { color:#b0b; 
 ui-tab-item[data-status-icon-type=data_object]:not([active]) .status-icon { color: var(--mid); }
 ui-tab-item[data-status-icon-type=code]:not([active]) .status-icon { color: var(--mid); }
 ui-tab-item[data-status-icon-type=image]:not([active]) .status-icon { color: var(--mid); }
+
+/* Hide status icons in AI and Terminal session tabs for a cleaner look */
+.ai-session-tabs ui-tab-item .status-icon,
+.terminal-session-tabs ui-tab-item .status-icon {
+    display: none;
+}
+
+.ai-session-tabs ui-tab-item,
+.terminal-session-tabs ui-tab-item {
+    padding-left: 8px; /* Adjust padding to compensate for the removed icon */
+}
 
 #leftTabs,
 #rightTabs{
@@ -858,6 +869,35 @@ ui-tabbar.tabs-inverted {
     z-index: 2;
 }
 
+.conduit-setup-guide .conduit-notice {
+    background-color: rgba(255, 193, 7, 0.15); /* Soft amber */
+    border: 1px solid var(--themeDark);
+    border-radius: 5px;
+    padding: 1em;
+    margin: 1em 0;
+    line-height: 1.5;
+}
+
+.conduit-setup-guide .conduit-notice strong {
+    color: var(--theme);
+}
+
+.conduit-setup-guide .conduit-notice.windows-unsupported {
+    background-color: rgba(220, 53, 69, 0.1); /* Soft red */
+    border-color: #a12c36;
+    color: var(--high);
+}
+
+.conduit-setup-guide .conduit-notice.windows-unsupported strong {
+    color: #e75c6a;
+}
+
+.conduit-setup-guide .conduit-notice a,
+.conduit-setup-guide .conduit-notice a:visited {
+    color: var(--theme);
+    text-decoration: underline;
+}
+
 .install-output {
     background-color: #222;
     color: #ccc;
@@ -944,10 +984,8 @@ ui-tabbar.tabs-inverted {
 
 /* "Inverted" tabs are now styled to sit on top of the prompt area */
 ui-tabbar.tabs-inverted[slim] > ui-tab-item {
-
     margin-top: 0;
     margin-bottom: 4px; /* Sits flush with the bottom of the container */
-    border-radius: 0 0 8px 8px; /* Rounded TOP corners */
 }
 
 ui-tabbar[slim] > ui-tab-item[is-changed] {
@@ -964,6 +1002,5 @@ ui-tabbar.tabs-inverted[slim] > ui-tab-item[active] {
 }
 
 ui-tabbar.tabs-inverted[slim] > ui-tab-item[active] {
-	/*background: var(--themeDark);*/
- /*   color: var(--light);*/
+    border-radius: 0 0 8px 8px; /* Rounded BOTTOM corners */
 }

@@ -6,7 +6,7 @@ import conduitSetupGuide from './conduit-setup-guide.mjs';
 
 // The URL for the backend WebSocket server
 const TERMINAL_WEBSOCKET_URL = `ws://localhost:3022/terminal`;
-const CONDUIT_RELEASE_TAG = "v0.0.9";
+const CONDUIT_RELEASE_TAG = "v0.0.10";
 const CONDUIT_DOWNLOAD_PATH = `https://github.com/blakjakau/dev.jakbox.conduit/releases/download/${CONDUIT_RELEASE_TAG}`
 const CONDUIT_UP_URL = `http://localhost:3022/up`;
 const CONDUIT_INSTALL_URL = `http://localhost:3022/install-user`;
@@ -45,6 +45,7 @@ class TerminalManager {
 		// Create TabBar for managing terminal sessions
 		this.sessionTabBar = new TabBar();
 		this.sessionTabBar.setAttribute("slim", "");
+		this.sessionTabBar.classList.add("terminal-session-tabs");
 		this.sessionTabBar.classList.add("tabs-inverted");
 		this.sessionTabBar.exclusiveDropType = "terminal-tab";
 		this.sessionTabBar.click = (e) => this.switchTerminalSession(e.tab.config.id);
@@ -507,6 +508,8 @@ class TerminalManager {
 			this.panel.prepend(this.setupGuideElement);
 		}
 
+		const platform = navigator.platform.toLowerCase();
+
 		this.sessionTabBar.style.display = 'none';
 		this.terminalContainersWrapper.style.display = 'none';
 		this.settingsPanel.style.display = 'none';
@@ -514,16 +517,35 @@ class TerminalManager {
 		this.setupGuideElement.innerHTML = ''; // Clear previous content
 
 		const guideContent = document.createElement('div');
-		guideContent.innerHTML = conduitSetupGuide
+		// New logic to handle platform-specific instructions
+		let finalGuideContent = conduitSetupGuide;
+		let platformInstructions = '';
+		if (step === 'download' && (platform.includes('mac') || platform.includes('linux'))) {
+			const { primary } = this._getDownloadLinks();
+			const primaryFilename = primary.length > 0 ? primary[0].filename : 'conduit-binary';
+			platformInstructions = `
+				<div class="platform-instructions">
+					<p>On macOS and Linux, you may need to make the downloaded file executable. Open your terminal, navigate to the download directory, and run the following command:</p>
+					<pre><code>chmod u+x ${primaryFilename}</code></pre>
+					<p>Afterward, you can launch it for the first time by running:</p>
+					<pre><code>./${primaryFilename}</code></pre>
+				</div>
+			`;
+		}
+		finalGuideContent = finalGuideContent.replace('{{PLATFORM_INSTRUCTIONS}}', platformInstructions);
+		guideContent.innerHTML = finalGuideContent
 			.replace(/^# (.*$)/gm, "<h2>$1</h2>")
 			.replace(/^## (.*$)/gm, "<h3>$1</h3>")
 			.replace(/\*\*(.*)\*\*/g, "<strong>$1</strong>")
 			.replace(/`(.*?)`/g, "<code>$1</code>")
 			.replace(/---/g, "<hr>");
 		this.setupGuideElement.append(guideContent);
+		
+		const downloadContainer = this.setupGuideElement.querySelector('#conduit-download-section');
+		const launchContainer = this.setupGuideElement.querySelector('#conduit-launch-section');
 
-		const actionsContainer = this.setupGuideElement.querySelector('#conduit-actions-section');
-		actionsContainer.innerHTML = ''; // Clear placeholder
+		if(downloadContainer) downloadContainer.innerHTML = '';
+		if(launchContainer) launchContainer.innerHTML = '';
 
 		if (step === 'download') {
 			const { primary, other } = this._getDownloadLinks();
@@ -536,13 +558,13 @@ class TerminalManager {
 					link.className = 'themed';
 					link.setAttribute('target', '_blank');
 					link.setAttribute('download', info.filename);
-					actionsContainer.append(link);
-					actionsContainer.append(document.createElement("br"));
+					downloadContainer.append(link);
+					downloadContainer.append(document.createElement("br"));
 				});
 			}
 			
-			actionsContainer.append(document.createElement("br"));
-			actionsContainer.innerHTML = "<p>"+actionsContainer.innerHTML+"</p>"
+			downloadContainer.append(document.createElement("br"));
+			downloadContainer.innerHTML = "<p>"+downloadContainer.innerHTML+"</p>"
 			
 			if (other.length > 0) {
 				const details = document.createElement('details');
@@ -563,9 +585,9 @@ class TerminalManager {
 					otherList.append(document.createElement("br"));
 				});
 				details.append(otherList);
-				actionsContainer.append(details);
+				downloadContainer.append(details);
 			} else if (primary.length === 0) {
-				actionsContainer.textContent = "Sorry, your platform is not currently supported.";
+				downloadContainer.textContent = "Sorry, your platform is not currently supported.";
 			}
 
 			if (options.showLaunchButton) {
@@ -580,11 +602,12 @@ class TerminalManager {
 					this._launchConduitViaProtocol();
 					this._startPollingConduit();
 				};
-				actionsContainer.append(preamble, launchButton);
+				launchContainer.append(preamble, launchButton);
 			}
 
 			this._startPollingConduit(); // Start polling in the background immediately
 		} else if (step === 'install' && !options.showLaunchButton) {
+			// This step only has one set of actions, so they'll go in the first container.
 			const { primary } = this._getDownloadLinks();
 			const primaryDownload = primary[0];
 			const cliCommand = primaryDownload ? `\`./${primaryDownload.filename} --install-user\`` : 'the CLI';
@@ -607,7 +630,7 @@ class TerminalManager {
 			const buttonGroup = document.createElement('div');
 			buttonGroup.className = 'button-group';
 			buttonGroup.append(installButton, skipButton);
-			actionsContainer.append(preamble, buttonGroup);
+			downloadContainer.append(preamble, buttonGroup);
 		}
 	}
 
@@ -655,7 +678,7 @@ class TerminalManager {
 			const response = await fetch(CONDUIT_INSTALL_URL);
 			const outputText = await response.text();
 			
-			if (actionsContainer) {
+			if (downloadContainer) { // Use the download container to show output
 				let outputPre = actionsContainer.querySelector('.install-output');
 				if (!outputPre) {
 					outputPre = document.createElement('pre');

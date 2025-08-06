@@ -734,6 +734,7 @@ const execCommandCloseActiveTab = async () => {
 			const session = window.terminalManager._sessions.get(window.terminalManager._activeSessionId);
 			if (session && session.tabItem) {
 				window.terminalManager.deleteTerminalSession(session.tabItem.config.id, session.tabItem);
+	            window.terminalManager.sessionTabBar.activeTab?.click(); // Re-clicking the new active tab ensures focus
 			}
 		}
 		return;
@@ -751,6 +752,44 @@ const execCommandCloseActiveTab = async () => {
 	if (tab) {
 		tab.close.click();
 	}
+}
+const execCommandNextBuffer = () => {
+    const activeEl = document.activeElement;
+    // Check if focus is within the Terminal panel
+    if (activeEl && activeEl.closest('.terminal-instance-container')) {
+        if (window.terminalManager?.sessionTabBar) {
+	        window.terminalManager.sessionTabBar.next(); // Switches the tab
+            window.terminalManager.sessionTabBar.activeTab?.click(); // Re-clicking the new active tab ensures focus
+ 
+        }
+        return;
+    }
+    // Check if focus is within the AI panel
+    if (activeEl && activeEl.closest('#ai-panel')) {
+        if (ui.aiManager?.sessionTabBar) {
+            ui.aiManager.sessionTabBar.next();
+        }
+        return;
+    }
+    // Default to the current editor's tabs
+    if (ui.currentTabs) {
+        ui.currentTabs.next();
+    }
+};
+const execCommandPrevBuffer = () => {
+    const activeEl = document.activeElement;
+    if (activeEl && activeEl.closest('.terminal-instance-container')) {
+        if (window.terminalManager?.sessionTabBar) {
+            window.terminalManager.sessionTabBar.prev(); // Switches the tab
+            window.terminalManager.sessionTabBar.activeTab?.click(); // Re-clicking the new active tab ensures focus
+        }
+    } else if (activeEl && activeEl.closest('#ai-panel')) {
+        if (ui.aiManager?.sessionTabBar) {
+            ui.aiManager.sessionTabBar.prev();
+        }
+    } else if (ui.currentTabs) {
+        ui.currentTabs.prev();
+    }
 }
 const execCommandSave = async () => {
 	const tab = currentTabs.activeTab;
@@ -1521,18 +1560,14 @@ const keyBinds = [
 	{
 		target: "app",
 		name: "next-buffer",
-		bindKey: { win: "Ctrl+Tab", mac: "Command+Tab" },
-		exec: () => {
-			leftTabs.next()
-		},
+		bindKey: { win: "Ctrl+Tab", mac: "Ctrl+Tab" },
+		exec: execCommandNextBuffer,
 	},
 	{
 		target: "app",
 		name: "prev-buffer",
-		bindKey: { win: "Ctrl+Shift+Tab", mac: "Command+Shift+Tab" },
-		exec: () => {
-			leftTabs.prev()
-		},
+		bindKey: { win: "Ctrl+Shift+Tab", mac: "Ctrl+Shift+Tab" },
+		exec: execCommandPrevBuffer,
 	},
 	{
 		target: "app",
