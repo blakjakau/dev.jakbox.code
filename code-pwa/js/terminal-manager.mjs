@@ -6,7 +6,7 @@ import conduitSetupGuide from './conduit-setup-guide.mjs';
 
 // The URL for the backend WebSocket server
 const TERMINAL_WEBSOCKET_URL = `ws://localhost:3022/terminal`;
-const CONDUIT_RELEASE_TAG = "v0.0.10";
+const CONDUIT_RELEASE_TAG = "v0.0.11";
 const CONDUIT_DOWNLOAD_PATH = `https://github.com/blakjakau/dev.jakbox.conduit/releases/download/${CONDUIT_RELEASE_TAG}`
 const CONDUIT_UP_URL = `http://localhost:3022/up`;
 const CONDUIT_INSTALL_URL = `http://localhost:3022/install-user`;
