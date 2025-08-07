@@ -20,6 +20,8 @@ If you're passingly familiar with Sublime Text or VSCode the keyboard bindings s
 	- many colour themes
 - integrated '[prettier](https://prettier.io/)' 
 	- One touch code reformatting for your HTML/CSS/JavaScript files
+- integrated Ollama and Gemini API hooks for AI coding assistance with tooling for DIFF outputs and 1-touch apply
+- integrated '[xtermjs](https://xtermjs.org)' and '[Conduit](https://github.com/blakjakau/dev.jakbox.conduit)' for passthrough to terminal (PTY) on macOS, Linux and Windows 11
 - dark mode
 
 >**Please Note**  
