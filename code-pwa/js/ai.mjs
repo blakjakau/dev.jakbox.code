@@ -146,74 +146,139 @@ export default class AI {
     async _getTabSessionByPath(targetPath) {
         const openTabs = this._getAllOpenTabs();
         for (const tabInfo of openTabs) {
-            if (tabInfo.config && tabInfo.config.name === targetPath && tabInfo.config.session) {
+            if (tabInfo.config && tabInfo.config.path === targetPath && tabInfo.config.session) {
                 return tabInfo; // Return the full tabInfo object (which contains config.session)
             }
         }
         return null;
     }
-
+	/**
+	 * Finds a file's data from the workspace index by its path.
+	 * It prioritizes exact matches but can also find files based on partial end paths.
+	 * @param {string} targetPath - The path (or partial path) of the file to find.
+	 * @returns {object|null} The file data object from the index or null if not found.
+	 */
+	_findFileByPath(targetPath) {
+		if (!window.ui?.fileList?.index?.files) return null;
+		const files = window.ui.fileList.index.files;
+		// Normalize targetPath to remove leading '@' or '/' for matching
+		const normalizedTargetPath = targetPath.replace(/^[@/]+/, '');
+		// 1. Prioritize exact match on full path
+		let foundFile = files.find(f => f.path === normalizedTargetPath);
+		if (foundFile) return foundFile;
+		// 2. If not, find a file that *ends with* the provided path.
+		foundFile = files.find(f => f.path.endsWith(normalizedTargetPath));
+		if (foundFile) return foundFile;
+		
+		// 3. Final fallback: check just by filename
+		foundFile = files.find(f => f.name === normalizedTargetPath);
+		return foundFile || null;
+	}
+	/**
+	 * Simplifies a full file path to the shortest possible unique path within the workspace.
+	 * @param {string} fullPath - The complete path of the file.
+	 * @param {Array<string>} allFilePaths - An array of all file paths in the workspace.
+	 * @returns {string} The simplified, unique path.
+	 */
+	_simplifyPath(fullPath, allFilePaths) {
+		const pathParts = fullPath.split('/').filter(p => p);
+		const filename = pathParts[pathParts.length - 1];
+		if (!filename) return fullPath;
+		// Check if the filename alone is unique
+		const filesWithSameName = allFilePaths.filter(p => p.endsWith(`/${filename}`));
+		if (filesWithSameName.length <= 1) {
+			return filename;
+		}
+		// If not unique, add parent directories one by one until it is unique
+		for (let i = pathParts.length - 2; i >= 0; i--) {
+			const simplified = pathParts.slice(i).join('/');
+			const filesWithSameSimplifiedPath = allFilePaths.filter(p => p.endsWith(`/${simplified}`));
+			if (filesWithSameSimplifiedPath.length <= 1) {
+				return simplified;
+			}
+		}
+		// If all else fails, return the full path (but without any pesky leading slash)
+		return fullPath.startsWith('/') ? fullPath.substring(1) : fullPath;
+	}
 	/**
 	 * Processes the user's prompt to extract `@` tags for context inclusion.
 	 * Returns the prompt with tags either inlined (for 'generate' mode)
 	 * or removed and stored as structured objects (for 'chat' mode).
 	 * @param {string} prompt The original user prompt.
 	 * @param {'chat' | 'generate'} runMode The current run mode.
+	 * Returns the prompt with tags removed and stored as structured context items.
+	 * @param {string} prompt - The original user prompt.
+	 * @param {'chat'} runMode - The current run mode.
 	 * @returns {Promise<{processedPrompt: string, contextItems: Array<Object>}>}
 	 */
 	async _getContextualPrompt(prompt, runMode) {
         let processedPrompt = prompt;
         const contextItems = [];
-
-		if (this.editor && prompt.match(/@/i)) { 
-			// Handle @code and @current - both use _readEditor
-			if (prompt.includes("@code") || prompt.includes("@current")) {
+		const allFilePaths = window.ui?.fileList?.index?.files.map(f => f.path) || [];
+		const processedPaths = new Set();
+		if (this.editor && prompt.includes("@")) {
+			// --- Phase 1: Handle @/path/to/file.ext tags ---
+			// Regex to find @-mentions that look like file paths.
+			const fileTagRegex = /@([^\s`"'()\[\]{}]+?\.[a-zA-Z]{2,})/g;
+			let match;
+			while ((match = fileTagRegex.exec(prompt)) !== null) {
+				const fullTag = match[0]; // e.g., "@src/main.mjs"
+				const pathString = match[1]; // e.g., "src/main.mjs"
+				if (processedPaths.has(pathString)) continue;
+				processedPaths.add(pathString);
+				const fileData = this._findFileByPath(pathString);
+				if (!fileData) continue;
+				let tab = await this._getTabSessionByPath(fileData.path);
+				if (!tab && window.ui?.fileList?.open) {
+					await window.ui.fileList.open(fileData);
+					tab = await this._getTabSessionByPath(fileData.path);
+				}
+				if (tab) {
+					contextItems.push({
+						type: "file_context",
+						id: fileData.path,
+						filename: fileData.name,
+						language: tab.config.mode.name || 'text',
+						content: tab.config.session.getValue(),
+						isSelection: false
+					});
+					const simplifiedPath = this._simplifyPath(fileData.path, allFilePaths);
+					const tagToReplaceRegex = new RegExp(fullTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+					processedPrompt = processedPrompt.replace(tagToReplaceRegex, `\`${simplifiedPath}\``);
+				}
+			}
+			// --- Phase 2: Handle keyword tags like @code and @open ---
+			// Note: This operates on the already-modified `processedPrompt`.
+			const keywords = [
+				{ tag: "@code", handler: async () => [await this._readEditor()] },
+				{ tag: "@current", handler: async () => [await this._readEditor()] },
+				{ tag: "@open", handler: async () => await this._readOpenBuffers() }
+			];
+			for (const { tag, handler } of keywords) {
+				if (processedPrompt.includes(tag)) {
+					const items = await handler();
+					if (items && items.length > 0) {
+						items.forEach(item => {
+							if (item && item.path) { // Ensure item is valid
+								contextItems.push({
+									type: "file_context",
+									id: item.path,
+									filename: item.source,
+									language: item.language,
+									content: item.content,
+									isSelection: item.isSelection
+								});
+							}
+						});
+					}
+					processedPrompt = processedPrompt.replace(new RegExp(tag, "ig"), "");
+				}
+			}
+			// Deprecated fallback for original generate mode.
+			if (runMode === "generate") {
 				const item = await this._readEditor();
 				if (item) {
-                    const { source, path, type, language, content, isSelection } = item;
-                    const codeBlock = "\n\n ```"+language+"\n"+content+"\n``` ";
-                    
-                    if (runMode === "chat") {
-                        contextItems.push({ 
-                            type: "file_context", 
-                            id: path,
-                            filename: source, 
-                            language: language, 
-                            content: content,
-                            isSelection: isSelection
-                        });
-                    } else { // generate mode, inline
-                        processedPrompt = processedPrompt.replace(/@(code|current)/ig, codeBlock);
-                    }
-                }
-			}
-
-            // Handle @open
-            if (prompt.includes("@open")) {
-                const openFiles = await this._readOpenBuffers();
-                let openFilesContentString = ""; // For generate mode inlining
-
-                if (openFiles.length > 0) {
-                    openFiles.forEach(item => {
-                        const { source, path, type, language, content, isSelection } = item;
-                        if (runMode === "chat") {
-                            contextItems.push({
-                                type: "file_context", 
-                                id: path,
-                                filename: source, 
-                                language: language, 
-                                content: content,
-                                isSelection: isSelection
-                            });
-                        } else { // generate mode, inline
-                            openFilesContentString += `\n\n--- File: ${source} ---\n`;
-                            openFilesContentString += "\n```"+language+"\n"+content+"\n```\n";
-                        }
-                    });
-                } else {
-                    if (runMode === "generate") {
-                        openFilesContentString = "\n\n(No open files found or available via editor API)\n\n";
-                    }
+                    openFilesContentString = "\n\n(No open files found or available via editor API)\n\n";
                 }
                 
                 if (runMode === "generate") {
@@ -253,8 +318,8 @@ export default class AI {
                     totalLength += (msg.content || '').length;
                 } else if (msg.type === 'file_context' && msg.content) {
                     // Include context messages, also consider the "framing" text like filename and code block markers
-                    // This estimation should match how _prepareMessagesForAI formats file_context for AI
-                    const fileContentForAI = `--- File: ${msg.filename} ---\n\`\`\`${msg.language}\n${msg.content}\n\`\`\``;
+                    // This estimation should match how _prepareMessagesForAI formats file_context for AI (using the full path from msg.id)
+                    const fileContentForAI = `--- File: ${msg.id} ---\n\`\`\`${msg.language}\n${msg.content}\n\`\`\``;
                     totalLength += fileContentForAI.length;
                 }
             }

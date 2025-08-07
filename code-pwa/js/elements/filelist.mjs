@@ -130,6 +130,7 @@ export class FileList extends ContentFill {
 				this._render(folderItem.holder, folderItem.item.tree);
 			}
 			folderItem.removeAttribute("loading");
+			this.generateIndex(this._tree); // Regenerate the index after a refresh.
 		}
 	}
 
@@ -330,6 +331,7 @@ export class FileList extends ContentFill {
 						if (item.open) {
 							this._render(e.holder, item.tree)
 						}
+						this.generateIndex(this._tree); // Regenerate the index after a refresh.
 						e.removeAttribute("loading")
 					})
 				}
@@ -477,7 +479,7 @@ export class FileList extends ContentFill {
 		}
 	}
 	
-	find(match) {
+	find(match, limit = 20) {
 		const matches = []
 		if(!this?.index?.files) return []
 		
@@ -496,7 +498,7 @@ export class FileList extends ContentFill {
 			if(b.name.indexOf(match) == -1) return 0
 			return a.name.indexOf(match) < b.name.indexOf(match) ? -1 : 1 } )
 
-		return matches
+		return matches.slice(0, limit);
 	}
 	
 	

@@ -338,9 +338,10 @@ export class TabBar extends Block {
 	}
 
 	add(config) {
-		const tab = new TabItem(config.name)
-		if (config.handle) tab.setAttribute("title", buildPath(config.handle))
-		if (config.defaultStatusIcon) { // New: Set the default status icon if provided in config
+		const tab = new TabItem(config.name);
+		// Use the pre-built path from the config for the title attribute.
+		if (config.path) tab.setAttribute("title", config.path);
+		if (config.defaultStatusIcon) {
 			tab.defaultStatusIcon = config.defaultStatusIcon;
 		}
 		tab.config = config

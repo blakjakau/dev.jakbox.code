@@ -24,8 +24,8 @@ const promptEditorSettings = {
 	highlightActiveLine: false,
 	showPrintMargin: false,
 
-	// enableBasicAutocompletion: true,
-	// indentedSoftWrap: false
+	enableBasicAutocompletion: true,
+	enableLiveAutocompletion: true
 }
 
 class AIManager {
@@ -363,6 +363,49 @@ class AIManager {
 			// ACE's auto-resize is handled by minLines/maxLines options.
 			// We just need to call resize() to trigger it.
 			this.promptEditor.resize();
+			// --- Custom & EXCLUSIVE Autocompleter for @file context ---
+			const langTools = ace.require("ace/ext/language_tools");
+			const fileContextCompleter = {
+				// This regex tells ACE what constitutes a "word" for this completer.
+				// It will activate on '@' and replace the whole token.
+				identifierRegexps: [/@[\w.]*/],
+				getCompletions: (editor, session, pos, prefix, callback) => {
+					// Only activate this completer for our AI prompt editor
+					if (editor.id !== "ai-prompt-editor") {
+						return callback(null, []);
+					}
+					// Check if the cursor is inside an @-word
+					const line = session.getLine(pos.row).substring(0, pos.column);
+					const match = line.match(/@(\S*)$/);
+					if (!match) {
+						// No @-word found, so we provide no completions.
+						return callback(null, []);
+					}
+					// ACE automatically provides the text after the '@' as the prefix.
+					const searchTerm = prefix;
+					const fileResults = window.ui.fileList.find(searchTerm, 20);
+					const fileCompletions = fileResults.map(item => ({
+						caption: item.name,
+						value: item.path, // Insert the full path when selected.
+						meta: "File Context"
+					}));
+					// 2. Define and filter our default static options.
+					const defaultContextOptions = [
+						{ value: 'open', caption: '@open', meta: 'All open files' },
+						{ value: 'code', caption: '@code', meta: 'Current file/selection' }
+					];
+					const filteredDefaults = defaultContextOptions.filter(opt =>
+						opt.caption.startsWith(`@${searchTerm}`)
+					);
+
+					// 3. Combine the static options and the file results.
+					const allCompletions = [...filteredDefaults, ...fileCompletions];
+					callback(null, allCompletions);				
+				}
+			};
+			// By setting the completers array directly on the editor instance,
+			// we prevent the default ACE completers (keywords, snippets) from running.
+			this.promptEditor.completers = [fileContextCompleter];
 		}
 	}
 
@@ -419,8 +462,9 @@ class AIManager {
 		noticeBlock.innerHTML = `
 			<span class="message"></span>
 			<div class="button-group">
-				<button class="update-button">Update Context</button>
-				<button class="keep-old-button">Keep Old</button>
+				<button class="update-button theme-button">Update Context</button>
+				<button class="keep-old-button theme-button">Keep Old</button>
+				<button class="cancel-button">Cancel</button>
 			</div>
 		`;
 
@@ -437,6 +481,12 @@ class AIManager {
 				this._hideContextStaleNotice();
 			}
 		});
+		noticeBlock.querySelector(".cancel-button").addEventListener("click", () => {
+			if (this._contextStaleResolve) {
+				this._contextStaleResolve('cancel'); // User chose to cancel
+				this._hideContextStaleNotice();
+			}
+		});		
 		return noticeBlock;
 	}
 	
@@ -454,8 +504,15 @@ class AIManager {
 
 	_showContextStaleNotice(message) {
 		this.contextStaleNotice = this._createContextStaleNoticeElement();
-		this.contextStaleNotice.querySelector(".message").innerHTML = this.md.render(message);
+		const messageElement = this.contextStaleNotice.querySelector(".message");
+        const updateButton = this.contextStaleNotice.querySelector(".update-button");
+
+		messageElement.innerHTML = this.md.render(message);
 		this.conversationArea.append(this.contextStaleNotice);
+
+        // Focus the update button so the user can just press Enter to accept the update.
+        // A slight delay ensures the element is fully rendered and focusable.
+        setTimeout(() => updateButton.focus(), 100);
 	}
 
 	_hideContextStaleNotice() {
@@ -1135,27 +1192,19 @@ class AIManager {
 			return
 		}
 
-		// Use the active session's prompt history
-		const activePromptHistory = this.activeSession.promptHistory;
-		const lastPrompt = activePromptHistory.length > 0 ? activePromptHistory[activePromptHistory.length - 1].trim() : null;
-
-		if (lastPrompt && lastPrompt === userPrompt) {
-			console.log("Skipping adding duplicate contiguous prompt to history.");
-			this.promptIndex = activePromptHistory.length; // Keep index at end
-		} else {
-			activePromptHistory.push(userPrompt);
-			while (activePromptHistory.length > MAX_PROMPT_HISTORY) {
-				activePromptHistory.shift();
-				if (this.promptIndex > 0) {
-					this.promptIndex--;
-				}
-			}
-			this.promptIndex = activePromptHistory.length; // Set index to end after adding
-		}
-
-		// Reset the promptArea height after submitting the prompt
-		this.promptEditor.setValue("")
-		this._resizePromptArea();
+		// if (lastPrompt && lastPrompt === userPrompt) {
+		// 	console.log("Skipping adding duplicate contiguous prompt to history.");
+		// 	this.promptIndex = activePromptHistory.length; // Keep index at end
+		// } else {
+		// 	activePromptHistory.push(userPrompt);
+		// 	while (activePromptHistory.length > MAX_PROMPT_HISTORY) {
+		// 		activePromptHistory.shift();
+		// 		if (this.promptIndex > 0) {
+		// 			this.promptIndex--;
+		// 		}
+		// 	}
+		// 	this.promptIndex = activePromptHistory.length; // Set index to end after adding
+		// }
 
 		// No longer dispatch "new-prompt" globally, prompt history is per-session
 
@@ -1173,12 +1222,30 @@ class AIManager {
 			)
 			await this.historyManager.performSummarization() // Await summarization before continuing
 		}
-
+		// NEW: Check for stale context files and handle user interaction
+		const proceed = await this._checkForStaleContextFiles(userPrompt);
+		if (!proceed) {
+			// Abort was chosen. _checkForStaleContextFiles handles restoration.
+			return;
+		}
+		// Now that checks are passed, add prompt to history and clear the editor
+		const activePromptHistory = this.activeSession.promptHistory;
+		const lastPrompt = activePromptHistory.length > 0 ? activePromptHistory[activePromptHistory.length - 1].trim() : null;
+		if (lastPrompt && lastPrompt === userPrompt) {
+			console.log("Skipping adding duplicate contiguous prompt to history.");
+			this.promptIndex = activePromptHistory.length; // Keep index at end
+		} else {
+			activePromptHistory.push(userPrompt);
+			while (activePromptHistory.length > MAX_PROMPT_HISTORY) {
+				activePromptHistory.shift();
+				if (this.promptIndex > 0) this.promptIndex--;
+			}
+			this.promptIndex = activePromptHistory.length; // Set index to end after adding
+		}
+		this.promptEditor.setValue("");
+		this._resizePromptArea();
 		// Process prompt for @ tags, always using "chat" logic now.
 		const { processedPrompt, contextItems } = await this.ai._getContextualPrompt(userPrompt, "chat")
-		
-		// NEW: Check for stale context files and handle user interaction
-		await this._checkForStaleContextFiles(); // This will block if user interaction is needed
 
 		// NEW: Remove any existing context items for the same files being added in this turn
 		if (contextItems.length > 0) {
@@ -1482,12 +1549,16 @@ class AIManager {
                     // Iterate backward to get the MOST RECENT context entry for this file
                     for (let i = this.activeSession.messages.length - 1; i >= 0; i--) {
                         const msg = this.activeSession.messages[i];
-                        if (msg.type === "file_context" && msg.filename === targetPath) {
-                            originalContentFromContext = msg.content;
-                            break;
+                        if (msg.type === "file_context" && msg.id) {
+                            // Normalize both paths by removing any leading slashes for a robust comparison.
+                            const normalizedMsgId = msg.id.startsWith('/') ? msg.id.substring(1) : msg.id;
+                            const normalizedTargetPath = targetPath.startsWith('/') ? targetPath.substring(1) : targetPath;
+                            if (normalizedMsgId === normalizedTargetPath) {
+                                originalContentFromContext = msg.content;
+                                break;
+                            }
                         }
                     }
-
                     if (!originalContentFromContext) {
                         alert(`Error: The original content for "${targetPath}" was not found in this chat session's context history. Cannot apply diff.`);
                         return;
@@ -1625,14 +1696,15 @@ class AIManager {
 	 * If stale files are found, it presents a confirmation dialog to the user.
 	 * Returns a Promise that resolves when the user has made a choice.
 	 */
-	async _checkForStaleContextFiles() {
-		if (!this.activeSession) return;
+	async _checkForStaleContextFiles(originalPrompt) {
+		if (!this.activeSession) return true;
 
 		const staleFileContexts = [];
 		for (const message of this.activeSession.messages) {
 			if (message.type === "file_context" && message.filename) {
 				try {
-					const tabInfo = await this.ai._getTabSessionByPath(message.filename);
+					// Use message.id, which holds the full path, to find the tab.
+					const tabInfo = await this.ai._getTabSessionByPath(message.id);
 					if (tabInfo && tabInfo.config.session) {
 						const liveContent = tabInfo.config.session.getValue();
 						if (liveContent !== message.content) {
@@ -1666,24 +1738,43 @@ class AIManager {
 			this._setButtonsDisabledState(true); // Disable main buttons during interaction
 			this._isProcessing = true; // Keep processing flag true
 
-			let message = `**${staleFileContexts.length} file(s)** in this chat's context have changed or are no longer open.`;
-			if (staleFileContexts.some(f => f.liveContent !== null)) {
-				message += ` Would you like to update the context with the latest versions?`;
-			} else {
-				message += ` They will be removed from context if you continue.`;
+			const modifiedFiles = staleFileContexts.filter(f => f.liveContent !== null);
+			const removedFiles = staleFileContexts.filter(f => f.liveContent === null);
+
+			let message = `**Context Update Needed**\n\n`;
+			if (modifiedFiles.length > 0) {
+				message += `The following file(s) have been modified:\n`;
+				modifiedFiles.forEach(stale => {
+					message += `* \`${stale.message.filename}\`\n`;
+				});
 			}
-			
+			if (removedFiles.length > 0) {
+				if (modifiedFiles.length > 0) message += `\n`;
+				message += `The following file(s) are no longer open and will be removed from context:\n`;
+				removedFiles.forEach(stale => {
+					message += `* \`${stale.message.filename}\`\n`;
+				});
+			}
+			message += `\nDo you want to apply these updates before proceeding?`;
 			this._showContextStaleNotice(message);
 
 			const userChoice = await new Promise(resolve => {
 				this._contextStaleResolve = resolve;
 			});
 
-			if (userChoice) { // User chose to update
+			if (userChoice === 'cancel') {
+				// this.promptEditor.setValue(originalPrompt, -1); // Restore prompt - no longer needed as editor is not cleared yet
+				this._isProcessing = false;
+				this._setButtonsDisabledState(false);
+				return false; // Signal to abort
+			}
+			if (userChoice === true) { // User chose to update
 				this._updateStaleContextFiles(staleFileContexts);
 			}
 			// If userChoice is false, do nothing; the old context will be used.
+			return true; // Signal to proceed
 		}
+		return true; // No stale files, proceed
 	}
 	
 	async loadSettings() {
