@@ -146,7 +146,7 @@ export default class AI {
     async _getTabSessionByPath(targetPath) {
         const openTabs = this._getAllOpenTabs();
         for (const tabInfo of openTabs) {
-            if (tabInfo.config && tabInfo.config.name === targetPath && tabInfo.config.session) {
+            if (tabInfo.config && tabInfo.config.path === targetPath && tabInfo.config.session) {
                 return tabInfo; // Return the full tabInfo object (which contains config.session)
             }
         }
@@ -253,8 +253,8 @@ export default class AI {
                     totalLength += (msg.content || '').length;
                 } else if (msg.type === 'file_context' && msg.content) {
                     // Include context messages, also consider the "framing" text like filename and code block markers
-                    // This estimation should match how _prepareMessagesForAI formats file_context for AI
-                    const fileContentForAI = `--- File: ${msg.filename} ---\n\`\`\`${msg.language}\n${msg.content}\n\`\`\``;
+                    // This estimation should match how _prepareMessagesForAI formats file_context for AI (using the full path from msg.id)
+                    const fileContentForAI = `--- File: ${msg.id} ---\n\`\`\`${msg.language}\n${msg.content}\n\`\`\``;
                     totalLength += fileContentForAI.length;
                 }
             }

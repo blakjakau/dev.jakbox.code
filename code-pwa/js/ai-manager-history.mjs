@@ -525,7 +525,7 @@ class AIManagerHistory {
 			if (msg.type === "file_context") {
 				return {
 					role: "user",
-					content: `--- File: ${msg.filename} ---\n\`\`\`${msg.language}\n${msg.content}\n\`\`\``,
+					content: `--- File: ${msg.id} ---\n\`\`\`${msg.language}\n${msg.content}\n\`\`\``,
 				}
 			}
 			return { role: msg.role, content: msg.content }

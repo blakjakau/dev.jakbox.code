@@ -24,8 +24,8 @@ const promptEditorSettings = {
 	highlightActiveLine: false,
 	showPrintMargin: false,
 
-	// enableBasicAutocompletion: true,
-	// indentedSoftWrap: false
+	enableBasicAutocompletion: true,
+	enableLiveAutocompletion: true
 }
 
 class AIManager {
@@ -363,6 +363,49 @@ class AIManager {
 			// ACE's auto-resize is handled by minLines/maxLines options.
 			// We just need to call resize() to trigger it.
 			this.promptEditor.resize();
+			// --- Custom & EXCLUSIVE Autocompleter for @file context ---
+			const langTools = ace.require("ace/ext/language_tools");
+			const fileContextCompleter = {
+				// This regex tells ACE what constitutes a "word" for this completer.
+				// It will activate on '@' and replace the whole token.
+				identifierRegexps: [/@[\w.]*/],
+				getCompletions: (editor, session, pos, prefix, callback) => {
+					// Only activate this completer for our AI prompt editor
+					if (editor.id !== "ai-prompt-editor") {
+						return callback(null, []);
+					}
+					// Check if the cursor is inside an @-word
+					const line = session.getLine(pos.row).substring(0, pos.column);
+					const match = line.match(/@(\S*)$/);
+					if (!match) {
+						// No @-word found, so we provide no completions.
+						return callback(null, []);
+					}
+					// ACE automatically provides the text after the '@' as the prefix.
+					const searchTerm = prefix;
+					const fileResults = window.ui.fileList.find(searchTerm, 20);
+					const fileCompletions = fileResults.map(item => ({
+						caption: item.name,
+						value: item.path, // Insert the full path when selected.
+						meta: "File Context"
+					}));
+					// 2. Define and filter our default static options.
+					const defaultContextOptions = [
+						{ value: 'open', caption: '@open', meta: 'All open files' },
+						{ value: 'code', caption: '@code', meta: 'Current file/selection' }
+					];
+					const filteredDefaults = defaultContextOptions.filter(opt =>
+						opt.caption.startsWith(`@${searchTerm}`)
+					);
+
+					// 3. Combine the static options and the file results.
+					const allCompletions = [...filteredDefaults, ...fileCompletions];
+					callback(null, allCompletions);				
+				}
+			};
+			// By setting the completers array directly on the editor instance,
+			// we prevent the default ACE completers (keywords, snippets) from running.
+			this.promptEditor.completers = [fileContextCompleter];
 		}
 	}
 
@@ -1482,12 +1525,16 @@ class AIManager {
                     // Iterate backward to get the MOST RECENT context entry for this file
                     for (let i = this.activeSession.messages.length - 1; i >= 0; i--) {
                         const msg = this.activeSession.messages[i];
-                        if (msg.type === "file_context" && msg.filename === targetPath) {
-                            originalContentFromContext = msg.content;
-                            break;
+                        if (msg.type === "file_context" && msg.id) {
+                            // Normalize both paths by removing any leading slashes for a robust comparison.
+                            const normalizedMsgId = msg.id.startsWith('/') ? msg.id.substring(1) : msg.id;
+                            const normalizedTargetPath = targetPath.startsWith('/') ? targetPath.substring(1) : targetPath;
+                            if (normalizedMsgId === normalizedTargetPath) {
+                                originalContentFromContext = msg.content;
+                                break;
+                            }
                         }
                     }
-
                     if (!originalContentFromContext) {
                         alert(`Error: The original content for "${targetPath}" was not found in this chat session's context history. Cannot apply diff.`);
                         return;
@@ -1632,7 +1679,8 @@ class AIManager {
 		for (const message of this.activeSession.messages) {
 			if (message.type === "file_context" && message.filename) {
 				try {
-					const tabInfo = await this.ai._getTabSessionByPath(message.filename);
+					// Use message.id, which holds the full path, to find the tab.
+					const tabInfo = await this.ai._getTabSessionByPath(message.id);
 					if (tabInfo && tabInfo.config.session) {
 						const liveContent = tabInfo.config.session.getValue();
 						if (liveContent !== message.content) {
