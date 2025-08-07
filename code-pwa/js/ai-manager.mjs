@@ -462,8 +462,9 @@ class AIManager {
 		noticeBlock.innerHTML = `
 			<span class="message"></span>
 			<div class="button-group">
-				<button class="update-button">Update Context</button>
-				<button class="keep-old-button">Keep Old</button>
+				<button class="update-button theme-button">Update Context</button>
+				<button class="keep-old-button theme-button">Keep Old</button>
+				<button class="cancel-button">Cancel</button>
 			</div>
 		`;
 
@@ -480,6 +481,12 @@ class AIManager {
 				this._hideContextStaleNotice();
 			}
 		});
+		noticeBlock.querySelector(".cancel-button").addEventListener("click", () => {
+			if (this._contextStaleResolve) {
+				this._contextStaleResolve('cancel'); // User chose to cancel
+				this._hideContextStaleNotice();
+			}
+		});		
 		return noticeBlock;
 	}
 	
@@ -497,8 +504,15 @@ class AIManager {
 
 	_showContextStaleNotice(message) {
 		this.contextStaleNotice = this._createContextStaleNoticeElement();
-		this.contextStaleNotice.querySelector(".message").innerHTML = this.md.render(message);
+		const messageElement = this.contextStaleNotice.querySelector(".message");
+        const updateButton = this.contextStaleNotice.querySelector(".update-button");
+
+		messageElement.innerHTML = this.md.render(message);
 		this.conversationArea.append(this.contextStaleNotice);
+
+        // Focus the update button so the user can just press Enter to accept the update.
+        // A slight delay ensures the element is fully rendered and focusable.
+        setTimeout(() => updateButton.focus(), 100);
 	}
 
 	_hideContextStaleNotice() {
@@ -1178,27 +1192,19 @@ class AIManager {
 			return
 		}
 
-		// Use the active session's prompt history
-		const activePromptHistory = this.activeSession.promptHistory;
-		const lastPrompt = activePromptHistory.length > 0 ? activePromptHistory[activePromptHistory.length - 1].trim() : null;
-
-		if (lastPrompt && lastPrompt === userPrompt) {
-			console.log("Skipping adding duplicate contiguous prompt to history.");
-			this.promptIndex = activePromptHistory.length; // Keep index at end
-		} else {
-			activePromptHistory.push(userPrompt);
-			while (activePromptHistory.length > MAX_PROMPT_HISTORY) {
-				activePromptHistory.shift();
-				if (this.promptIndex > 0) {
-					this.promptIndex--;
-				}
-			}
-			this.promptIndex = activePromptHistory.length; // Set index to end after adding
-		}
-
-		// Reset the promptArea height after submitting the prompt
-		this.promptEditor.setValue("")
-		this._resizePromptArea();
+		// if (lastPrompt && lastPrompt === userPrompt) {
+		// 	console.log("Skipping adding duplicate contiguous prompt to history.");
+		// 	this.promptIndex = activePromptHistory.length; // Keep index at end
+		// } else {
+		// 	activePromptHistory.push(userPrompt);
+		// 	while (activePromptHistory.length > MAX_PROMPT_HISTORY) {
+		// 		activePromptHistory.shift();
+		// 		if (this.promptIndex > 0) {
+		// 			this.promptIndex--;
+		// 		}
+		// 	}
+		// 	this.promptIndex = activePromptHistory.length; // Set index to end after adding
+		// }
 
 		// No longer dispatch "new-prompt" globally, prompt history is per-session
 
@@ -1216,12 +1222,30 @@ class AIManager {
 			)
 			await this.historyManager.performSummarization() // Await summarization before continuing
 		}
-
+		// NEW: Check for stale context files and handle user interaction
+		const proceed = await this._checkForStaleContextFiles(userPrompt);
+		if (!proceed) {
+			// Abort was chosen. _checkForStaleContextFiles handles restoration.
+			return;
+		}
+		// Now that checks are passed, add prompt to history and clear the editor
+		const activePromptHistory = this.activeSession.promptHistory;
+		const lastPrompt = activePromptHistory.length > 0 ? activePromptHistory[activePromptHistory.length - 1].trim() : null;
+		if (lastPrompt && lastPrompt === userPrompt) {
+			console.log("Skipping adding duplicate contiguous prompt to history.");
+			this.promptIndex = activePromptHistory.length; // Keep index at end
+		} else {
+			activePromptHistory.push(userPrompt);
+			while (activePromptHistory.length > MAX_PROMPT_HISTORY) {
+				activePromptHistory.shift();
+				if (this.promptIndex > 0) this.promptIndex--;
+			}
+			this.promptIndex = activePromptHistory.length; // Set index to end after adding
+		}
+		this.promptEditor.setValue("");
+		this._resizePromptArea();
 		// Process prompt for @ tags, always using "chat" logic now.
 		const { processedPrompt, contextItems } = await this.ai._getContextualPrompt(userPrompt, "chat")
-		
-		// NEW: Check for stale context files and handle user interaction
-		await this._checkForStaleContextFiles(); // This will block if user interaction is needed
 
 		// NEW: Remove any existing context items for the same files being added in this turn
 		if (contextItems.length > 0) {
@@ -1672,8 +1696,8 @@ class AIManager {
 	 * If stale files are found, it presents a confirmation dialog to the user.
 	 * Returns a Promise that resolves when the user has made a choice.
 	 */
-	async _checkForStaleContextFiles() {
-		if (!this.activeSession) return;
+	async _checkForStaleContextFiles(originalPrompt) {
+		if (!this.activeSession) return true;
 
 		const staleFileContexts = [];
 		for (const message of this.activeSession.messages) {
@@ -1714,24 +1738,43 @@ class AIManager {
 			this._setButtonsDisabledState(true); // Disable main buttons during interaction
 			this._isProcessing = true; // Keep processing flag true
 
-			let message = `**${staleFileContexts.length} file(s)** in this chat's context have changed or are no longer open.`;
-			if (staleFileContexts.some(f => f.liveContent !== null)) {
-				message += ` Would you like to update the context with the latest versions?`;
-			} else {
-				message += ` They will be removed from context if you continue.`;
+			const modifiedFiles = staleFileContexts.filter(f => f.liveContent !== null);
+			const removedFiles = staleFileContexts.filter(f => f.liveContent === null);
+
+			let message = `**Context Update Needed**\n\n`;
+			if (modifiedFiles.length > 0) {
+				message += `The following file(s) have been modified:\n`;
+				modifiedFiles.forEach(stale => {
+					message += `* \`${stale.message.filename}\`\n`;
+				});
 			}
-			
+			if (removedFiles.length > 0) {
+				if (modifiedFiles.length > 0) message += `\n`;
+				message += `The following file(s) are no longer open and will be removed from context:\n`;
+				removedFiles.forEach(stale => {
+					message += `* \`${stale.message.filename}\`\n`;
+				});
+			}
+			message += `\nDo you want to apply these updates before proceeding?`;
 			this._showContextStaleNotice(message);
 
 			const userChoice = await new Promise(resolve => {
 				this._contextStaleResolve = resolve;
 			});
 
-			if (userChoice) { // User chose to update
+			if (userChoice === 'cancel') {
+				// this.promptEditor.setValue(originalPrompt, -1); // Restore prompt - no longer needed as editor is not cleared yet
+				this._isProcessing = false;
+				this._setButtonsDisabledState(false);
+				return false; // Signal to abort
+			}
+			if (userChoice === true) { // User chose to update
 				this._updateStaleContextFiles(staleFileContexts);
 			}
 			// If userChoice is false, do nothing; the old context will be used.
+			return true; // Signal to proceed
 		}
+		return true; // No stale files, proceed
 	}
 	
 	async loadSettings() {

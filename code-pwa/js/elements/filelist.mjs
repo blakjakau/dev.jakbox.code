@@ -130,6 +130,7 @@ export class FileList extends ContentFill {
 				this._render(folderItem.holder, folderItem.item.tree);
 			}
 			folderItem.removeAttribute("loading");
+			this.generateIndex(this._tree); // Regenerate the index after a refresh.
 		}
 	}
 
@@ -330,6 +331,7 @@ export class FileList extends ContentFill {
 						if (item.open) {
 							this._render(e.holder, item.tree)
 						}
+						this.generateIndex(this._tree); // Regenerate the index after a refresh.
 						e.removeAttribute("loading")
 					})
 				}
