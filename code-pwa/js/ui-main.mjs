@@ -644,6 +644,20 @@ const uiManager = {
 
 		omni.input.addEventListener("keydown", (e) => {
 			if (omni.last === "goto" && omni.resultItem) {
+				// ArrowDown or Tab -> next item
+				if (e.code === "ArrowDown" || (e.code === "Tab" && !e.shiftKey && !e.ctrlKey)) {
+					e.preventDefault();
+					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length);
+					omni.results.next();
+					return;
+				}
+				// ArrowUp or Shift+Tab or Ctrl+Tab -> previous item
+				if (e.code === "ArrowUp" || (e.code === "Tab" && (e.shiftKey || e.ctrlKey))) {
+					e.preventDefault();
+					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length);
+					omni.results.prev();
+					return;
+				}
 				if (e.code == "PageUp") {
 					e.preventDefault()
 					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
@@ -654,18 +668,6 @@ const uiManager = {
 					e.preventDefault()
 					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
 					omni.results.next(10)
-					return
-				}
-				if (e.code == "ArrowUp") {
-					e.preventDefault()
-					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
-					omni.results.prev()
-					return
-				}
-				if (e.code == "ArrowDown") {
-					e.preventDefault()
-					omni.input.setSelectionRange(omni.input.value.length, omni.input.value.length)
-					omni.results.next()
 					return
 				}
 			}
