@@ -605,6 +605,11 @@ class AIManager {
 		const form = this._settingsForm;
 		const workspaceSettingsCheckbox = this._workspaceSettingsCheckbox;
 		const workspaceSettingsLabel = form.querySelector("label[for='use-workspace-settings']"); // Re-select label as its content will be cleared
+		// Set initial state of "Use workspace-specific settings" checkbox
+		// based on whether a config for the current provider exists in the workspace.
+		const providerName = this.aiProvider;
+		this.useWorkspaceSettings = !!(window.workspace?.aiConfig?.[providerName]);
+		this._workspaceSettingsCheckbox.checked = this.useWorkspaceSettings;
 
 		// Clear all form content except the workspace settings checkbox and its label
 		form.innerHTML = '';
@@ -646,6 +651,15 @@ class AIManager {
 			
 			// Initialize new AI provider instance. Handle errors to prevent blocking.
 			try {
+				// After init, apply workspace or global settings for the newly selected provider
+				const providerConfig = window.workspace.aiConfig?.[this.aiProvider] || window.app.aiConfig?.[this.aiProvider];
+				if (providerConfig) {
+					const useWorkspaceSettings = !!window.workspace.aiConfig?.[this.aiProvider];
+					// Call setOptions to correctly apply the config and update derived state like MAX_CONTEXT_TOKENS.
+					// The 'setting-changed' event dispatched by setOptions will be handled by main.js to persist,
+					// and by AIManager._handleSettingChangedExternally to update UI.
+					await this.ai.setOptions(providerConfig, null, null, useWorkspaceSettings, useWorkspaceSettings ? 'workspace' : 'global');
+				}
 				await this.ai.init(); // Initialize the new AI with its settings
 				// Add a system message to inform the user about the successful switch.
 				this.historyManager.addMessage({
