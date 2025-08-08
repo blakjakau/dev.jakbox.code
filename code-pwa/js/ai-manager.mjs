@@ -2,6 +2,7 @@
 // Styles for this module are located in css/ai-manager.css
 import { Block, Button, Icon, TabBar, TabItem, FileBar } from "./elements.mjs"
 import Ollama from "./ai-ollama.mjs" 
+import Claude from "./ai-claude.mjs"
 import Gemini from "./ai-gemini.mjs"
 import AIManagerHistory, { MAX_RECENT_MESSAGES_TO_PRESERVE } from "./ai-manager-history.mjs"
 import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
@@ -34,6 +35,7 @@ class AIManager {
 		this.aiProvider = "ollama" // Default AI provider
 		this.aiProviders = {
 			ollama: Ollama,
+			claude: Claude,
 			gemini: Gemini,
 		}
 		this._settingsSchema = {
@@ -368,7 +370,7 @@ class AIManager {
 			const fileContextCompleter = {
 				// This regex tells ACE what constitutes a "word" for this completer.
 				// It will activate on '@' and replace the whole token.
-				identifierRegexps: [/@\S*/],
+				identifierRegexps: [/@[\w.]*/],
 				getCompletions: (editor, session, pos, prefix, callback) => {
 					// Only activate this completer for our AI prompt editor
 					if (editor.id !== "ai-prompt-editor") {
@@ -386,7 +388,7 @@ class AIManager {
 					const fileResults = window.ui.fileList.find(searchTerm, 20);
 					const fileCompletions = fileResults.map(item => ({
 						caption: item.name,
-						value: `@${item.path}`, // Insert the full path when selected.
+						value: item.path, // Insert the full path when selected.
 						meta: "File Context"
 					}));
 					// 2. Define and filter our default static options.
