@@ -1,7 +1,8 @@
 import { ContentFill, Block } from './element.mjs';
 import { Icon } from './icon.mjs';
 import { FileItem } from './fileitem.mjs';
-import { isFunction, getIconForFileName } from './utils.mjs';
+import { Button } from './button.mjs';
+import { isFunction, getIconForFileName, setIgnorePaths, getIgnorePaths, isPathIgnored } from './utils.mjs';
 import { readAndOrderDirectory, readAndOrderDirectoryRecursive, buildPath } from './utils.mjs';
 
 let tabIndexGroup = 1;
@@ -10,7 +11,10 @@ export class FileList extends ContentFill {
 	constructor(content) {
 		super(content)
 		const inner = (this._inner = new Block()) //document.createElement("div")
-		const indexing = (this._indexing = new Icon("find_in_page"))
+		const indexing = (this._indexing = new Icon("find_in_page"));
+		this._listContainer = new Block();
+		this._listContainer.classList.add('file-list-container');
+		this._settingsPanel = null;
 		indexing.setAttribute("title", "indexing files")
 		
 		indexing.classList.add("indexing")
@@ -41,10 +45,26 @@ export class FileList extends ContentFill {
 	connectedCallback() {
 		this.append(this._inner)
 		this.append(this._indexing)
+		this.append(this._listContainer);
+		this._listContainer.append(this._inner, this._indexing);
+		this._settingsPanel = this._createSettingsPanel();
+		this.append(this._settingsPanel);
 		// this.append(this._progress);
 		this._inner.setAttribute("slim", "true")
 	}
 	
+	set ignorePaths(paths) {
+		setIgnorePaths(paths);
+		// Re-render and re-index if the list of folders is already loaded
+		if (this._tree) {
+			this.files = this._tree;
+		}
+	}
+
+	get ignorePaths() {
+		return getIgnorePaths();
+	}
+
 	set autoExpand(v) {
 		if(~isNaN(v)) {
 			this._expandLevels = v
@@ -105,7 +125,45 @@ export class FileList extends ContentFill {
 		const active = this.querySelector("ui-file-item[active]")
 		return active
 	}
-
+	_createSettingsPanel() {
+		const settingsPanel = new ContentFill();
+		settingsPanel.classList.add("settings-panel");
+		settingsPanel.style.display = 'none'; // Initially hidden
+		const form = document.createElement("form");
+		const ignoreLabel = document.createElement("label");
+		ignoreLabel.textContent = "Ignored Paths (comma-separated)";
+		const ignoreInput = document.createElement("textarea");
+		ignoreInput.id = "filelist-ignore-paths";
+		ignoreInput.value = this.ignorePaths.join(', ');
+		ignoreInput.rows = 5;
+		const saveButton = new Button("Save Settings");
+		saveButton.icon = "save";
+		saveButton.classList.add("theme-button");
+		saveButton.on("click", () => {
+			const newPaths = ignoreInput.value.split(',').map(p => p.trim()).filter(p => p);
+			this.ignorePaths = newPaths; // This will trigger the setter which re-renders
+			this.dispatch('settings-changed', { ignorePaths: newPaths });
+			this.toggleSettingsPanel();
+		});
+		form.append(ignoreLabel, ignoreInput, saveButton);
+		settingsPanel.append(form);
+		return settingsPanel;
+	}
+	toggleSettingsPanel() {
+		const isHidden = this._settingsPanel.style.display === 'none';
+		if (isHidden) {
+			// Show settings
+			this._listContainer.style.display = 'none';
+			this._settingsPanel.style.display = 'block';
+			// Populate textarea with current settings
+			const ignoreInput = this._settingsPanel.querySelector('#filelist-ignore-paths');
+			ignoreInput.value = this.ignorePaths.join(', ');
+		} else {
+			// Hide settings
+			this._listContainer.style.display = 'block';
+			this._settingsPanel.style.display = 'none';
+		}
+	}
 	byTitle(title) {
 		const file = this.querySelector(`ui-file-item[title="${title}"`)
 		if (!file) console.warn("No match found for", title)
@@ -257,7 +315,11 @@ export class FileList extends ContentFill {
 
 				e.on("contextmenu", this.itemContextMenu)
 
-				if (item.locked) {
+				if (isPathIgnored(item.name)) {
+					e.icon = 'visibility_off';
+					e.classList.add('ignored');
+					// No click handler attached, so it is not expandable.
+				} else if (item.locked) {
 					e.icon = "lock"
 					e.on("click", async () => {
 						if ("function" == typeof this._unlock) {
@@ -489,14 +551,21 @@ export class FileList extends ContentFill {
 			}
 		}
 		
-		
-		// alphabetise
-		matches.sort((a, b)=>{ return a.name < b.name ? -1 : 1 } )
-		// then lowset position in string
-		matches.sort((a, b)=>{ 
-			if(a.name.indexOf(match) == -1) return 1
-			if(b.name.indexOf(match) == -1) return 0
-			return a.name.indexOf(match) < b.name.indexOf(match) ? -1 : 1 } )
+		// Sort matches: 1. Closer to END of path, 2. Shorter path, 3. Alphabetical.
+		matches.sort((a, b) => {
+			// Criterion 1: Prefer matches closer to the END of the path.
+			const aIndex = a.path.indexOf(match);
+			const bIndex = b.path.indexOf(match);
+			if (aIndex > bIndex) return -1;
+			if (aIndex < bIndex) return 1;
+
+			// Criterion 2: Prefer shorter paths.
+			if (a.path.length < b.path.length) return -1;
+			if (a.path.length > b.path.length) return 1;
+
+			// Criterion 3: Alphabetical fallback.
+			return a.name.localeCompare(b.name);
+		});
 
 		return matches.slice(0, limit);
 	}

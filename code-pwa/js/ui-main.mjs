@@ -123,7 +123,15 @@ const uiManager = {
 		fileActions = new ActionBar()
 		fileActions.setAttribute("id", "fileActions")
 		fileActions.setAttribute("slim", "true")
-		fileActions
+
+		const fileSettingsBtn = new Button();
+		fileSettingsBtn.icon = "settings";
+		fileSettingsBtn.setAttribute("title", "File list settings");
+		fileSettingsBtn.setAttribute("hook", "right");
+		fileSettingsBtn.on('click', () => {
+			ui.fileList.toggleSettingsPanel();
+		});
+		fileActions.append(fileSettingsBtn);
 
 		fileList = new FileList()
 
