@@ -368,7 +368,7 @@ class AIManager {
 			const fileContextCompleter = {
 				// This regex tells ACE what constitutes a "word" for this completer.
 				// It will activate on '@' and replace the whole token.
-				identifierRegexps: [/@[\w.]*/],
+				identifierRegexps: [/@\S*/],
 				getCompletions: (editor, session, pos, prefix, callback) => {
 					// Only activate this completer for our AI prompt editor
 					if (editor.id !== "ai-prompt-editor") {
@@ -386,7 +386,7 @@ class AIManager {
 					const fileResults = window.ui.fileList.find(searchTerm, 20);
 					const fileCompletions = fileResults.map(item => ({
 						caption: item.name,
-						value: item.path, // Insert the full path when selected.
+						value: `@${item.path}`, // Insert the full path when selected.
 						meta: "File Context"
 					}));
 					// 2. Define and filter our default static options.
