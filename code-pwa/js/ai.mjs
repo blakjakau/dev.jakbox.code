@@ -218,12 +218,18 @@ export default class AI {
 		const processedPaths = new Set();
 		if (this.editor && prompt.includes("@")) {
 			// --- Phase 1: Handle @/path/to/file.ext tags ---
-			// Regex to find @-mentions that look like file paths.
-			const fileTagRegex = /@([^\s`"'()\[\]{}]+?\.[a-zA-Z]{2,})/g;
+			// Regex to find any @-mention followed by non-space characters.
+			const fileTagRegex = /@(\S+)/g;
 			let match;
 			while ((match = fileTagRegex.exec(prompt)) !== null) {
 				const fullTag = match[0]; // e.g., "@src/main.mjs"
 				const pathString = match[1]; // e.g., "src/main.mjs"
+
+				// Skip if it's a known keyword like @code or @open, which are handled in Phase 2
+				if (['code', 'current', 'open'].includes(pathString)) {
+					continue;
+				}
+
 				if (processedPaths.has(pathString)) continue;
 				processedPaths.add(pathString);
 				const fileData = this._findFileByPath(pathString);

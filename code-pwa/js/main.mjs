@@ -87,6 +87,7 @@ const workspace = {
 	id: "default",
 	name: "default",
 	folders: [],
+	ignorePaths: ['.git', 'node_modules', 'dist', 'build'],
 	files: [],
 	sidebarPanelWidths: {},
 	scratchpad: '',
@@ -418,6 +419,7 @@ const openWorkspace = (() => {
 			workspace.name = load.name || "default"
 			workspace.folders = load.folders || []
 			workspace.files = load.files || []
+			workspace.ignorePaths = load.ignorePaths || ['.git', 'node_modules', 'dist', 'build'];
 			workspace.openFolders = load.openFolders || [];
 			workspace.scratchpad = load.scratchpad || '';
 			ui.scratchEditor.setValue(workspace.scratchpad || '');
@@ -428,6 +430,8 @@ const openWorkspace = (() => {
 			}
 			workspace.activeSidebarTab = load.activeSidebarTab || null;
 			workspace.id = load.id || safeString(workspace.name)
+
+			fileList.ignorePaths = workspace.ignorePaths;
 			// REMOVED: workspace.promptHistory = load.promptHistory || []; // Removed
 			// REMOVED: ui.aiManager.promptHistory = workspace.promptHistory; // Removed
             workspace.aiConfig = load.aiConfig || {};
@@ -514,6 +518,7 @@ const openWorkspace = (() => {
 				workspace.id = "default"
 				workspace.files = []
 				workspace.folders = []
+				workspace.ignorePaths = ['.git', 'node_modules', 'dist', 'build'];
 				// NEW: Initialize empty AI session metadata
                 workspace.aiSessionsMetadata = [];
                 workspace.activeAiSessionId = null;
@@ -1781,6 +1786,7 @@ const keyBinds = [
 				workspace.id = id
 				workspace.folders = []
 				workspace.files = []
+				workspace.ignorePaths = ['.git', 'node_modules', 'dist', 'build'];
 				workspace.openFolders = [];
                 // NEW: Initialize empty AI session metadata for new workspace
                 updateFileListBackground();
@@ -1904,6 +1910,13 @@ setTimeout(async () => {
 		if(e.detail?.tab?._iconId == "terminal") {
 			window.terminalManager.connect(); // call intial connect
 			window.terminalManager.fit(); // Fit active terminal when its tab is focused
+		}
+    })
+
+    fileList.on('settings-changed', (event) => {
+		if (event.detail.ignorePaths) {
+			workspace.ignorePaths = event.detail.ignorePaths;
+			saveWorkspace();
 		}
     })
     // REMOVED: ui.aiManager.panel.addEventListener('new-prompt', (event) => { /* ... */ });

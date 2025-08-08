@@ -38,6 +38,22 @@ export const addStylesheet = (u, id) => {
 	})
 }
 
+let _ignorePaths = new Set();
+
+export function setIgnorePaths(paths = []) {
+    _ignorePaths = new Set(paths);
+}
+
+export function getIgnorePaths() {
+    return Array.from(_ignorePaths);
+}
+
+export function isPathIgnored(path) {
+    if (!_ignorePaths.size) return false;
+    // Check if the folder name itself is in the ignore list.
+    return _ignorePaths.has(path);
+}
+
 // Load a script dynamically with a promise return
 export const loadScript = (src) => {
 	return new Promise((resolve, reject) => {
@@ -76,8 +92,7 @@ export async function readAndOrderDirectory(handle) {
 
 export async function readAndOrderDirectoryRecursive(handle) {
 	let files = [],
-		folders = [];
-	const noindex = [".git", "node_modules"];
+		folders = []
 	
 	try {
 		for await (const entry of handle.values()) {
@@ -101,7 +116,7 @@ export async function readAndOrderDirectoryRecursive(handle) {
 	folders.sort(sortOnName)
 	
 	for(let folder of folders) {
-		if(folder.name.substr(0,1)==="." || noindex.indexOf(folder.name)>-1) continue
+		if(folder.name.startsWith(".") || isPathIgnored(folder.name)) continue;
 		try {
 			folder.tree = await readAndOrderDirectoryRecursive(folder)
 		} catch(e) {

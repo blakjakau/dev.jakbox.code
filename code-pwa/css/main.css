@@ -633,6 +633,9 @@ body.showSplitView #leftTabs {
 	background:#fff;
 }
 #omni .results ui-block {
+	color: #444; /* Darker text for better contrast */
+	padding: 8px 12px;
+	cursor: pointer;	
 	text-align:left;
 	border-bottom: 1px solid var(--ui-shadow);
 }
@@ -642,6 +645,10 @@ body.showSplitView #leftTabs {
 /*	background: var(--high);*/
 /*}*/
 
+#omni .results ui-block:hover {
+	background-color: #f5f5f5;
+}
+
 #omni .results ui-block.active {
 	color:#fff;
 	background: var(--theme);
@@ -649,6 +656,13 @@ body.showSplitView #leftTabs {
 }
 #omni .results ui-block b {
 	background: rgba(0,0,0,0.05);
+}
+#omni .results ui-block small {
+	font-size: 0.9em; /* Larger path font */
+	opacity: 0.8;
+}
+#omni .results ui-block.active small {
+	opacity: 0.9;
 }
 
 @media (max-width:799px) {
