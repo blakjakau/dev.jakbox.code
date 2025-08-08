@@ -1564,9 +1564,14 @@ class AIManager {
                         return;
                     }
                     // --- NEW LOGIC END ---
-
-                    // 2. Find the LIVE editor tab using the AI's helper
-                    const tabToUpdate = await this.ai._getTabSessionByPath(targetPath);
+                    // 2. Find the LIVE editor tab using the AI's helper.
+                    // This is made resilient to diffs that may omit the leading slash.
+                    let tabToUpdate = await this.ai._getTabSessionByPath(targetPath);
+                    // If the path from the diff doesn't match, try adding a leading slash.
+                    if (!tabToUpdate && !targetPath.startsWith('/')) {
+                        tabToUpdate = await this.ai._getTabSessionByPath(`/${targetPath}`);
+                    }
+                    
                     if (!tabToUpdate) {
                         alert(`Error: File "${targetPath}" is not currently open in the editor. Please open the file to apply the diff.`);
                         return;
