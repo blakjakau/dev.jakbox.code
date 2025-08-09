@@ -2,14 +2,17 @@
 import AI from './ai.mjs';
 import systemPrompt from "./claudeSystemPrompt.mjs";
 
-// A static list of common Claude models with their context window sizes.
-// Anthropic does not provide a public API endpoint for model discovery.
-const claudeModels = [
-    { value: "claude-3-5-sonnet-20240620", label: "Claude 3.5 Sonnet (200k)", maxTokens: 200000 },
-    { value: "claude-3-opus-20240229", label: "Claude 3 Opus (200k)", maxTokens: 200000 },
-    { value: "claude-3-sonnet-20240229", label: "Claude 3 Sonnet (200k)", maxTokens: 200000 },
-    { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku (200k)", maxTokens: 200000 },
+// Fallback static list of common Claude models with their context window sizes.
+// Used when the API endpoint is unavailable or fails.
+const fallbackClaudeModels = [
+    { value: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet (200k)", maxTokens: 200000 },
+    { value: "claude-sonnet-4-20250514", label: "Claude 4 Sonnet (200k)", maxTokens: 200000 },
+    { value: "claude-opus-4-1-20250805", label: "Claude 4.1 Opus (200k)", maxTokens: 200000 },
+    
 ];
+
+let claudeModels = [...fallbackClaudeModels]; // Start with fallback models
+
 
 class Claude extends AI {
     constructor() {
@@ -41,9 +44,57 @@ class Claude extends AI {
     }
 
     async _getAvailableModels() {
-        // This function fulfills the interface, but since Anthropic has no public models API,
-        // we just resolve the promise with our static, hardcoded list.
-        return Promise.resolve(claudeModels);
+        // Try to fetch models from the API, fall back to static list if it fails
+        try {
+            const response = await fetch(`${this.config.server}/v1/models`, {
+                method: 'GET',
+                headers: {
+                    'x-api-key': this.config.apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-dangerous-direct-browser-access': 'true',
+                },
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.data && Array.isArray(data.data)) {
+                    // Transform API response to our format
+                    const apiModels = data.data
+                        .filter(model => model.id && model.id.startsWith('claude'))
+                        .map(model => {
+                            // Try to extract context size from model name or use default
+                            let maxTokens = 200000; // Default context size
+                            let label = model.id;
+                            
+                            // Generate a more readable label
+                            if (model.display_name) {
+                                label = model.display_name;
+                            } else {
+                                // Prettify the model ID
+                                label = model.id
+                                    .replace(/-/g, ' ')
+                                    .replace(/\b\w/g, c => c.toUpperCase())
+                                    .replace(/(\d+)/, ' $1');
+                            }
+                            
+                            // Add context size to label if not already present
+                            if (!label.includes('k')) {
+                                label += ` (${maxTokens / 1000}k)`;
+                            }
+                            
+                            return { value: model.id, label, maxTokens };
+                        });
+                    
+                    claudeModels = apiModels.length > 0 ? apiModels : fallbackClaudeModels;
+                    console.log(`[Claude] Fetched ${apiModels.length} models from API`);
+                    return apiModels;
+                }
+            }
+        } catch (error) {
+            console.log("[Claude] Could not fetch models from API, using fallback list:", error.message);
+        }
+        
+        return fallbackClaudeModels;
     }
     
     async init() {
@@ -253,10 +304,15 @@ class Claude extends AI {
     }
 
     async refreshModels() {
-        // The list is static, but this fulfills the UI refresh action.
+        // Try to fetch fresh models from the API
         const freshModels = await this._getAvailableModels();
-        this._settingsSchema.model.enum = freshModels; 
-        console.log("[Claude] Refreshed models list (static).");
+        if (freshModels && freshModels.length > 0) {
+            claudeModels = freshModels;
+            this._settingsSchema.model.enum = freshModels;
+            console.log(`[Claude] Refreshed models list with ${freshModels.length} models.`);
+        } else {
+            console.log("[Claude] Using fallback models list.");
+        }
     }
 }
 
