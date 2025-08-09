@@ -42,7 +42,7 @@ class Gemini extends AI {
         const fallbackModels = [
             { value: "gemini-2.5-pro", label: "Gemini Pro (1M)", maxTokens: 1048576 },
             { value: "gemini-2.5-flash", label: "Gemini Flash (1M)", maxTokens: 1048576 },
-            { value: "gemini-2.5-flash-lite-preview-06-17", label: "Gemini Flash Lite (Preview, 1M)", maxTokens: 1000000 },
+            { value: "gemini-2.5-flash-lite", label: "Gemini Flash Lite (Preview, 1M)", maxTokens: 1000000 },
         ]; 
 
         if (!this.config.apiKey) {

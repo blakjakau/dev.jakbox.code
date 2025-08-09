@@ -2,6 +2,7 @@
 // Styles for this module are located in css/ai-manager.css
 import { Block, Button, Icon, TabBar, TabItem, FileBar } from "./elements.mjs"
 import Ollama from "./ai-ollama.mjs" 
+import Claude from "./ai-claude.mjs"
 import Gemini from "./ai-gemini.mjs"
 import AIManagerHistory, { MAX_RECENT_MESSAGES_TO_PRESERVE } from "./ai-manager-history.mjs"
 import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
@@ -34,6 +35,7 @@ class AIManager {
 		this.aiProvider = "ollama" // Default AI provider
 		this.aiProviders = {
 			ollama: Ollama,
+			claude: Claude,
 			gemini: Gemini,
 		}
 		this._settingsSchema = {
@@ -368,7 +370,7 @@ class AIManager {
 			const fileContextCompleter = {
 				// This regex tells ACE what constitutes a "word" for this completer.
 				// It will activate on '@' and replace the whole token.
-				identifierRegexps: [/@\S*/],
+				identifierRegexps: [/@[\w.]*/],
 				getCompletions: (editor, session, pos, prefix, callback) => {
 					// Only activate this completer for our AI prompt editor
 					if (editor.id !== "ai-prompt-editor") {
@@ -386,7 +388,7 @@ class AIManager {
 					const fileResults = window.ui.fileList.find(searchTerm, 20);
 					const fileCompletions = fileResults.map(item => ({
 						caption: item.name,
-						value: `@${item.path}`, // Insert the full path when selected.
+						value: item.path, // Insert the full path when selected.
 						meta: "File Context"
 					}));
 					// 2. Define and filter our default static options.
@@ -603,6 +605,11 @@ class AIManager {
 		const form = this._settingsForm;
 		const workspaceSettingsCheckbox = this._workspaceSettingsCheckbox;
 		const workspaceSettingsLabel = form.querySelector("label[for='use-workspace-settings']"); // Re-select label as its content will be cleared
+		// Set initial state of "Use workspace-specific settings" checkbox
+		// based on whether a config for the current provider exists in the workspace.
+		const providerName = this.aiProvider;
+		this.useWorkspaceSettings = !!(window.workspace?.aiConfig?.[providerName]);
+		this._workspaceSettingsCheckbox.checked = this.useWorkspaceSettings;
 
 		// Clear all form content except the workspace settings checkbox and its label
 		form.innerHTML = '';
@@ -644,6 +651,15 @@ class AIManager {
 			
 			// Initialize new AI provider instance. Handle errors to prevent blocking.
 			try {
+				// After init, apply workspace or global settings for the newly selected provider
+				const providerConfig = window.workspace.aiConfig?.[this.aiProvider] || window.app.aiConfig?.[this.aiProvider];
+				if (providerConfig) {
+					const useWorkspaceSettings = !!window.workspace.aiConfig?.[this.aiProvider];
+					// Call setOptions to correctly apply the config and update derived state like MAX_CONTEXT_TOKENS.
+					// The 'setting-changed' event dispatched by setOptions will be handled by main.js to persist,
+					// and by AIManager._handleSettingChangedExternally to update UI.
+					await this.ai.setOptions(providerConfig, null, null, useWorkspaceSettings, useWorkspaceSettings ? 'workspace' : 'global');
+				}
 				await this.ai.init(); // Initialize the new AI with its settings
 				// Add a system message to inform the user about the successful switch.
 				this.historyManager.addMessage({
