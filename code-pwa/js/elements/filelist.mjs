@@ -542,32 +542,38 @@ export class FileList extends ContentFill {
 	}
 	
 	find(match, limit = 20) {
-		const matches = []
-		if(!this?.index?.files) return []
-		
-		for(let item of this.index.files) {
-			if(item?.name?.indexOf(match)>-1 || item?.path?.indexOf(match)>-1) {
-				matches.push(item)
+		const matches = [];
+		if (!this?.index?.files) return [];
+
+		for (let item of this.index.files) {
+			// The AI often provides a path with the beginning truncated. `endsWith` is a great check for this.
+			// We also check for `includes` as a fallback for other partial matches.
+			if (item.path.endsWith(match) || item.path.includes(match)) {
+				matches.push(item);
 			}
 		}
-		
-		// Sort matches: 1. Closer to END of path, 2. Shorter path, 3. Alphabetical.
-		matches.sort((a, b) => {
-			// Criterion 1: Prefer matches closer to the END of the path.
-			const aIndex = a.path.indexOf(match);
-			const bIndex = b.path.indexOf(match);
-			if (aIndex > bIndex) return -1;
-			if (aIndex < bIndex) return 1;
 
-			// Criterion 2: Prefer shorter paths.
+		// De-duplicate in case both checks passed for the same item.
+		const uniqueMatches = [...new Map(matches.map(item => [item.path, item])).values()];
+
+		// Sort the results to bring the best match to the top.
+		uniqueMatches.sort((a, b) => {
+			const aEndsWith = a.path.endsWith(match);
+			const bEndsWith = b.path.endsWith(match);
+
+			// 1. Prioritize matches where the path ENDS with the search term.
+			if (aEndsWith && !bEndsWith) return -1;
+			if (!aEndsWith && bEndsWith) return 1;
+
+			// 2. If both (or neither) end with the match, prefer the one with the shorter path.
 			if (a.path.length < b.path.length) return -1;
 			if (a.path.length > b.path.length) return 1;
 
-			// Criterion 3: Alphabetical fallback.
+			// 3. Alphabetical fallback for paths of the same length.
 			return a.name.localeCompare(b.name);
 		});
 
-		return matches.slice(0, limit);
+		return uniqueMatches.slice(0, limit);
 	}
 	
 	

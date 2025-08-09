@@ -490,6 +490,157 @@ class DiffHandler {
         return resultLines.join('\n');
     }
 
+    /**
+     * Applies an AI-generated diff with extra tolerance for empty line mismatches.
+     * First attempts standard fuzzy application, then falls back to a more lenient approach
+     * that treats empty lines as flexible matches.
+     * 
+     * @param {string} originalString The original string to which the diff will be applied.
+     * @param {string} diffString The diff in unified format.
+     * @returns {string | null} The string after applying the diff, or null if the diff cannot be applied.
+     */
+    applyAIResponseDiff(originalString, diffString) {
+        // First, try the standard fuzzy application
+        const standardResult = this.applyStatelessFuzzy(originalString, diffString, true);
+        if (standardResult !== null) {
+            return standardResult;
+        }
+
+        // If standard fuzzy fails, try with empty line tolerance
+        console.log("Standard fuzzy diff application failed. Attempting with empty line tolerance...");
+        
+        const originalLines = originalString.split(/\r?\n/);
+        const diffLines = diffString.split(/\r\n|\n|\r/);
+        
+        const resultLines = [];
+        let originalIdx = 0;
+        let diffIdx = 0;
+
+        // Helper to check if lines match with empty line tolerance
+        const linesMatchWithTolerance = (origLine, diffLine) => {
+            const origTrimmed = origLine.trim();
+            const diffTrimmed = diffLine.trim();
+            
+            // Empty lines match each other regardless of whitespace
+            if (origTrimmed === '' && diffTrimmed === '') {
+                return true;
+            }
+            
+            // Non-empty lines must match exactly (after trimming)
+            return origTrimmed === diffTrimmed;
+        };
+
+        while (diffIdx < diffLines.length) {
+            const line = diffLines[diffIdx];
+
+            // Skip header lines
+            if (line.startsWith('--- ') || line.startsWith('+++ ')) {
+                diffIdx++;
+                continue;
+            }
+
+            // Process a hunk
+            if (line.startsWith('@@ ')) {
+                diffIdx++; // Move past the '@@' line
+                
+                // Collect all lines in the current hunk
+                const hunkLines = [];
+                while (diffIdx < diffLines.length && !diffLines[diffIdx].startsWith('@@ ')) {
+                    hunkLines.push(diffLines[diffIdx]);
+                    diffIdx++;
+                }
+
+                // Find where this hunk should apply using tolerant matching
+                let bestMatchIdx = -1;
+                let searchStartIdx = originalIdx;
+                
+                // Build a pattern from context and deletion lines
+                const searchPattern = hunkLines
+                    .filter(hLine => hLine.startsWith(' ') || hLine.startsWith('-'))
+                    .map(hLine => hLine.substring(1));
+
+                if (searchPattern.length === 0) {
+                    console.error("Error: Cannot apply a diff hunk with no context.");
+                    return null;
+                }
+
+                // Search for the pattern with empty line tolerance
+                for (let i = searchStartIdx; i <= originalLines.length - searchPattern.length; i++) {
+                    let matches = true;
+                    let patternIdx = 0;
+                    let sourceIdx = i;
+                    
+                    while (patternIdx < searchPattern.length && sourceIdx < originalLines.length) {
+                        if (linesMatchWithTolerance(originalLines[sourceIdx], searchPattern[patternIdx])) {
+                            patternIdx++;
+                            sourceIdx++;
+                        } else if (originalLines[sourceIdx].trim() === '') {
+                            // Skip empty lines in source
+                            sourceIdx++;
+                        } else if (searchPattern[patternIdx].trim() === '') {
+                            // Skip empty lines in pattern
+                            patternIdx++;
+                        } else {
+                            matches = false;
+                            break;
+                        }
+                    }
+                    
+                    if (matches && patternIdx === searchPattern.length) {
+                        bestMatchIdx = i;
+                        break; // Take first match
+                    }
+                }
+
+                if (bestMatchIdx === -1) {
+                    console.error("Error: Cannot apply diff even with empty line tolerance. Context not found.");
+                    return null;
+                }
+
+                // Add lines before the hunk
+                while (originalIdx < bestMatchIdx) {
+                    resultLines.push(originalLines[originalIdx]);
+                    originalIdx++;
+                }
+
+                // Apply the hunk changes with tolerance
+                for (const hunkLine of hunkLines) {
+                    if (hunkLine.startsWith('+')) {
+                        resultLines.push(hunkLine.substring(1));
+                    } else if (hunkLine.startsWith(' ')) {
+                        // For context lines, skip empty lines in original if needed
+                        while (originalIdx < originalLines.length && 
+                               originalLines[originalIdx].trim() === '' && 
+                               hunkLine.substring(1).trim() !== '') {
+                            resultLines.push(originalLines[originalIdx]);
+                            originalIdx++;
+                        }
+                        resultLines.push(originalLines[originalIdx]);
+                        originalIdx++;
+                    } else if (hunkLine.startsWith('-')) {
+                        // For deletions, skip empty lines in original if needed
+                        while (originalIdx < originalLines.length && 
+                               originalLines[originalIdx].trim() === '' && 
+                               hunkLine.substring(1).trim() !== '') {
+                            originalIdx++;
+                        }
+                        originalIdx++;
+                    }
+                }
+            } else {
+                diffIdx++;
+            }
+        }
+        
+        // Add remaining lines
+        while (originalIdx < originalLines.length) {
+            resultLines.push(originalLines[originalIdx]);
+            originalIdx++;
+        }
+
+        return resultLines.join('\n');
+    }
+
 	/**
 	* Applies a unified diff formatted patch to an original string using strict line numbers.
 	* @param {string} originalString The original string to which the diff will be applied.

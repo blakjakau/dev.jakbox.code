@@ -1606,7 +1606,7 @@ class AIManager {
                     }
 
                     // 3. Apply the diff using DiffHandler, using content from history
-                    const newFileContentFromDiff = DiffHandler.applyStatelessFuzzy(originalContentFromContext, rawDiff);
+                    const newFileContentFromDiff = DiffHandler.applyAIResponseDiff(originalContentFromContext, rawDiff);
 
                     if (newFileContentFromDiff === null) {
                         alert(`Failed to apply diff to "${targetPath}". There might be a content mismatch with the file as it was originally sent to AI. Please review the diff manually.`);
