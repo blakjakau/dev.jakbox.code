@@ -1228,7 +1228,7 @@ folderMenu.click = topfolderMenu.click = (action) => {
 				}
 			}
 			saveWorkspace()
-			ui.showFolders()
+			ui.showSidebar()
 			break
 		case "refresh":
 			if (active.refresh) {
@@ -1441,6 +1441,16 @@ fileAccess.on("click", async () => {
 					missingFiles.push(file.path)
 				}
 			}
+			
+			// Restore the open/edited status icons for all tabs
+			for (const tab of leftTabs.tabs) {
+				fileList.active = tab.config.handle
+				if (tab.changed && fileList.activeItem) {
+					fileList.activeItem.changed = true
+				}
+			}
+			fileList.active = currentTabs?.activeTab?.config?.handle
+			
 			// Remove missing files from workspace.files
 			workspace.files = workspace.files.filter(file => !missingFiles.includes(file.path));
 			saveWorkspace(); // Save workspace after removing missing files

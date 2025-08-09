@@ -120,7 +120,7 @@ const uiManager = {
 
 		mainContent = document.querySelector("#mainContent")
 
-		fileActions = new ActionBar()
+		fileActions = new Block()
 		fileActions.setAttribute("id", "fileActions")
 		fileActions.setAttribute("slim", "true")
 
