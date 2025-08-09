@@ -1240,10 +1240,12 @@ folderMenu.click = topfolderMenu.click = (action) => {
 fileList.context = (e) => {
 	let menu = folderMenu
 
-	if (e.srcElement.parentElement.parentElement instanceof FileList) {
+	const fileItem = e.srcElement.closest('ui-file-item');
+	if (!fileItem) return;
+	if (workspace.folders.includes(fileItem.item)) {
 		menu = topfolderMenu
 	} else {
-		if (e.srcElement?.item?.kind == "file") {
+		if (fileItem?.item?.kind == "file") {
 			// menu = fileMenu
 			return
 		} else {

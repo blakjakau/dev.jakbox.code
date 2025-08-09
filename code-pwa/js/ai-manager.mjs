@@ -1559,27 +1559,39 @@ class AIManager {
                     }
                     const targetPath = targetPathMatch[1];
 
-                    // --- NEW LOGIC START ---
-                    // 1. Find the ORIGINAL content from the chat history (what the AI saw)
+                    // 1. Find the ORIGINAL content from the chat history using a robust search.
                     let originalContentFromContext = null;
-                    // Iterate backward to get the MOST RECENT context entry for this file
+                    const normalizedTargetPath = targetPath.startsWith('/') ? targetPath.substring(1) : targetPath;
+
+                    let exactMatch = null;
+                    let partialMatches = [];
+
+                    // Iterate backward to find the most recent matching file context.
                     for (let i = this.activeSession.messages.length - 1; i >= 0; i--) {
                         const msg = this.activeSession.messages[i];
                         if (msg.type === "file_context" && msg.id) {
-                            // Normalize both paths by removing any leading slashes for a robust comparison.
                             const normalizedMsgId = msg.id.startsWith('/') ? msg.id.substring(1) : msg.id;
-                            const normalizedTargetPath = targetPath.startsWith('/') ? targetPath.substring(1) : targetPath;
                             if (normalizedMsgId === normalizedTargetPath) {
-                                originalContentFromContext = msg.content;
-                                break;
+                                exactMatch = msg.content;
+                                break; // Found exact match, this is the best case.
+                            }
+                            if (normalizedMsgId.endsWith(normalizedTargetPath)) {
+                                partialMatches.push(msg.content);
                             }
                         }
                     }
+
+                    if (exactMatch) {
+                        originalContentFromContext = exactMatch;
+                    } else if (partialMatches.length > 0) {
+                        // Use the most recent partial match (first one found when iterating backwards).
+                        originalContentFromContext = partialMatches[0];
+                    }
+
                     if (!originalContentFromContext) {
                         alert(`Error: The original content for "${targetPath}" was not found in this chat session's context history. Cannot apply diff.`);
                         return;
                     }
-                    // --- NEW LOGIC END ---
                     // 2. Find the LIVE editor tab using the AI's helper.
                     // This is made resilient to diffs that may omit the leading slash.
                     let tabToUpdate = await this.ai._getTabSessionByPath(targetPath);
