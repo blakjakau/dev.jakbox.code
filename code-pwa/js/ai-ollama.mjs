@@ -22,6 +22,7 @@ class Ollama extends AI {
 		};
 		this.context = null; // For /api/generate context (Ollama's internal context)
         this.MAX_CONTEXT_TOKENS = 0; // This will be dynamically set by _queryModelCapability
+        this.ollamaVersion = null; // To be populated by _checkApiVersion
         this.contextUsed = 0; // For /api/generate context usage percentage
 
         this._settingsSchema = {
@@ -106,6 +107,7 @@ class Ollama extends AI {
 	async init() {
         // Query capability for the currently set model to get initial MAX_CONTEXT_TOKENS
 		await this._queryModelCapability();
+		await this._checkApiVersion();
 	}
 
 	async _queryModelCapability() {
@@ -159,6 +161,43 @@ class Ollama extends AI {
             return false;
 		}
 	}
+
+    async _checkApiVersion() {
+        if (!this.config.server) {
+            this.ollamaVersion = null;
+            return;
+        }
+        try {
+            const response = await fetch(`${this.config.server}/api/version`);
+            if (!response.ok) {
+                console.warn(`Could not fetch Ollama version: ${response.status}`);
+                this.ollamaVersion = null; // Unable to determine version
+                return;
+            }
+            const data = await response.json();
+            this.ollamaVersion = data.version;
+            console.debug(`Ollama version detected: ${this.ollamaVersion}`);
+        } catch (error) {
+            console.warn("Error checking Ollama version, will use legacy chat format.", error);
+            this.ollamaVersion = null;
+        }
+    }
+
+    _isVersionGreaterOrEqual(version, targetVersion) {
+        if (!version || !targetVersion) return false; // Default to old format if version is unknown
+
+        const v1 = version.split('.').map(Number);
+        const v2 = targetVersion.split('.').map(Number);
+        const len = Math.max(v1.length, v2.length);
+
+        for (let i = 0; i < len; i++) {
+            const p1 = v1[i] || 0;
+            const p2 = v2[i] || 0;
+            if (p1 > p2) return true;
+            if (p1 < p2) return false;
+        }
+        return true; // Versions are equal
+    }
 
     /**
      * Generates content using the Ollama model (for 'generate' mode).
@@ -271,27 +310,54 @@ class Ollama extends AI {
         try {
             // Ollama's /api/chat expects messages in { role: "user", content: "..." } or { role: "assistant", content: "..." }
             // So, file_context messages need to be formatted as user messages.
-            const messagesToSend = messages.map(msg => {
+            // Step 1: Map all incoming message types to a base format for Ollama.
+            const intermediateMessages = messages.map(msg => {
                 if (msg.type === 'file_context') {
                     return {
                         role: 'user',
-                        content: `--- File: ${msg.filename} ---\n\`\`\`${msg.language}\n${msg.content}\n\`\`\``
+                        content: `--- File: ${msg.filename} ---\n\`\`\`${msg.language || ''}\n${msg.content}\n\`\`\``
                     };
                 }
-                return { role: msg.role, content: msg.content };
+                // Map our internal 'model' role to what Ollama expects ('assistant') for chat history.
+                // This little switcheroo keeps the rest of the app consistent while complying with the API.
+                const role = msg.role === 'model' ? 'assistant' : msg.role;
+                return { role, content: msg.content };
             });
 
-            // Add system prompt to the request body if it exists
+            // Step 2: Combine consecutive 'user' messages into a single message.
+            // This is crucial as many models only "see" the last user message in a sequence.
+            const messagesToSend = [];
+            for (const msg of intermediateMessages) {
+                const lastMessage = messagesToSend.length > 0 ? messagesToSend[messagesToSend.length - 1] : null;
+                if (lastMessage && lastMessage.role === 'user' && msg.role === 'user') {
+                    // Append content to the previous user message
+                    lastMessage.content += '\n\n' + msg.content;
+                } else {
+                    // Otherwise, just add the new message
+                    messagesToSend.push(msg);
+                }
+            }
+
+            // Conditionally format the request based on detected Ollama version.
+            // Versions >= 0.1.27 expect the system prompt as the first message.
+            const useNewChatFormat = this._isVersionGreaterOrEqual(this.ollamaVersion, "0.1.27");
+
             const requestBody = {
                 model: this.config?.model,
-                messages: messagesToSend, // Send full history prepared by AIManager
                 stream: true,
             };
 
-            if (this.config.system) {
-                requestBody.system = this.config.system;
+            if (useNewChatFormat) {
+                let finalMessages = [...messagesToSend];
+                if (this.config.system) {
+                    finalMessages.unshift({ role: 'system', content: this.config.system });
+                }
+                requestBody.messages = finalMessages;
+            } else { // Legacy format
+                requestBody.messages = messagesToSend;
+                if (this.config.system) requestBody.system = this.config.system;
             }
-
+            
             // Cannot provide contextRatio for Ollama /api/chat as token counts are not exposed.
             if (onContextRatioUpdate) {
                 onContextRatioUpdate(null); 
@@ -359,6 +425,9 @@ class Ollama extends AI {
             }
         }
         this._settingsSource = source; 
+
+        // Re-check version in case the server changed
+        await this._checkApiVersion();
 
         let querySuccess = true;
         // Only attempt to query model capability if a model is actually selected
