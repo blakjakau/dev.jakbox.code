@@ -439,10 +439,14 @@ ui-tabbar[slim] > ui-tab-item ui-icon[close] {
     height: 17px;
     font-size: 15px;
 }
-
 ui-tabbar[slim] > ui-tab-item ui-icon[close] {
 	display:none;
 	margin-left: 0px;
+}
+
+ui-tabbar[slim] > ui-tab-item:hover .status-icon {
+	/* Keep status icon visible on hover for consistency */
+	visibility:visible;
 }
 
 ui-tabbar[slim] > ui-tab-item:hover .status-icon {
@@ -461,6 +465,30 @@ ui-tabbar[slim] > ui-tab-item:hover ui-icon[close]:hover {
 
 ui-tabbar[slim] > ui-tab-item ui-icon[close]:hover {
 	text-shadow: 0px 1px 4px rgba(0, 0, 0, 0.75);
+}
+
+/* --- New styles for delayed close button visibility --- */
+
+/* Initially hide the close icon */
+ui-tabbar[slim] > ui-tab-item .status-icon,
+ui-tabbar[slim] > ui-tab-item ui-icon[close] {
+	opacity: 0;
+	pointer-events: none; /* Prevent interaction when hidden */
+	transition: opacity 300ms ease-in-out;
+}
+
+/* Show the close icon and make it interactive when the tab is active */
+ui-tabbar[slim] > ui-tab-item[active] .status-icon,
+ui-tabbar[slim] > ui-tab-item[active] ui-icon[close] {
+	opacity: 1;
+	pointer-events: auto; /* Allow interaction when visible */
+	transition: opacity 300ms ease-in-out, pointer-events 0s linear 300ms; /* Opacity fades, pointer-events waits 300ms then snaps */
+}
+
+/* Ensure status icon is visible even when close button is shown */
+ui-tabbar[slim] > ui-tab-item[active] .status-icon {
+	visibility: visible;
+	opacity: 0.5; /* Revert to default opacity if not changed */
 }
 
 ui-tabbar[dragging] > ui-tab-item {

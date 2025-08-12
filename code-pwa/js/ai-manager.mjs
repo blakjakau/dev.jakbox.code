@@ -597,7 +597,7 @@ class AIManager {
 		if (this.newSessionButton) this.newSessionButton.disabled = disabled;
 		if (this.sessionTabBar) {
 			this.sessionTabBar.querySelectorAll('ui-tab-item').forEach(tab => {
-				tab.close.style.pointerEvents = disabled ? 'none' : 'auto';
+				tab.close.style.pointerEvents = disabled ? 'none' : '';
 				tab.style.pointerEvents = disabled ? 'none' : 'auto';
 			});
 		}
