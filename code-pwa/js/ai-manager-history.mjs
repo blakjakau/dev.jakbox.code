@@ -488,11 +488,21 @@ class AIManagerHistory {
 
 	prepareMessagesForAI() {
 		// Now directly use the active session's messages
-		let prunableHistory = [...(this.manager.activeSession?.messages || [])]; 
-		
+		// Create a deep enough copy of messages to avoid modifying the original history.
+		let prunableHistory = (this.manager.activeSession?.messages || []).map(msg => ({ ...msg }));
+
 		prunableHistory = prunableHistory.filter(
 			(msg) => msg.type !== "system_message" && msg.role !== "temp_ai_response"
 		)
+
+		// Before estimating tokens, remove diff blocks from previous model responses to save space.
+		// This doesn't affect the displayed history, only what's sent to the AI.
+		const diffRegex = /```diff\n[\s\S]*?\n```/g;
+		prunableHistory.forEach(msg => {
+			if (msg.type === 'model' && msg.content) {
+				msg.content = msg.content.replace(diffRegex, '\n').trim();
+			}
+		});
 
 		const maxTokens = this.ai.MAX_CONTEXT_TOKENS || 4096
 		let currentTokens = this.ai.estimateTokens(prunableHistory)

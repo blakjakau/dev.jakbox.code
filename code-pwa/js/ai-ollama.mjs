@@ -278,7 +278,10 @@ class Ollama extends AI {
                         content: `--- File: ${msg.filename} ---\n\`\`\`${msg.language}\n${msg.content}\n\`\`\``
                     };
                 }
-                return { role: msg.role, content: msg.content };
+                // Map our internal 'model' role to what Ollama expects ('assistant') for chat history.
+                // This little switcheroo keeps the rest of the app consistent while complying with the API.
+                const role = msg.role === 'model' ? 'assistant' : msg.role;
+                return { role: role, content: msg.content };
             });
 
             // Add system prompt to the request body if it exists
