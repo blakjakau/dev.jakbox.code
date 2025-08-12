@@ -36,6 +36,22 @@ export default `
 
 ---
 
+### Claude AI Integration (Anthropic)
+
+1.  **Get Your Claude API Key:**
+    *   Visit [console.anthropic.com](https://console.anthropic.com/).
+    *   Sign in, then create a new API key. **Keep it secure!**
+2.  **Configure Claude in the AI Panel:**
+    *   Open the AI Panel (AI icon in sidebar, or \`Alt+A\` / \`Option+A\`).
+    *   Click the **Settings** (gear) icon.
+    *   Select **Claude** from the "AI Provider" dropdown.
+    *   Paste your API key into the "Anthropic API Key" field.
+    *   Choose your desired Claude model (e.g., \`claude-3-haiku-20240307\`, \`claude-3-sonnet-20240229\`, \`claude-3-opus-20240229\`).
+    *   Click **Save Settings**.
+
+---
+
+
 ## Using the AI Panel
 
 Once set up, use the AI panel for your coding needs:
@@ -45,6 +61,8 @@ Once set up, use the AI panel for your coding needs:
     *   Type \`@code\` or \`@current\` to include the code from your active editor pane (file content or selection).
     *   Type \`@open\` to include all currently open files.
     *   *(These tags are processed and appear as separate context items in your chat history).*
+	*  Type \`@\` followed by a file path (e.g., \`@src/utils.js\`) to include the content of that specific file. The prompt editor includes an autcompleter for files in folder added to the project workspace.
+	
 *   **History & Context Management:**
     *   Your conversation history appears above the prompt area.
     *   A **progress bar** indicates context window usage. It will change color (yellow, orange, red) as the limit is approached.
