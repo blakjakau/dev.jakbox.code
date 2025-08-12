@@ -1,13 +1,15 @@
 // ai-manager.mjs
 // Styles for this module are located in css/ai-manager.css
 import { Block, Button, Icon, TabBar, TabItem, FileBar } from "./elements.mjs"
-import Ollama from "./ai-ollama.mjs" 
+import Ollama from "./ai-ollama.mjs"
 import Claude from "./ai-claude.mjs"
 import Gemini from "./ai-gemini.mjs"
 import AIManagerHistory, { MAX_RECENT_MESSAGES_TO_PRESERVE } from "./ai-manager-history.mjs"
+import AIManagerSettings from "./ai-manager-settings.mjs" // NEW: Settings manager
 import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm"
 
 import DiffHandler from "./tools/diff-handler.mjs"
+import systemPromptBuilder from './genericSystemPrompt.mjs'; // NEW: For building prompts
 import hljs from "./tools/highlightjs.mjs"
 const MAX_PROMPT_HISTORY = 50 // This is now PER-SESSION
 
@@ -38,14 +40,13 @@ class AIManager {
 			claude: Claude,
 			gemini: Gemini,
 		}
-		this._settingsSchema = {
-			aiProvider: { type: "enum", label: "AI Provider", default: "ollama", enum: Object.keys(this.aiProviders) },
-			// Summarization settings
-			summarizeThreshold: { type: "number", label: "Summarize History When Context Reaches (%)", default: 85 },
-			summarizeTargetPercentage: { type: "number", label: "Percentage of Old History to Summarize", default: 50 },
-		}
+		// NEW: Settings logic is moved to AIManagerSettings
+		this.settingsManager = new AIManagerSettings(this);
 
-		
+		// NEW: Default system prompt config
+		this.systemPromptConfig = {
+            specialization: "JavaScript (ECMAScript), HTML, CSS, and Node.js", technologies: [], avoidedTechnologies: [], tone: ["warm", "playful", "cheeky"],
+        };
 
 		this.panel = null
 		this.promptEditor = null // Will hold the ACE editor instance
@@ -67,12 +68,9 @@ class AIManager {
 		
 		this.historyManager = new AIManagerHistory(this)
 		
-		this.settingsPanel = null
 		this.contextStaleNotice = null; // New element for context currency check
 		this._emptyStateElement = null; // NEW: For empty state background
-		this._contextStaleResolve = null; // To resolve/reject the context stale promise
-		this._settingsForm = null // Reference to the settings form element
-		this._workspaceSettingsCheckbox = null // Reference to the checkbox
+		this._contextStaleResolve = null; // To resolve/reject the context stale promise		
 		this.useWorkspaceSettings = false
 		this._isProcessing = false // Flag to track if AI is busy (generating or summarizing)
 
@@ -81,8 +79,8 @@ class AIManager {
 
 		// Load summarization settings defaults
 		this.config = {
-			summarizeThreshold: this._settingsSchema.summarizeThreshold.default,
-			summarizeTargetPercentage: this._settingsSchema.summarizeTargetPercentage.default,
+			summarizeThreshold: 85,
+			summarizeTargetPercentage: 50,
 		}
 
 		// NEW: Session Management Properties
@@ -103,6 +101,7 @@ class AIManager {
 	async init(panel) {
 		this.panel = panel
 		await this.loadSettings()
+		this._loadSystemPromptConfig(); // NEW: Load prompt settings
 		
 		// Initialize the AI provider instance
 		this.ai = new this.aiProviders[this.aiProvider]();
@@ -135,6 +134,7 @@ class AIManager {
 
 		this._createUI();
 		this._initPromptEditor();
+		this.settingsManager.init(); // NEW: Initialize settings manager
 		this._setupPanel();
 		
 		this._updateAIInfoDisplay();
@@ -142,6 +142,48 @@ class AIManager {
 		window.addEventListener('setting-changed', this._handleSettingChangedExternally.bind(this));
 	}
 
+    /**
+     * NEW: Generates the system prompt based on current settings.
+     * This is intended to be called by the History Manager or AI Provider before making a request.
+     * @returns {string} The complete system prompt string.
+     */
+    getSystemPrompt() {
+        return systemPromptBuilder(this.getSystemPromptConfig());
+    }
+
+    /**
+     * NEW: Gets the active system prompt configuration, checking workspace first.
+     * @returns {object} The active system prompt configuration.
+     */
+    getSystemPromptConfig() {
+        const hasWorkspaceConfig = window.workspace?.systemPromptConfig && Object.keys(window.workspace.systemPromptConfig).length > 0;
+        return hasWorkspaceConfig ? window.workspace.systemPromptConfig : (window.app?.systemPromptConfig || this.systemPromptConfig);
+    }
+
+    /**
+     * NEW: Loads the system prompt config from the correct source (workspace or app).
+     */
+    _loadSystemPromptConfig() {
+        const hasWorkspaceConfig = !!(window.workspace?.systemPromptConfig && Object.keys(window.workspace.systemPromptConfig).length > 0);
+        this.systemPromptConfig = hasWorkspaceConfig ? window.workspace.systemPromptConfig : (window.app?.systemPromptConfig || this.systemPromptConfig);
+    }
+
+    /**
+     * NEW: Callback for the settings manager to save system prompt settings.
+     * @param {object} config - The new system prompt configuration.
+     * @param {boolean} useWorkspaceSettings - Whether to save to workspace or global app config.
+     */
+    saveSystemPromptConfig(config, useWorkspaceSettings) {
+        if (useWorkspaceSettings) {
+            window.workspace.systemPromptConfig = config;
+            if (window.app.systemPromptConfig) delete window.app.systemPromptConfig; // Clear global if using workspace
+            if(window.saveWorkspace) window.saveWorkspace();
+        } else {
+            window.app.systemPromptConfig = config;
+            if (window.workspace.systemPromptConfig) delete window.workspace.systemPromptConfig; // Clear workspace if using global
+            if(window.saveAppConfig) window.saveAppConfig(); // Persist global settings
+        }
+    }
 
 	set editor(editor) {
 		this.ai.editor = editor
@@ -209,7 +251,7 @@ class AIManager {
 		// --- Other UI Elements ---
 		this.conversationArea = this._createConversationArea();
 		const promptContainer = this._createPromptContainer();
-		this.settingsPanel = this._createSettingsPanel();
+		this.settingsPanel = this.settingsManager.createPanel(); // NEW: Create panel via manager
 
 		this.chatContainer = new Block();
 		this.chatContainer.classList.add('ai-chat-container');
@@ -563,291 +605,60 @@ class AIManager {
         this._updatePromptAreaPlaceholder(); // Update prompt area disabled state
 	}
 
-	_createSettingsPanel() {
-		const settingsPanel = new Block()
-		settingsPanel.classList.add("settings-panel")
+    /**
+     * NEW: Switches the AI provider, re-initializes it, and updates the UI.
+     * This is called by the settings manager.
+     * @param {string} newProviderValue - The key for the new provider (e.g., 'ollama').
+     */
+    async switchAiProvider(newProviderValue) {
+        this.aiProvider = newProviderValue;
+        localStorage.setItem("aiProvider", this.aiProvider);
 
-		const form = document.createElement("form")
-		this._settingsForm = form // Store reference to the form
+        this.ai = new this.aiProviders[this.aiProvider]();
 
-		const workspaceSettingsCheckbox = document.createElement("input")
-		workspaceSettingsCheckbox.type = "checkbox"
-		workspaceSettingsCheckbox.id = "use-workspace-settings"
-		workspaceSettingsCheckbox.checked = this.useWorkspaceSettings
-		this._workspaceSettingsCheckbox = workspaceSettingsCheckbox // Store reference
-		const workspaceSettingsLabel = document.createElement("label")
-		workspaceSettingsLabel.htmlFor = "use-workspace-settings"
-		workspaceSettingsLabel.textContent = "Use workspace-specific settings"
-		workspaceSettingsLabel.prepend(workspaceSettingsCheckbox)
-		form.appendChild(workspaceSettingsLabel)
-
-		const toggleInputs = (disabled) => {
-			const inputs = form.querySelectorAll("input:not(#use-workspace-settings), textarea, select")
-			inputs.forEach((input) => {
-				input.disabled = disabled
-			})
-		}
-
-		workspaceSettingsCheckbox.addEventListener("change", () => {
-			this.useWorkspaceSettings = workspaceSettingsCheckbox.checked
-			toggleInputs(this.useWorkspaceSettings)
-		})
-
-		settingsPanel.appendChild(form)
-		return settingsPanel
-	}
-
-	/**
-	 * Private method to render the settings form content.
-	 * This is called whenever the settings panel is made visible.
-	 */
-	async _renderSettingsForm() {
-		const form = this._settingsForm;
-		const workspaceSettingsCheckbox = this._workspaceSettingsCheckbox;
-		const workspaceSettingsLabel = form.querySelector("label[for='use-workspace-settings']"); // Re-select label as its content will be cleared
-		// Set initial state of "Use workspace-specific settings" checkbox
-		// based on whether a config for the current provider exists in the workspace.
-		const providerName = this.aiProvider;
-		this.useWorkspaceSettings = !!(window.workspace?.aiConfig?.[providerName]);
-		this._workspaceSettingsCheckbox.checked = this.useWorkspaceSettings;
-
-		// Clear all form content except the workspace settings checkbox and its label
-		form.innerHTML = '';
-		form.appendChild(workspaceSettingsLabel);
-
-		// Re-apply the disabled state based on the current checkbox state
-		const toggleInputs = (disabled) => {
-			const inputs = form.querySelectorAll("input:not(#use-workspace-settings), textarea, select");
-			inputs.forEach((input) => {
-				input.disabled = disabled;
-			});
-		};
-
-		// Add AI Provider selection
-		const aiProviderLabel = document.createElement("label")
-		aiProviderLabel.textContent = `AI Provider: `
-		const aiProviderSelect = document.createElement("select")
-		aiProviderSelect.id = `ai-provider`
-		const providerOptions = this._settingsSchema.aiProvider.enum
-		providerOptions.forEach((optionValue) => {
-			const option = document.createElement("option")
-			option.value = optionValue
-			option.textContent = optionValue.charAt(0).toUpperCase() + optionValue.slice(1)
-			if (optionValue === this.aiProvider) {
-				option.selected = true
-			}
-			aiProviderSelect.appendChild(option)
-		})
-		// Changed listener to correctly update AI, add system message, and update UI display
-		aiProviderSelect.addEventListener("change", async () => {
-			const oldProviderName = this.aiProvider; // Store old provider name
-
-			this.aiProvider = aiProviderSelect.value
-			localStorage.setItem("aiProvider", this.aiProvider)
-
-			// Create new AI instance, maintaining history for it.
-			const newAIInstance = new this.aiProviders[this.aiProvider]();
-			this.ai = newAIInstance;
-			
-			// Initialize new AI provider instance. Handle errors to prevent blocking.
-			try {
-				// After init, apply workspace or global settings for the newly selected provider
-				const providerConfig = window.workspace.aiConfig?.[this.aiProvider] || window.app.aiConfig?.[this.aiProvider];
-				if (providerConfig) {
-					const useWorkspaceSettings = !!window.workspace.aiConfig?.[this.aiProvider];
-					// Call setOptions to correctly apply the config and update derived state like MAX_CONTEXT_TOKENS.
-					// The 'setting-changed' event dispatched by setOptions will be handled by main.js to persist,
-					// and by AIManager._handleSettingChangedExternally to update UI.
-					await this.ai.setOptions(providerConfig, null, null, useWorkspaceSettings, useWorkspaceSettings ? 'workspace' : 'global');
-				}
-				await this.ai.init(); // Initialize the new AI with its settings
-				// Add a system message to inform the user about the successful switch.
-				this.historyManager.addMessage({
-					type: "system_message",
-					content: `AI provider switched to **${this.aiProvider}**. ` +
-							 (this.ai.isConfigured()
-								? `Current model: **${this.ai.config.model}**`
-								: `Please configure the provider settings.`),
-					timestamp: Date.now()
-				}, false);
-			} catch (error) {
-				console.error("AIManager: Error initializing new AI provider during switch:", error);
-				// Inform user about the error, but don't re-throw to keep UI interactive
-				this.historyManager.addMessage({
-					type: "system_message", // System message for the user
-					content: `Error switching to ${this.aiProvider} provider. Check settings. Details: ${error.message}`,
-					timestamp: Date.now()
-				}, false);
-			} finally {
-				// Always re-render settings form to reflect new AI's options
-				this._renderSettingsForm(); 
-				this._updateAIInfoDisplay(); // Update the display element for the new AI/model
-				this._dispatchContextUpdate("ai_provider_switched"); // Dispatch regardless of init success
-                this.historyManager.render(); // Re-render history to show/hide welcome message
-                this._setButtonsDisabledState(this._isProcessing); // Ensure buttons are updated
-                this._updatePromptAreaPlaceholder(); // Update placeholder for new AI
-			}
-		})
-		aiProviderLabel.appendChild(aiProviderSelect)
-		form.appendChild(aiProviderLabel)
-
-		// Render summarization settings
-		const summarizeThresholdSetting = this._settingsSchema.summarizeThreshold
-		const summarizeThresholdLabel = document.createElement("label")
-		summarizeThresholdLabel.textContent = `${summarizeThresholdSetting.label}: `
-		const summarizeThresholdInput = document.createElement("input")
-		summarizeThresholdInput.type = "number"
-		summarizeThresholdInput.id = "summarizeThreshold"
-		summarizeThresholdInput.min = "0"
-		summarizeThresholdInput.max = "100"
-		summarizeThresholdInput.value = this.config.summarizeThreshold
-		summarizeThresholdLabel.appendChild(summarizeThresholdInput)
-		form.appendChild(summarizeThresholdLabel)
-
-		const summarizeTargetPercentageSetting = this._settingsSchema.summarizeTargetPercentage
-		const summarizeTargetPercentageLabel = document.createElement("label")
-		summarizeTargetPercentageLabel.textContent = `${summarizeTargetPercentageSetting.label}: `
-		const summarizeTargetPercentageInput = document.createElement("input")
-		summarizeTargetPercentageInput.type = "number"
-		summarizeTargetPercentageInput.id = "summarizeTargetPercentage"
-		summarizeTargetPercentageInput.min = "0"
-		summarizeTargetPercentageInput.max = "100"
-		summarizeTargetPercentageInput.value = this.config.summarizeTargetPercentage
-		summarizeTargetPercentageLabel.appendChild(summarizeTargetPercentageInput)
-		form.appendChild(summarizeTargetPercentageLabel)
-
-		// Render AI-specific settings
-		const options = await this.ai.getOptions()
-		for (const key in options) {
-			const setting = options[key]
-			const label = document.createElement("label")
-			label.textContent = `${setting.label}: `
-
-			let inputElement
-			if (setting.type === "enum") {
-				inputElement = document.createElement("select")
-				inputElement.id = `${this.aiProvider}-${key}`
-				const currentEnumOptions = setting.enum || []
-				currentEnumOptions.forEach((optionObj) => {
-					const option = document.createElement("option")
-					option.value = optionObj.value
-					option.textContent = optionObj.label || optionObj.value
-					if (optionObj.value === setting.value) {
-						option.selected = true
-					}
-					inputElement.appendChild(option)
-				})
-				if (key === "model") {
-					const refreshButton = new Button()
-					refreshButton.icon = "refresh"
-					refreshButton.classList.add("theme-button")
-					refreshButton.on("click", async () => {
-						this._setButtonsDisabledState(true)
-						try {
-							await this.ai.refreshModels()
-							this._renderSettingsForm() // Re-render to show updated model list
-						} finally {
-							this._setButtonsDisabledState(false)
-							this._updateAIInfoDisplay(); // Update display after refresh
-							this._dispatchContextUpdate("settings_change")
-                            this.historyManager.render(); // Re-render history to show/hide welcome message
-						}
-					})
-					label.appendChild(refreshButton)
-				}
-			} else if (setting.multiline) {
-				inputElement = document.createElement("textarea")
-				inputElement.id = `${this.aiProvider}-${key}`
-				inputElement.value = setting.value
-			} else if (setting.type === "string") {
-				inputElement = document.createElement("input")
-				inputElement.type = "text"
-				inputElement.id = `${this.aiProvider}-${key}`
-				inputElement.value = setting.value
-			} else if (setting.type === "number") {
-				inputElement = document.createElement("input")
-				inputElement.type = "number"
-				inputElement.id = `${this.aiProvider}-${key}`
-				inputElement.value = setting.value
-			} else {
-				inputElement = document.createElement("input")
-				inputElement.type = setting.type
-				inputElement.id = `${this.aiProvider}-${key}`
-				inputElement.value = setting.value
-			}
-			if (setting.secret) {
-				inputElement.type = "password"
-			}
-			label.appendChild(inputElement)
-			form.appendChild(label)
-		}
-
-		toggleInputs(this.useWorkspaceSettings) // Apply initial disabled state based on checkbox
-
-		const saveButton = new Button("Save Settings")
-		saveButton.icon = "save"
-		saveButton.classList.add("theme-button")
-		saveButton.on("click", async () => {
-			const oldModel = this.ai.config.model; // Capture old model before changes
-			const newSettings = {}
-			const currentOptions = await this.ai.getOptions()
-			for (const key in currentOptions) {
-				const input = form.querySelector(`#${this.aiProvider}-${key}`)
-				if (input) {
-					newSettings[key] = input.value
-				}
-			}
-			// Read new summarization settings
-			this.config.summarizeThreshold = parseInt(form.querySelector("#summarizeThreshold").value)
-			this.config.summarizeTargetPercentage = parseInt(form.querySelector("#summarizeTargetPercentage").value)
-			localStorage.setItem("summarizeThreshold", this.config.summarizeThreshold)
-			localStorage.setItem("summarizeTargetPercentage", this.config.summarizeTargetPercentage)
-
-			this.ai.setOptions(
-				newSettings,
-				(errorMessage) => {
-					const errorBlock = new Block()
-					errorBlock.classList.add("response-block", "error-block") // Add error-block class
-					errorBlock.innerHTML = `Error: ${errorMessage}`
-					this.conversationArea.append(errorBlock)
-					this.conversationArea.scrollTop = this.conversationArea.scrollHeight
-					this._dispatchContextUpdate("settings_save_error")
-                    this._setButtonsDisabledState(this._isProcessing); // Re-evaluate button state on error
-				},
-				(successMessage) => {
-					// Check if the model has changed and add a specific system message
-					const newModel = this.ai.config.model;
-					let messageContent = successMessage; // Default to the message from the AI provider
-
-					if (newModel && newModel !== oldModel) {
-						messageContent = `AI model switched to **${newModel}**.`;
-					}
-					this.historyManager.addMessage({
-						type: "system_message",
-						content: messageContent,
-						timestamp: Date.now()
-					}, false);
-					this._dispatchContextUpdate("settings_save_success");
-                    this._setButtonsDisabledState(this._isProcessing); // Re-evaluate button state on success
-				},
-				this.useWorkspaceSettings,
-				this.ai.settingsSource // Pass source for correct persistence
-			)
-			this.toggleSettingsPanel() // Hide settings panel after saving
-		})
-		form.appendChild(saveButton)
-	}
+        try {
+            const providerConfig = window.workspace.aiConfig?.[this.aiProvider] || window.app.aiConfig?.[this.aiProvider];
+            if (providerConfig) {
+                const useWorkspaceSettings = !!window.workspace.aiConfig?.[this.aiProvider];
+                await this.ai.setOptions(providerConfig, null, null, useWorkspaceSettings, useWorkspaceSettings ? 'workspace' : 'global');
+            }
+            await this.ai.init();
+            this.historyManager.addMessage({
+                type: "system_message",
+                content: `AI provider switched to **${this.aiProvider}**. ` +
+                         (this.ai.isConfigured()
+                            ? `Current model: **${this.ai.config.model}**`
+                            : `Please configure the provider settings.`),
+                timestamp: Date.now()
+            }, false);
+        } catch (error) {
+            console.error("AIManager: Error initializing new AI provider during switch:", error);
+            this.historyManager.addMessage({
+                type: "system_message",
+                content: `Error switching to ${this.aiProvider} provider. Check settings. Details: ${error.message}`,
+                timestamp: Date.now()
+            }, false);
+        } finally {
+            // Always re-render settings form, update UI, and dispatch events
+            this.settingsManager.renderForm();
+            this._updateAIInfoDisplay();
+            this._dispatchContextUpdate("ai_provider_switched");
+            this.historyManager.render();
+            this._setButtonsDisabledState(this._isProcessing);
+            this._updatePromptAreaPlaceholder();
+        }
+    }
 
 	toggleSettingsPanel() {
 		this.chatContainer.classList.toggle("hidden")
-		this.settingsPanel.classList.toggle("active")
-		// If settings panel is being hidden, re-render chat history to refresh any potential content/token changes
+        this.settingsManager.toggle(); // NEW: Use the manager
+        
+        // If settings panel is being hidden, re-render chat history
 		if (!this.settingsPanel.classList.contains("active")) {
 			this.historyManager.render() // Re-render history to show/hide welcome message
 			this._dispatchContextUpdate("settings_closed") // Dispatch on settings panel close
 		} else {
-			// If settings panel is being shown, re-render its content to reflect current values
-			this._renderSettingsForm()
+			// If settings panel is being shown, (re)render its content to reflect current values
 			this._updateAIInfoDisplay(); // Ensure display is updated when panel opens
 			this._dispatchContextUpdate("settings_opened") // Dispatch on settings panel open
 		}
@@ -1405,7 +1216,8 @@ class AIManager {
 
 		// Since we now return early if `processedPrompt` is empty, we can unconditionally call the AI here.
 		const messagesForAI = this.historyManager.prepareMessagesForAI()
-		this.ai.chat(messagesForAI, callbacks)
+		const systemPrompt = this.getSystemPrompt();
+		this.ai.chat(messagesForAI, callbacks, systemPrompt)
 	}
 
 	_addCodeBlockButtons(responseBlock, messageObject = null) { // Add messageObject parameter
@@ -1815,6 +1627,11 @@ class AIManager {
 		if (storedProvider && this.aiProviders[storedProvider]) {
 			this.aiProvider = storedProvider
 		}
+
+        // NEW: System prompt config is now loaded in init via _loadSystemPromptConfig()
+        // to ensure it happens after workspace data is available in main.js.
+        // The values will be correctly picked up from app/workspace objects.
+
 		// Load summarization settings
 		const storedSummarizeThreshold = localStorage.getItem("summarizeThreshold")
 		if (storedSummarizeThreshold !== null) {

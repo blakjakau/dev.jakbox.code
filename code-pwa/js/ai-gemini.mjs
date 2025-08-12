@@ -314,11 +314,17 @@ class Gemini extends AI {
         if (onStart) onStart();
 
         try {
-            const contents = [{ role: "user", parts: [{ text: prompt }] }];
-            const requestBody = { contents };
-            if (this.config.system) {
+            const isGemmaModel = this.config.model.includes('gemma');
+            let userPromptContent = prompt;
+            const requestBody = {};
+
+            // Gemma models do not support `systemInstruction`; prepend to prompt instead.
+            if (this.config.system && isGemmaModel) {
+                userPromptContent = `${this.config.system}\n\n${prompt}`;
+            } else if (this.config.system) {
                 requestBody.systemInstruction = { parts: [{ text: this.config.system }] };
             }
+            requestBody.contents = [{ role: "user", parts: [{ text: userPromptContent }] }];
 
             const currentTokens = await this._countTokens([{ role: "user", content: prompt }]);
             const contextRatio = currentTokens / this.MAX_CONTEXT_TOKENS;
@@ -359,17 +365,31 @@ class Gemini extends AI {
         }
     }
 
-    async chat(messages, callbacks = {}) {
+    async chat(messages, callbacks = {}, systemPrompt=null) {
         const { onStart, onError, onDone, onContextRatioUpdate } = callbacks;
         if (onStart) onStart();
 
         try {
-            const contents = this._toGeminiContents(messages);
-            const requestBody = { contents };
-            if (this.config.system) {
-                requestBody.systemInstruction = { parts: [{ text: this.config.system }] };
-            }
+            const isGemmaModel = this.config.model.includes('gemma');
+            const effectiveSystemPrompt = systemPrompt || this.config.system;
+            let processedMessages = messages;
+            const requestBody = {};
 
+            if (effectiveSystemPrompt) {
+                if (isGemmaModel) {
+                    // For Gemma, inject system prompt into the first user message.
+                    // Create a copy to avoid mutating the original history array.
+                    processedMessages = JSON.parse(JSON.stringify(messages));
+                    const firstUserMessageIndex = processedMessages.findIndex(m => m.role === 'user');
+                    if (firstUserMessageIndex !== -1) {
+                        processedMessages[firstUserMessageIndex].content = `${effectiveSystemPrompt}\n\n${processedMessages[firstUserMessageIndex].content}`;
+                    }
+                } else {
+                    // For other models, use the standard systemInstruction field.
+                    requestBody.systemInstruction = { parts: [{ text: effectiveSystemPrompt }] };
+                }
+            }
+            requestBody.contents = this._toGeminiContents(processedMessages);
 
             const currentTokens = await this._countTokens(messages);
             const contextRatio = currentTokens / this.MAX_CONTEXT_TOKENS;

@@ -27,6 +27,8 @@
 
 	--buttonBorder: 8px;
 	--borderRadius: 8px;
+	
+	--theme-text-color: #fff;
 }
 
 a,
@@ -880,7 +882,7 @@ ui-tabbar.tabs-inverted {
     overflow-x: auto;
     box-sizing: border-box;
     border-top: 3px solid var(--themeDark);
-    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 -5px 10px rgba(0, 0, 0, 0.25);
     z-index: 2;
 }
 

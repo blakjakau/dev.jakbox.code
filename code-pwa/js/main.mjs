@@ -81,6 +81,7 @@ const app = {
 	enableLiveAutocompletion: null,
 	darkmode: 'system',
     aiConfig: {},
+    systemPromptConfig: {}, // NEW: For generic system prompt settings
 }
 
 const workspace = {
@@ -93,6 +94,7 @@ const workspace = {
 	scratchpad: '',
 	// REMOVED: promptHistory: [], // This will be stored per AI session now
     aiConfig: {},
+    systemPromptConfig: {}, // NEW: For generic system prompt settings
     // NEW: AI session metadata and active session ID
     aiSessionsMetadata: [], // Array of {id, name, createdAt, lastModified}
     activeAiSessionId: null, // The ID of the currently active AI session
@@ -298,6 +300,7 @@ const saveAppConfig = async () => {
 	await set("appConfig", app)
 	console.debug("saved", app)
 }
+window.saveAppConfig = saveAppConfig;
 
 // New function to handle file modifications from FileSystemObserver
 const onFileModified = (fileHandle) => {
@@ -425,6 +428,7 @@ const openWorkspace = (() => {
 			ui.scratchEditor.setValue(workspace.scratchpad || '');
 			workspace.sidebarPanelWidths = load.sidebarPanelWidths || {};
 			// Backward compatibility
+            workspace.systemPromptConfig = load.systemPromptConfig || {}; // NEW
 			if (load.sidebarWidth && Object.keys(workspace.sidebarPanelWidths).length === 0) {
 				workspace.sidebarPanelWidths['folder'] = load.sidebarWidth;
 			}
@@ -439,6 +443,12 @@ const openWorkspace = (() => {
             // if (ui.aiManager.historyManager) {
             //     ui.aiManager.historyManager.loadHistory(workspace.chatHistory, true);
             // }
+
+            // NEW: Load system prompt settings into the AI Manager
+            if (ui.aiManager) {
+                const useWorkspaceSettings = !!window.workspace?.systemPromptConfig && Object.keys(window.workspace.systemPromptConfig).length > 0;
+                ui.aiManager.systemPromptConfig = useWorkspaceSettings ? workspace.systemPromptConfig : app.systemPromptConfig;
+            }
 
             // NEW: Load AI session metadata and active session ID
             workspace.aiSessionsMetadata = load.aiSessionsMetadata || [];
@@ -521,6 +531,8 @@ const openWorkspace = (() => {
 				workspace.ignorePaths = ['.git', 'node_modules', 'dist', 'build'];
 				// NEW: Initialize empty AI session metadata
                 workspace.aiSessionsMetadata = [];
+                // NEW: Initialize empty system prompt config
+                workspace.systemPromptConfig = {};
                 workspace.activeAiSessionId = null;
                 updateFileListBackground();
                 // AIManager will handle creating the first session when it gets loadSessions call
@@ -1983,6 +1995,7 @@ setTimeout(async () => {
 		app.rendererOptions = stored?.rendererOptions || null
 		app.enableLiveAutocompletion = stored?.enableLiveAutocompletion || null
 
+        app.systemPromptConfig = stored?.systemPromptConfig || {}; // NEW
 		// Apply any stored editor settings immediately after loading them.
 		execCommandEditorOptions();
 
