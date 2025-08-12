@@ -449,7 +449,7 @@ ui-tabbar[slim] > ui-tab-item:hover .status-icon {
 	visibility:visible;
 }
 
-ui-tabbar[slim] > ui-tab-item:hover .status-icon {
+ui-tabbar[slim] > ui-tab-item[active]:hover .status-icon {
 	visibility:hidden;
 }
 ui-tabbar[slim] > ui-tab-item:hover ui-icon[close] {
@@ -470,7 +470,9 @@ ui-tabbar[slim] > ui-tab-item ui-icon[close]:hover {
 /* --- New styles for delayed close button visibility --- */
 
 /* Initially hide the close icon */
-ui-tabbar[slim] > ui-tab-item .status-icon,
+ui-tabbar[slim] > ui-tab-item .status-icon {
+	
+}
 ui-tabbar[slim] > ui-tab-item ui-icon[close] {
 	opacity: 0;
 	pointer-events: none; /* Prevent interaction when hidden */
@@ -488,7 +490,6 @@ ui-tabbar[slim] > ui-tab-item[active] ui-icon[close] {
 /* Ensure status icon is visible even when close button is shown */
 ui-tabbar[slim] > ui-tab-item[active] .status-icon {
 	visibility: visible;
-	opacity: 0.5; /* Revert to default opacity if not changed */
 }
 
 ui-tabbar[dragging] > ui-tab-item {
