@@ -20,6 +20,8 @@ export default `
     *   Choose your desired Gemini model (e.g., Gemini Flash for speed, Gemini Pro for power).
     *   Click **Save Settings**.
 
+---
+
 ### Ollama AI Integration (Local models)
 
 1.  **Download and Setup Ollama:**
