@@ -857,7 +857,6 @@ ui-sidebar-panel pre::-webkit-scrollbar-thumb {
     /*display: flex; */ /* removed as this is handled by the active attribute*/
     flex-direction: column;
     height: 100%; /* Ensure the panel itself takes full height */
-    padding:0 4px;
 }
 
 /* Styles for the terminal content wrapper within the panel */
@@ -875,6 +874,7 @@ ui-sidebar-panel.terminal-panel-container .terminal-containers-wrapper .terminal
     width: 100%;
     height: 100%;
     background-color: #222;
+    padding:2px;
 }
 
 ui-tabbar.tabs-inverted {

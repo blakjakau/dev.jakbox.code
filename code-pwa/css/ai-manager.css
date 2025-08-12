@@ -336,7 +336,6 @@
     padding: 16px;
     background-color: var(--themeDark);
     color: var(--theme-text-color);
-    border-radius: var(--borderRadius);
     display: none;
     flex-direction: column;
     overflow-y: auto;
