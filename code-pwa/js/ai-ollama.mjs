@@ -33,8 +33,7 @@ class Ollama extends AI {
                 default: null, // Default for settings schema is null
                 enum: defaultModels, // Initial enum uses the object format
                 lookupCallback: this._getAvailableModels.bind(this) 
-            },
-            system: { type: "string", label: "System Prompt", default: systemPrompt, multiline: true },
+            }
         };
 	}
 
@@ -303,7 +302,7 @@ class Ollama extends AI {
      * @param {Array<Object>} messages - The prepared array of messages for this turn.
      * @param {object} callbacks - An object with callback functions.
      */
-    async chat(messages, callbacks = {}) {
+    async chat(messages, callbacks = {}, systemPrompt=null) {
         const { onStart, onUpdate, onDone, onError, onContextRatioUpdate } = callbacks;
         if (onStart) onStart();
 
@@ -321,7 +320,7 @@ class Ollama extends AI {
                 // Map our internal 'model' role to what Ollama expects ('assistant') for chat history.
                 // This little switcheroo keeps the rest of the app consistent while complying with the API.
                 const role = msg.role === 'model' ? 'assistant' : msg.role;
-                return { role, content: msg.content };
+                return { role: role, content: msg.content };
             });
 
             // Step 2: Combine consecutive 'user' messages into a single message.
@@ -349,13 +348,19 @@ class Ollama extends AI {
 
             if (useNewChatFormat) {
                 let finalMessages = [...messagesToSend];
-                if (this.config.system) {
+                if(systemPrompt) {
+                    finalMessages.unshift({ role: 'system', content: systemPrompt });
+                } else if (this.config.system) {
                     finalMessages.unshift({ role: 'system', content: this.config.system });
                 }
                 requestBody.messages = finalMessages;
             } else { // Legacy format
                 requestBody.messages = messagesToSend;
-                if (this.config.system) requestBody.system = this.config.system;
+                if(systemPrompt) {
+                	requestBody.system = systemPrompt;
+                } else if (this.config.system) {
+                	requestBody.system = this.config.system;
+                }
             }
             
             // Cannot provide contextRatio for Ollama /api/chat as token counts are not exposed.

@@ -195,7 +195,7 @@ class Claude extends AI {
         return this.chat(messages, callbacks);
     }
     
-    async chat(messages, callbacks = {}) {
+    async chat(messages, callbacks = {}, systemPrompt = null) {
         const { onStart, onError, onDone, onContextRatioUpdate } = callbacks;
         if (onStart) onStart();
 
@@ -209,7 +209,9 @@ class Claude extends AI {
                 max_tokens: 4096 // A required parameter for the Anthropic Messages API
             };
 
-            if (this.config.system && this.config.system.trim() !== '') {
+            if(systemPrompt) {
+            	requestBody.system = systemPrompt
+            } else if (this.config.system) {
                 requestBody.system = this.config.system;
             }
 
