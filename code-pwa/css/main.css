@@ -7,7 +7,7 @@
 
 	/* Theme colors (assumed to be set via JS or in index.html) */
 	--theme: #00aabb;
-	--theme-dark: #007788;
+	--theme-dark: var(--themeDark, #007788);
 
 	/* Semantic Filetype Colors */
 	--color-file-js: #f0db4f;
