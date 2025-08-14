@@ -1,34 +1,77 @@
 :root {
-	/* theme colours are now specified in index.html */
-	/*--theme: #00aabb;*/
-	/*--themeDark: #007788;*/
-	--light: #fff;
-	--high: #dadada;
-	--mid: #afafaf;
-	--low: #455155;
-	--dark: #384144;
-	--text-color: #222a37;
-	--button-text-color: #dadada;
-	--animRate:10ms;
+	/*
+	  Hello there, fellow code-surfer! 🏄‍♂️
+	  I'm setting up a new, unified color system to make our app look fabulous
+	  in both light and dark modes. Say goodbye to rogue hex codes!
+	*/
+
+	/* Theme colors (assumed to be set via JS or in index.html) */
+	--theme: #00aabb;
+	--theme-dark: #007788;
+
+	/* Semantic Filetype Colors */
+	--color-file-js: #f0db4f;
+	--color-file-css: #2965f1;
+	--color-file-html: #e34c26;
+	--color-file-php: #777bb3;
+
+	/* State & Feedback Colors */
+	--color-success: #4caf50;
+	--color-error: #f44336;
+	--color-warning: #ffc107;
+	--color-warning-dark: #ffa000;
+
+	/* Diff Highlight Colors */
+	--diff-green: rgb(128,164,128);
+	--diff-red: rgba(164,128,128);
+	--diff-green-soft: rgba(0,120,0,0.15);
+	--diff-red-soft: rgba(120,0,0,0.15);
+	--diff-grey: #777777;
+
+	/* Sizing & Spacing */
+	--animRate: 10ms;
 	--tabRadius: 4px 4px 0 0;
 	--tabHeight: 37px;
 	--menuHeight: 34px;
 	--statusHeight: 34px;
 	--editorTop: calc(var(--tabHeight));
-	--ui-icon-color: var(--mid);
-	
-	/* diff highlight colours */
-	--green: rgb(128,164,128);
-	--red: rgba(164,128,128);
-	--grey: #777777;
-
-	--green-soft: rgba(0,120,0,0.33);
-	--red-soft: rgba(120,0,0,0.33);
-
 	--buttonBorder: 8px;
 	--borderRadius: 8px;
-	
-	--theme-text-color: #fff;
+
+	/* Fonts */
+	--font-sans: system-ui, roboto, arial, sans;
+	--font-mono: 'roboto mono', monospace;
+
+	/* --- Light Mode Palette --- */
+	--bg-primary: #D6D8DA;
+	--bg-secondary: #C8CACD;
+	--bg-tertiary: #B8BABF;
+	--bg-overlay: rgba(0,0,0,0.5);
+	--bg-code: #E3E5EE;
+	--bg-terminal: #222222;
+
+	--text-primary: #3A3A3A;
+	--text-secondary: #5A5A5A;
+	--text-muted: #7A7A7A;
+	--text-inverted: #ffffff;
+
+	--border-primary: #A9ADB1;
+	--border-secondary: #B8BABF;
+	--icon-color: #3b3b3b;
+	--shadow-color: rgba(0,0,0,0.1);
+
+	/* Highlight.js Colors for Light Mode (Chrome-inspired) */
+	--hljs-bg: var(--bg-code);
+	--hljs-text: var(--text-primary);
+	--hljs-comment: #236e24;
+	--hljs-keyword: #930F80;
+	--hljs-selector: #008393;
+	--hljs-attribute, #0089cd;
+	--hljs-number: #0000CD;
+	--hljs-string: #1A1AA6;
+	--hljs-function: #0000A2;
+	--hljs-variable: #318495;
+	--hljs-class: var(--hljs-text);
 }
 
 a,
@@ -49,10 +92,10 @@ tr.ace_optionsMenuEntry { line-height:1.5em; font-size:14px; }
 button { border:0; }
 
 body {
-	font-family:system-ui, roboto, arial, sans;
+	font-family: var(--font-sans);
 	font-size:13px;
     overflow: hidden;
-	background:var(--light);
+	background:var(--bg-primary);
 	margin:0; padding:0;
 }
 
@@ -75,8 +118,8 @@ body {
 ui-tabbar[slim] > ui-tab-item {
 	background: none;
 	color: inherit;
-	border-style: solid;
-	border-color: var(--themeDark);
+	border-style: solid; /* a tab's border color should be the theme-dark color */
+	border-color: var(--bg-tertiary);
 	border-width: 0 1px;
 	margin-left: -1px;
 	transition: background 150ms ease-in-out, margin 100ms ease-in-out;
@@ -86,20 +129,20 @@ ui-tabbar[slim] > ui-tab-item:first-of-type {
 	margin-left: 0;
 }
 ui-tabbar[slim] > ui-tab-item[active] {
-	background: var(--themeDark);
-	color: var(--light);
+	background: var(--theme-dark);
+	color: var(--text-inverted);
 	position: relative;
 	z-index: 1;
 }
 .current ui-tabbar[slim] > ui-tab-item[active] {
 	border-radius: 4px 4px 0 0;
 	background: var(--theme);
-	border-color: var(--theme);
+	border-color: var(--theme); /* The border color for the current tab should be the theme color */
 }
 
 /*ui-tabbar[slim]>ui-tab-item:hover+ui-tab-item { background: var(--dark);  }*/
 ui-tabbar[slim]>ui-tab-item:not([active]):hover {
-	background: var(--high);
+	background: var(--bg-tertiary);
 }
 ui-tabbar[slim]>ui-tab-item[active]:hover {
 	filter:brightness(1.1);
@@ -121,8 +164,8 @@ ui-tab-item.drop-highlight {
     bottom: calc( var(--statusHeight)  +  2px );
     left: 0;
     right: 0;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    background: var(--dark);
+    box-shadow: 0 0 10px var(--shadow-color);
+    background: var(--bg-code);
 
     user-select:none;
     -webkit-user-select:none;
@@ -136,7 +179,7 @@ ui-tab-item.drop-highlight {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0,0,0,0.5);
+    background: var(--bg-overlay);
     z-index: 10;
     visibility: hidden;
 }
@@ -154,8 +197,8 @@ ui-tab-item.drop-highlight {
     top: 0px;
     bottom: 0px;
     line-height:1.3em;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    background:rgba(0,0,0,0.25);
+    box-shadow: 0 0 10px var(--shadow-color);
+    background:rgba(0,0,0,0.2);
     
     user-select:none;
     -webkit-user-select:none;
@@ -210,18 +253,18 @@ ui-menu::-webkit-scrollbar,
 .ace_scrollbar-v::-webkit-scrollbar-track,
 ui-file-list .inner::-webkit-scrollbar-track,
 ui-menu::-webkit-scrollbar-track,
-#ace_settingsmenu::-webkit-scrollbar-track,
+.darkmode #ace_settingsmenu::-webkit-scrollbar-track,
 .xterm-viewport::-webkit-scrollbar-track {
 	width: .66em; height: .66em;
-	box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+	box-shadow: inset 0 0 6px var(--shadow-color);
 }
 
 .ace_scrollbar::-webkit-scrollbar-thumb,
 ui-file-list .inner::-webkit-scrollbar-thumb,
 ui-menu::-webkit-scrollbar-thumb,
-#ace_settingsmenu::-webkit-scrollbar-thumb,
+.darkmode #ace_settingsmenu::-webkit-scrollbar-thumb,
 .xterm-viewport::-webkit-scrollbar-thumb {
-	background-color: darkgrey;
+	background-color: var(--text-muted);
 	border-radius:4px;
 }
 
@@ -259,8 +302,8 @@ header button {
 	background: var(--theme);
 	height:30px;
 	margin:3px 0;
-	pointer-events:none;
-	border-right:1px solid rgba(0,0,0,0.75);
+	pointer-events:none; /* The 'close' button in the header should not be interactive. */
+	border-right:1px solid var(--shadow-color);
 	margin-right:5px;
 }
 
@@ -272,7 +315,7 @@ header button img {
 
 header nav {
 	/*font-family:roboto, arial, sans;*/
-	color:var(--light); }
+	color:var(--text-inverted); }
 
 ui-actionbar#menu {
 	min-height: env(titlebar-area-height, 32px);
@@ -284,8 +327,8 @@ ui-actionbar#menu {
 }
 
 ui-actionbar#menu>ui-inline:first-of-type {
-	color:#000;
-	border-right: 1px solid rgba(0,0,0,0.5);
+	color:var(--text-inverted);
+	border-right: 1px solid var(--shadow-color);
 	padding-right:8px;
 }
 
@@ -300,14 +343,14 @@ ui-actionbar[slim]#fileActions {
 }
 
 ui-actionbar#menu ui-button {
-	color:#fff;
+	color:var(--text-inverted);
 	-webkit-app-region: no-drag;
 	app-region: no-drag;
 
 }
 
 ui-actionbar#menu ui-panel ui-button {
-	color:#444
+	color:var(--text-primary);
 }
 
 ui-button ui-icon {
@@ -325,8 +368,8 @@ ui-button:hover {
 
 ui-button.themed {
     border-radius: 8px;
-    background: var(--low);
-    color: var(--button-text-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
 }
 ui-button.themed ui-icon {
     color: inherit;
@@ -334,11 +377,8 @@ ui-button.themed ui-icon {
 
 ui-button.cancel {
 	border-radius: 8px;
-    color: var(--mid);
-    background: var(--dark);
-}
-ui-button.cancel ui-icon {
-    color: inherit
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
 }
 
 
@@ -369,43 +409,43 @@ ui-panel.slideDown[active] {
 }
 
 ui-menu[slim] ui-menu-item[icon="done"]:not(:hover) {
-	color: var(--light);
+	color: var(--text-inverted);
 	background:var(--theme);
 }
 ui-menu[slim] ui-menu-item[icon="done"]:not(:hover) ui-icon {
-	color: var(--light);
+	color: var(--text-inverted);
 }
 
 [slim] ui-menu-item[icon="done"]:not(:hover) {
-	color: var(--light);
+	color: var(--text-inverted);
 	background:var(--theme);
 }
 ui-menu[slim] ui-menu-item[icon="done"]:not(:hover) ui-icon {
-	color: var(--light);
+	color: var(--text-inverted);
 }
 
 ui-file-item[active] {
 	background: var(--theme);
-	color: var(--light);
+	color: var(--text-inverted);
 }
 
-ui-file-item[icon=javascript] ui-icon:first-child { color:#cd0; }
-ui-file-item[icon=css] ui-icon:first-child { color:#0ca; }
-ui-file-item[icon=html] ui-icon:first-child { color:#d77; }
-ui-file-item[icon=php] ui-icon:first-child { color:#b0b; }
-ui-file-item[icon=data_object] ui-icon:first-child { color: var(--light); opacity: 0.75; }
-ui-file-item[icon=image_not_supported] ui-icon:first-child { color: var(--light); opacity: 0.33; }
+ui-file-item[icon=javascript] ui-icon:first-child { color: var(--color-file-js); }
+ui-file-item[icon=css] ui-icon:first-child { color: var(--color-file-css); }
+ui-file-item[icon=html] ui-icon:first-child { color: var(--color-file-html); }
+ui-file-item[icon=php] ui-icon:first-child { color: var(--color-file-php); }
+ui-file-item[icon=data_object] ui-icon:first-child { color: var(--icon-color); opacity: 0.75; }
+ui-file-item[icon=image_not_supported] ui-icon:first-child { color: var(--icon-color); opacity: 0.33; }
 
-ui-file-item[active] ui-icon:first-child { color: var(--light); }
+ui-file-item[active] ui-icon:first-child { color: var(--text-inverted); }
 
 /* Tab icon colors for inactive tabs, mirroring file list */
-ui-tab-item[data-status-icon-type=javascript]:not([active]) .status-icon { color:#cd0; }
-ui-tab-item[data-status-icon-type=css]:not([active]) .status-icon { color:#0ca; }
-ui-tab-item[data-status-icon-type=html]:not([active]) .status-icon { color:#d77; }
-ui-tab-item[data-status-icon-type=php]:not([active]) .status-icon { color:#b0b; }
-ui-tab-item[data-status-icon-type=data_object]:not([active]) .status-icon { color: var(--mid); }
-ui-tab-item[data-status-icon-type=code]:not([active]) .status-icon { color: var(--mid); }
-ui-tab-item[data-status-icon-type=image]:not([active]) .status-icon { color: var(--mid); }
+ui-tab-item[data-status-icon-type=javascript]:not([active]) .status-icon { color: var(--color-file-js); }
+ui-tab-item[data-status-icon-type=css]:not([active]) .status-icon { color: var(--color-file-css); }
+ui-tab-item[data-status-icon-type=html]:not([active]) .status-icon { color: var(--color-file-html); }
+ui-tab-item[data-status-icon-type=php]:not([active]) .status-icon { color: var(--color-file-php); }
+ui-tab-item[data-status-icon-type=data_object]:not([active]) .status-icon { color: var(--icon-color); }
+ui-tab-item[data-status-icon-type=code]:not([active]) .status-icon { color: var(--icon-color); }
+ui-tab-item[data-status-icon-type=image]:not([active]) .status-icon { color: var(--icon-color); }
 
 /* Hide status icons in AI and Terminal session tabs for a cleaner look */
 .ai-session-tabs ui-tab-item .status-icon,
@@ -424,11 +464,11 @@ ui-tab-item[data-status-icon-type=image]:not([active]) .status-icon { color: var
 	top:0;
 	left:0;
 	right:0;
-	background: var(--light);
+	background: var(--bg-primary);
 	display:flex;
 	overflow-x: auto;
     box-sizing: border-box;
-    border-bottom:2px solid var(--themeDark);
+    border-bottom:2px solid var(--theme-dark);
     padding-right:40px;
 }
 
@@ -439,7 +479,7 @@ ui-tabbar.show-split-view-indicator::after {
     top: 0;
     bottom: 0;
     width: 100px; /* This is the 100px region */
-    background: rgba(0, 255, 0, 0.1); /* Light green overlay */
+    background: var(--diff-green-soft); /* Light green overlay */
     pointer-events: none; /* Ensure it doesn't interfere with drag events */
     display: block;
 }
@@ -457,13 +497,13 @@ body.showSplitView #leftTabs {
 #sidebar {
 	z-index:5;
 	opacity:0;
-	background:var(--light);
+	background:var(--bg-primary);
 	position:absolute;
 	width:256;
 	left:-256;
 	top:var(--menuHeight) !important;
 	bottom: var(--statusHeight);
-	overflow:hidden;
+	overflow:visible;
 	pointer-events:none;
 }
 
@@ -505,7 +545,7 @@ body.showSplitView #leftTabs {
 	z-index:5;
 	top: var(--menuHeight);
 	right:0px;
-	background: var(--light);
+	background: var(--bg-primary);
 }
 
 #drawer {
@@ -514,40 +554,53 @@ body.showSplitView #leftTabs {
     -webkit-user-select:none;
 }
 
+.darkmode {
+	/* --- Dark Mode Palette --- */
+	--bg-primary: #384144;
+	--bg-secondary: #455155;
+	--bg-tertiary: #2a3235;
+	--bg-overlay: rgba(0,0,0,0.5);
+	--bg-code: rgba(0,0,0,0.25);
+	--text-primary: #dadada;
+	--text-secondary: #afafaf;
+	--text-muted: #777777;
+	/* Inverted text is for use on theme-colored backgrounds */
+	--text-inverted: #ffffff;
+	--border-primary: #555555;
+	--border-secondary: #444444;
+	--icon-color: #3b3b3b;
+	--shadow-color: rgba(0,0,0,0.25);
+
+	/* Highlight.js Colors for Dark Mode (Code-inspired) */
+	--hljs-bg: var(--bg-code);
+	--hljs-text: var(--text-primary);
+	--hljs-comment: #666666;
+	--hljs-keyword: #F92672;
+	--hljs-selector: #87df00;
+	--hljs-attribute, #85e4f5;
+	--hljs-number: #AE81FF;
+	--hljs-string: #ccffbb;
+	--hljs-function: #A6E22E;
+	--hljs-variable: #A6E22E;
+	--hljs-class: var(--hljs-text);
+}
+
 .darkmode,
-.darkmode ui-menu,
-.darkmode #leftTabs,
-.darkmode #rightTabs,
-.darkmode #sidebar,
-.darkmode #statusbar,
-.darkmode #ace_settingsmenu,
-.darkmode #kbshortcutmenu,
-.darkmode #toggleSplitView,
-.darkmode ui-panel,
-.darkmode ui-file-list,
+.darkmode body,
 .darkmode ui-actionbar {
-	background: var(--dark);
-	color: var(--mid);
-}
-
-.darkmode #drawer {
-	background: var(--dark);
-	color: var(--mid);
-}
-
-.darkmode ui-actionbar {
-	color: var(--light); 
+	background-color: var(--bg-primary);
+	color: var(--text-primary);
 }
 
 .darkmode #ace_settingsmenu input,
 .darkmode #ace_settingsmenu select,
 .darkmode #ace_settingsmenu button {
-	background: var(--mid);
-	color: var(--dark);
+	background: var(--bg-secondary);
+	color: var(--text-primary);
 }
 
 .darkmode ui-tabbar[slim]>ui-tab-item:not([active]):hover {
-	background: var(--low);
+	background: var(--bg-tertiary);
 }
 
 
@@ -566,8 +619,8 @@ body.showSplitView #leftTabs {
 	top:4px;
 	margin-left:-200px;
 	border-radius:4px;
-	box-shadow: 0px 5px 10px rgba(0,0,0,0.25);
-	background:#fff;
+	box-shadow: 0px 5px 10px var(--shadow-color);
+	background:var(--bg-primary);
 	
 	transition: transform 200ms ease-in-out, opacity 200ms ease-in-out;
 	transform: scale(1,0);
@@ -583,8 +636,8 @@ body.showSplitView #leftTabs {
 	top:4px;
 	margin-left:-300px;
 	border-radius:4px !important;
-	box-shadow: 0px 5px 10px rgba(0,0,0,0.25);
-	background:#fff;
+	box-shadow: 0px 5px 10px var(--shadow-color);
+	background:var(--bg-primary);
 }
 
 
@@ -624,22 +677,20 @@ body.showSplitView #leftTabs {
 	position:fixed;
 	width:400px;
 	max-height:400px;
-	overflow:auto;
-	box-shadow: 0px 5px 10px rgba(0,0,0,0.25);
-	background:#fff;
+	overflow:auto; /* Allow scrolling for long lists */
+	box-shadow: 0px 5px 10px var(--shadow-color);
+	background:var(--bg-primary);
 	top: 100px;
 	z-index:10;
 	
 	border-radius:4px;
-	box-shadow: 0px 5px 10px rgba(0,0,0,0.25);
-	background:#fff;
 }
 #omni .results ui-block {
-	color: #444; /* Darker text for better contrast */
+	color: var(--text-primary); /* Darker text for better contrast */
 	padding: 8px 12px;
 	cursor: pointer;	
 	text-align:left;
-	border-bottom: 1px solid var(--ui-shadow);
+	border-bottom: 1px solid var(--border-secondary);
 }
 
 /*#omni .results ui-block.active {*/
@@ -648,11 +699,11 @@ body.showSplitView #leftTabs {
 /*}*/
 
 #omni .results ui-block:hover {
-	background-color: #f5f5f5;
+	background-color: var(--bg-secondary);
 }
 
 #omni .results ui-block.active {
-	color:#fff;
+	color:var(--text-inverted);
 	background: var(--theme);
 	cursor:pointer;
 }
@@ -705,9 +756,9 @@ body.showSplitView #leftTabs {
 	bottom:0;
 	left:0;
 	right:0;
-	width:100%;
-	background: var(--ui-pri-bg);
-	box-shadow: 0 -5px 5px var(--ui-shadow);
+	width:100%; /* The drawer should be full width */
+	background: var(--bg-primary);
+	box-shadow: 0 -5px 5px var(--shadow-color);
 }
 
 #sidebar {
@@ -722,7 +773,7 @@ body.showSplitView #leftTabs {
 	flex-shrink: 0;
     user-select:none;
     -webkit-user-select:none;
-    background: linear-gradient(to bottom, var(--themeDark) 33%, var(--theme));
+    background: linear-gradient(to bottom, var(--theme-dark) 33%, var(--theme));
 }
 
 #sidebar-panels-container {
@@ -748,15 +799,15 @@ body.showSplitView #leftTabs {
     bottom:32px;
     left: 32px; /* 8px offset from left */
     right: 32px; /* 8px offset from right */
-    background-color: var(--dark); /* Dark background */
-    color: #fff; /* White text */
+    background-color: var(--bg-secondary); /* Dark background */
+    color: var(--text-primary); /* White text */
     padding: 6px;
     display: flex;
     justify-content: space-between; /* Space between items */
     align-items: center;
     gap: 6px; /* Space between items */
     z-index: 1000; /* Ensure it's on top */
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); /* Subtle shadow (changed from bottom to top) */
+    box-shadow: 0 2px 10px var(--shadow-color); /* Subtle shadow (changed from bottom to top) */
     border-radius: 5px; /* Slightly rounded corners */
     border: 1px solid var(--theme);
 }
@@ -768,7 +819,7 @@ body.showSplitView #leftTabs {
 
 .notice-bar button {
     background-color: var(--theme); /* Blue button */
-    color: white;
+    color: var(--text-inverted);
     border: none;
     padding: 8px 15px;
     border-radius: 5px;
@@ -778,7 +829,7 @@ body.showSplitView #leftTabs {
 
 
 .notice-bar button:hover {
-    background-color: var(--themeDark); /* Darker blue on hover */
+    background-color: var(--theme-dark); /* Darker blue on hover */
 }
 
 #sidebar-panels-container {
@@ -832,8 +883,9 @@ ui-sidebar-panel .conversation-area::-webkit-scrollbar-thumb {
 ui-sidebar-panel pre {
 	max-width: 100%;
 	overflow-x: auto;
-	white-space: pre;
-	background-color: rgba(0,0,0, 0.25);
+	white-space: pre; /* The pre element should preserve whitespace. */ 
+	background-color: var(--hljs-bg, var(--bg-code));
+	color: var(--hljs-text, var(--text-primary));
 	border-radius: 8px;
 	padding: 8px;
 }
@@ -873,22 +925,22 @@ ui-sidebar-panel.terminal-panel-container .terminal-containers-wrapper .terminal
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: #222;
+    background-color: var(--bg-terminal);
     padding:2px;
 }
 
 ui-tabbar.tabs-inverted {
-	display: flex;
+	display: flex; /* Tabs should be laid out in a row. */
     overflow-x: auto;
     box-sizing: border-box;
-    border-top: 3px solid var(--themeDark);
-    box-shadow: 0 -5px 10px rgba(0, 0, 0, 0.25);
+    border-top: 3px solid var(--theme-dark);
+    box-shadow: 0 -5px 10px var(--shadow-color);
     z-index: 2;
 }
 
 .conduit-setup-guide .conduit-notice {
-    background-color: rgba(255, 193, 7, 0.15); /* Soft amber */
-    border: 1px solid var(--themeDark);
+    background-color: color-mix(in srgb, var(--color-warning) 15%, transparent);
+    border: 1px solid var(--theme-dark);
     border-radius: 5px;
     padding: 1em;
     margin: 1em 0;
@@ -900,7 +952,7 @@ ui-tabbar.tabs-inverted {
 }
 
 .conduit-setup-guide .conduit-notice.windows-unsupported {
-    background-color: rgba(220, 53, 69, 0.1); /* Soft red */
+    background-color: color-mix(in srgb, var(--color-error) 10%, transparent); /* Soft red */
     border-color: #a12c36;
     color: var(--high);
 }
@@ -916,8 +968,8 @@ ui-tabbar.tabs-inverted {
 }
 
 .install-output {
-    background-color: #222;
-    color: #ccc;
+    background-color: var(--bg-terminal);
+    color: var(--text-secondary);
     padding: 8px;
     border-radius: 4px;
 }
@@ -934,7 +986,7 @@ ui-tabbar.tabs-inverted {
     justify-content: center;
     align-items: center;
     text-align: center;
-    color: var(--mid);
+    color: var(--text-secondary);
 }
 .ai-background-element .caption {
     margin-top: 1em;
@@ -954,7 +1006,7 @@ ui-tabbar.tabs-inverted {
     justify-content: center;
     align-items: center;
     text-align: center;
-    color: var(--mid);
+    color: var(--text-secondary);
 }
 
 .file-list-background-element .caption {
@@ -976,7 +1028,7 @@ ui-tabbar.tabs-inverted {
     justify-content: center;
     align-items: center;
     text-align: center;
-    color: var(--mid);
+    color: var(--text-secondary);
 }
 .terminal-background-element .caption {
     margin-top: 1em;
@@ -990,9 +1042,9 @@ ui-tabbar.tabs-inverted {
     margin-bottom: 1em;
 }
 .loading-spinner {
-    border: 4px solid rgba(255, 255, 255, 0.2);
+    border: 4px solid var(--border-secondary);
     border-radius: 50%;
-    border-top: 4px solid var(--theme);
+    border-top-color: var(--theme);
     width: 24px;
     height: 24px;
     animation: spin 1s linear infinite;
@@ -1006,7 +1058,7 @@ ui-tabbar.tabs-inverted[slim] > ui-tab-item {
 }
 
 ui-tabbar[slim] > ui-tab-item[is-changed] {
-	background:var(--red-soft);
+	background:var(--diff-red-soft);
 }
 
 /* Override to ensure bottom corners are square */

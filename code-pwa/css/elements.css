@@ -1,20 +1,3 @@
-:root {
-	--ui-pri-bg: #fff;
-	--ui-pri-fg: #444;
-	--ui-sec-bg: #ccc;
-	--ui-sec-fg: #444;
-	--ui-effect: rgba(0, 0, 0, 0.25);
-	--ui-shadow: rgba(0, 0, 0, 0.125);
-	--ui-highlight-bg: #fff;
-	--ui-highlight-fg: #444;
-	--ui-icon-color: inherit;
-	--ui-icon-highlight: inherit;
-	--ui-bg: #fff;
-	--menuHeight: 48px;
-	--buttonBarHeight: 64px;
-}
-
-
 ui-element {
 	display: inline-block;
 }
@@ -45,7 +28,7 @@ ui-view {
 	bottom: 0px;
 	max-height: 100vh;
 	overflow: auto;
-	background: var(--ui-bg);
+	background: var(--bg-primary);
 }
 
 ui-view.full {
@@ -66,8 +49,8 @@ ui-content-fill {
 ui-actionbar {
 	position: sticky;
 	display: block;
-	background: var(--ui-pri-bg);
-	color: var(--ui-pri-fg);
+	background: var(--bg-primary);
+	color: var(--text-primary);
 	z-index: 1;
 	width: 100%;
 	left: 0px;
@@ -84,11 +67,11 @@ ui-actionbar > * {
 }
 ui-actionbar[hook="top"] {
 	top: 0px;
-	box-shadow: 0 5px 5px var(--ui-shadow);
+	box-shadow: 0 5px 5px var(--shadow-color);
 }
 ui-actionbar[hook="bottom"] {
 	bottom: 0px;
-	box-shadow: 0 -3px 5px var(--ui-shadow);
+	box-shadow: 0 -3px 5px var(--shadow-color);
 }
 
 ui-actionbar[slim] {
@@ -131,9 +114,9 @@ ui-button-counter [type="counter"] {
 	font-size: 0.8em;
 	text-align: center;
 
-	border-radius: 100%;
-	color: var(--ui-highlight-fg);
-	background: var(--ui-highlight-bg);
+	border-radius: 100%; /* A counter should be circular. */
+	color: var(--text-primary);
+	background: var(--bg-primary);
 }
 ui-button-counter:empty {
 	opacity: 0;
@@ -145,7 +128,7 @@ ui-button-counter ui-icon {
 	height: 1.5em;
 	line-height: 1.5em;
 	max-width: 1.5em;
-	color: var(--ui-icon-color);
+	color: var(--icon-color);
 }
 
 [slim] > ui-button ui-icon,
@@ -175,7 +158,7 @@ ui-file-item {
 [slim] > ui-file-item ui-icon {
 	height: 26px;
 	line-height: 25px;
-	color: var(--ui-icon-color);
+	color: var(--icon-color);
 }
 [slim] ui-file-item {
 	min-height: 26px;
@@ -200,7 +183,7 @@ effect-ripple {
 	width: 10px;
 	height: 10px;
 	z-index: 2;
-	background: var(--ui-effect);
+	background: var(--shadow-color);
 	border-radius: 100%;
 }
 
@@ -213,17 +196,17 @@ effect-ripple[active] {
 }
 
 ui-button:focus {
-	background: rgba(0, 0, 0, 0.125);
+	background: var(--bg-tertiary);
 }
 
 ui-actionbar ui-panel {
 	display: block;
 	position: absolute;
-	background: var(--ui-sec-bg);
-	color: var(--ui-sec-fg);
+	background: var(--bg-secondary);
+	color: var(--text-primary);
 	right: 8px;
 	width: 280px;
-	box-shadow: 0 5px 5px var(--ui-shadow);
+	box-shadow: 0 5px 5px var(--shadow-color);
 	max-width: 90%;
 	top: 100%;
 	z-index: 2;
@@ -245,7 +228,7 @@ ui-actionbar[open] ui-panel {
 ui-actionbar[hook="bottom"] ui-panel {
 	top: auto;
 	bottom: 100%;
-	box-shadow: 0 -5px 5px var(--ui-shadow);
+	box-shadow: 0 -5px 5px var(--shadow-color);
 }
 
 ui-actionbar ui-panel > ui-inline,
@@ -257,11 +240,11 @@ ui-actionbar ui-panel > ui-button-counter {
 }
 
 ui-actionbar ui-panel ui-button:hover {
-	background: var(--ui-highlight-bg);
-	color: var(--ui-highlight-fg);
+	background: var(--bg-tertiary);
+	color: var(--text-primary);
 }
 ui-actionbar ui-panel ui-button:hover ui-icon {
-	color: var(--ui-icon-highlight);
+	color: var(--icon-color);
 }
 
 ui-view ui-button,
@@ -308,13 +291,13 @@ ui-tabbar[slim] > ui-button ui-icon {
 
 ui-button[active],
 ui-button-counter[active] {
-	background: var(--ui-highlight-bg);
-	color: var(--ui-highlight-fg);
+	background: var(--bg-tertiary);
+	color: var(--text-primary);
 }
 
 ui-button[disabled] {
 	opacity: 0.33;
-	background: var(--ui-highlight-bg);
+	background: var(--bg-tertiary);
 	cursor: not-allowed;
 	filter: brightness(0.9);
 }
@@ -330,8 +313,8 @@ ui-actionbar > ui-inline {
 ui-icon-tabbar {
 	display: flex;
 	flex-direction: column;
-	background: var(--themeDark);
-	color: var(--ui-sec-fg);
+	background: var(--theme-dark);
+	color: var(--text-primary);
 	padding: 8px 0 0 4px;
 	border-right: 2px solid var(--theme);
 }
@@ -343,18 +326,18 @@ ui-icon-tab {
 	height: 48px;
 	width: 48px;
 	cursor: pointer;
-	color: var(--ui-icon-color);
+	color: var(--icon-color);
 	border-radius: 8px 0 0 8px;
 }
 
 ui-icon-tab[active] {
 	background: var(--theme);
-	color: var(--ui-highlight-bg);
+	color: var(--text-inverted);
 }
 
 ui-icon-tab:hover {
-	background: var(--ui-sec-fg);
-	color: var(--ui-sec-bg);
+	background: var(--text-primary);
+	color: var(--bg-secondary);
 }
 
 ui-icon-tab ui-icon {
@@ -381,8 +364,8 @@ ui-tabbar[slim] > ui-tab-item {
 	position: relative;
 	min-height: 30px;
 	line-height: 32px;
-	background: var(--ui-sec-bg);
-	color: var(--ui-highlight-fg);
+	background: var(--bg-secondary);
+	color: var(--text-primary);
 	margin-top: 6px;
 	padding-right: 3px; /* Add some space on the right for the close icon */
 	padding-left: 3px; /* Adjust padding for new status icon */
@@ -403,7 +386,7 @@ ui-tabbar[slim] > ui-tab-item .status-icon {
 ui-tabbar[slim] > ui-tab-item[is-changed] .status-icon {
 	opacity: 1; /* Full opacity for 'circle' icon */
 	font-size:1em;
-	color: var(--light);
+	color: var(--text-inverted);
 }
 
 ui-tabbar[slim] > ui-tab-item ui-inline {
@@ -415,7 +398,7 @@ ui-tabbar[slim] > ui-tab-item ui-inline {
 	flex-grow: 1; /* Allow text to expand and fill space */
 }
 ui-tabbar[slim] > ui-tab-item[active] {
-	background: var(--ui-highlight-bg);
+	background: var(--bg-primary);
 }
 ui-tabbar[slim] > ui-tab-item .status-icon,
 ui-tabbar[slim] > ui-tab-item ui-icon[close] {
@@ -455,12 +438,12 @@ ui-tabbar[slim] > ui-tab-item[active]:hover .status-icon {
 ui-tabbar[slim] > ui-tab-item:hover ui-icon[close] {
 	display:inline-block;
 	position:absolute;
-	background: rgba(0,0,0,0.25);
+	background: var(--shadow-color);
 	border-radius: 16px;
-	color:var(--light);
+	color:var(--text-inverted);
 }
 ui-tabbar[slim] > ui-tab-item:hover ui-icon[close]:hover {
-	background: var(--red-soft);
+	background: var(--diff-red-soft);
 }
 
 ui-tabbar[slim] > ui-tab-item ui-icon[close]:hover {
@@ -526,7 +509,7 @@ ui-tabbar > [hook="right"] {
 ui-file-list {
 	position: relative;
 	display: block;
-	background: #eeeeee;
+	background: var(--bg-secondary);
 	z-index: 0;
 	height: calc(100vh - 108px);
 	padding: 0px;
@@ -543,16 +526,16 @@ ui-file-list > .inner {
 
 ui-file-list > .inner.hover {
 	/*background:#0af;*/
-	border: 3px dashed #0af;
+	border: 3px dashed var(--theme);
 	border-radius: 16px;
 }
 
 ui-file-list > .inner > a {
 	/*background: center center no-repeat;*/
 	display: inline-block;
-	position: relative;
-	background: #fff;
-	margin: 4px;
+	position: relative; /* This is required for the child label to be positioned correctly */
+	background: var(--bg-primary);
+	margin: 4px; /* Add some space around the file list items. */
 	width: calc(20% - 24px);
 	min-height: 100px;
 	border: 8px solid #fff;
@@ -565,10 +548,10 @@ ui-file-list > .inner > a {
 
 ui-file-list > .inner > * > label {
 	position: absolute;
-	background: rgba(255, 255, 255, 0.75);
+	background: color-mix(in srgb, var(--bg-primary) 75%, transparent);
 	font-size: 12px;
 	height: 9px;
-	padding: 4px;
+	padding: 4px; /* A label should have 4px of padding on all sides. */
 	color: #333;
 	left: 0px;
 	right: 0px;
@@ -584,12 +567,12 @@ ui-file-list > .progress {
 	width: 5%;
 	max-height: 5px;
 	height: 0px;
-	background: #0af;
+	background: var(--theme);
 	transition: width 333ms ease-in-out, height 333ms ease-in-out;
 }
 
 ui-file-list > .inner > ui-file-item:not(:first-child) {
-	border-top: 1px solid var(--ui-shadow);
+	border-top: 1px solid var(--border-secondary);
 	padding-top: 4px;
 	margin-top: 4px;
 }
@@ -632,12 +615,12 @@ ui-file-item[open] > ui-inline {
 }
 
 ui-file-item:focus {
-	background: rgba(0, 0, 0, 0.125);
+	background: var(--bg-tertiary);
 }
 
 ui-file-item[active] {
-	background: rgba(0, 0, 0, 0.4);
-	color: var(--ui-sec-fg);
+	background: var(--bg-tertiary);
+	color: var(--text-primary);
 }
 
 ui-file-item[active] ui-icon {
@@ -695,9 +678,9 @@ ui-menu {
 	top: 0px;
 	transition: opacity 200ms ease-in-out;
 	z-index: 100;
-	background: var(--ui-pri-bg);
-	color: var(--ui-pri-fg);
-	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+	background: var(--bg-primary);
+	color: var(--text-primary);
+	box-shadow: 0 3px 12px var(--shadow-color);
 	border-radius: 0px 2px 4px 4px;
 	overflow-y: auto;
 }
@@ -707,7 +690,7 @@ ui-menu[left] {
 }
 ui-menu[up] {
 	border-radius: 4px 4px 0px 2px;
-	box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.25);
+	box-shadow: 0 -3px 12px var(--shadow-color);
 }
 ui-menu[up][left] {
 	border-radius: 4px 4px 0px 2px;
@@ -740,8 +723,8 @@ ui-menu ui-menu-item ui-inline[hook="right"] {
 	margin-left: 25px;
 }
 ui-menu ui-menu-item:hover {
-	background: var(--ui-sec-bg);
-	color: var(--ui-sec-fg);
+	background: var(--bg-secondary);
+	color: var(--text-primary);
 }
 
 ui-menu ui-menu-item ui-icon {
@@ -752,7 +735,7 @@ ui-menu ui-menu-item ui-icon {
 	line-height: 40px;
 	font-size: 20px;
 	vertical-align: middle;
-	color: var(--ui-sec-bg);
+	color: var(--icon-color);
 }
 
 ui-menu[slim] ui-menu-item ui-icon {
@@ -761,7 +744,7 @@ ui-menu[slim] ui-menu-item ui-icon {
 }
 
 ui-menu ui-menu-item:hover ui-icon {
-	color: var(--ui-pri-fg);
+	color: var(--text-primary);
 	opacity: 0.5;
 }
 
@@ -775,7 +758,7 @@ ui-menu-item:last-child {
 ui-menu-split {
 	display: block;
 	height: 1px;
-	background: var(--ui-sec-bg);
+	background: var(--border-secondary);
 	width: 96%;
 	margin: 2px auto;
 }
@@ -793,11 +776,11 @@ ui-panel[type="modal"] {
 	left: 33%;
 	width: 33%;
 	height: 33%;
-	background: var(--ui-pri-bg);
+	background: var(--bg-primary);
 	box-sizing: border-box;
 	border-radius: 8px;
 	padding: 8px;
-	box-shadow: 0 0 16px rgba(0, 0, 0, 0.25);
+	box-shadow: 0 0 16px var(--shadow-color);
 	overflow-y: auto;
 }
 
@@ -830,8 +813,8 @@ ui-panel[type="modal"][blank] + ui-blank {
 	top: 0px;
 	left: 0px;
 	right: 0px;
-	bottom: 0px;
-	background: rgba(0, 0, 0, 0.125);
+	bottom: 0px; /* The bottom of the blank overlay should be 0px from the bottom of the viewport. */
+	background: var(--bg-overlay);
 }
 
 ui-panel[type="modal"][blank][active] + ui-blank {
@@ -850,12 +833,12 @@ ui-panel[type="modal"] h1 small {
 
 @keyframes ripple {
 	0% {
-		background: var(--ui-effect);
+		background: var(--shadow-color);
 		transform: scale(0.01, 0.01);
 		opacity: 1;
 	}
 	99% {
-		background: var(--ui-effect);
+		background: var(--shadow-color);
 		transform: scale(40, 40);
 		opacity: 0;
 	}
@@ -883,13 +866,13 @@ ui-media-view {
 	bottom: 0;
 	z-index: 5;
 	background: linear-gradient(45deg, rgba(0,0,0,0.05) 25%, transparent 25%), linear-gradient(-45deg, rgba(0,0,0,0.1) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.05) 75%), linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.1) 75%);
-	background-size: 20px 20px;
-	background-color: var(--mid);
+	background-size: 20px 20px; /* The background pattern should be 20px by 20px. */
+	background-color: var(--bg-secondary);
 	display: none;
 }
 
 ui-media-view img {
-	box-shadow: 0px 0px 50px rgba(0,0,0,0.5);
+	box-shadow: 0px 0px 50px var(--shadow-color);
 }
 
 ui-sidebar-panel {
@@ -906,9 +889,9 @@ ui-sidebar-panel[active] {
 }
 
 ui-filechip {
-	background-color: var(--dark);
+	background-color: var(--bg-secondary);
 	border: 1px solid var(--theme);
-	color: var(--high);
+	color: var(--text-primary);
 	padding: 1px 4px 1px 8px;
 	border-radius: 16px;
 	font-size: 1em;
@@ -921,8 +904,8 @@ ui-filechip {
 }
 
 ui-filechip:hover {
-	background-color: var(--themeDark);
-	color: var(--light);
+	background-color: var(--theme-dark);
+	color: var(--text-inverted);
 }
 
 ui-filechip > ui-icon[close] { font-size: 1.1em; line-height: 1; }
