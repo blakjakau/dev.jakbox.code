@@ -3,7 +3,6 @@
     color: var(--theme-text-color-light); /* Lighter text for metadata */
     background-color: var(--theme-block-background); /* Distinct background for header */
     border-bottom: 1px dashed var(--theme-border-color);
-    font-weight: bold;
 }
 
 /* Individual line divs inside .diff-output */
@@ -13,14 +12,12 @@
 
 /* Added lines */
 .diff-output .add {
-	font-weight:bold;
     color: var(--green); /* Bright green for additions */
     background-color: rgba(0, 128, 0, 0.2); /* Darken for better contrast */
 }
 
 /* Removed lines */
 .diff-output .remove {
-	font-weight:bold;
     color: var(--red); /* Bright red for removals */
     background-color: rgba(128, 0, 0, 0.2); /* Darken for better contrast */
 }

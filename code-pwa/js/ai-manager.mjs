@@ -1229,6 +1229,7 @@ class AIManager {
             }
 
 			const codeElement = pre.querySelector("code") // Get the code element inside pre
+			const isDiff = codeElement && codeElement.classList.contains('language-diff');
 
 			const buttonContainer = new Block()
 
@@ -1238,35 +1239,37 @@ class AIManager {
             }
 			buttonContainer.classList.add("code-buttons")
 
-			// Common buttons for all code blocks
-			const copyButton = new Button()
-			copyButton.classList.add("code-button")
-			copyButton.icon = "content_copy"
-			copyButton.title = "Copy code"
-			copyButton.on("click", () => {
-				const code = codeElement ? codeElement.innerText : pre.innerText; // Use codeElement if exists
-				navigator.clipboard.writeText(code)
-				copyButton.icon = "done"
-				setTimeout(() => {
-					copyButton.icon = "content_copy"
-				}, 1000)
-			})
-			buttonContainer.append(copyButton);
+			if (!isDiff) {
+				// Common buttons for all code blocks
+				const copyButton = new Button()
+				copyButton.classList.add("code-button")
+				copyButton.icon = "content_copy"
+				copyButton.title = "Copy code"
+				copyButton.on("click", () => {
+					const code = codeElement ? codeElement.innerText : pre.innerText; // Use codeElement if exists
+					navigator.clipboard.writeText(code)
+					copyButton.icon = "done"
+					setTimeout(() => {
+						copyButton.icon = "content_copy"
+					}, 1000)
+				})
+				buttonContainer.append(copyButton);
 
-			const insertButton = new Button()
-			insertButton.classList.add("code-button")
-			insertButton.icon = "input"
-			insertButton.title = "Insert into editor"
-			insertButton.on("click", () => {
-				const code = codeElement ? codeElement.innerText : pre.innerText; // Use codeElement if exists
-				const event = new CustomEvent("insert-snippet", { detail: code })
-				window.dispatchEvent(event)
-				insertButton.icon = "done"
-				setTimeout(() => {
-					insertButton.icon = "input"
-				}, 1000)
-			})
-			buttonContainer.append(insertButton);
+				const insertButton = new Button()
+				insertButton.classList.add("code-button")
+				insertButton.icon = "input"
+				insertButton.title = "Insert into editor"
+				insertButton.on("click", () => {
+					const code = codeElement ? codeElement.innerText : pre.innerText; // Use codeElement if exists
+					const event = new CustomEvent("insert-snippet", { detail: code })
+					window.dispatchEvent(event)
+					insertButton.icon = "done"
+					setTimeout(() => {
+						insertButton.icon = "input"
+					}, 1000)
+				})
+				buttonContainer.append(insertButton);
+			}
 
             // Expand/Collapse button
             const expandCollapseButton = new Button();
@@ -1313,7 +1316,7 @@ class AIManager {
 
 
             // NEW: Diff specific handling
-            if (codeElement && codeElement.classList.contains('language-diff')) {
+            if (isDiff) {
                 const originalDiffString = codeElement.textContent; // Get the raw diff content
 
                 // Infer the language from the '+++ b/path/to/file.ext' line in the diff.

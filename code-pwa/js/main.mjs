@@ -558,8 +558,14 @@ const openWorkspace = (() => {
 
 const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
 
+const clearInjectedTheme = () => {
+    // This function is no longer needed as we're not dynamically injecting editor colors
+    // Instead, CSS handles light/dark mode with pre-defined variables.
+};
+
 const execCommandSetDarkMode = (mode) => {
     app.darkmode = mode;
+
     switch (mode) {
         case 'light':
             document.body.classList.remove("darkmode");
@@ -568,7 +574,7 @@ const execCommandSetDarkMode = (mode) => {
             document.body.classList.add("darkmode");
             break;
         case 'system':
-            if (prefersDarkMode.matches) {
+            if (prefersDarkMode.matches) { // This only updates on initial load and system preference change
                 document.body.classList.add("darkmode");
             } else {
                 document.body.classList.remove("darkmode");
@@ -576,7 +582,7 @@ const execCommandSetDarkMode = (mode) => {
             break;
     }
     saveAppConfig();
-    updateThemeAndMode();
+    updateThemeAndMode(false); // Update menus, but don't save again
 };
 
 prefersDarkMode.addEventListener('change', () => {
@@ -593,6 +599,7 @@ const updateThemeAndMode = (doSave = false) => {
 	} else {
 		prettify.setAttribute("disabled", "disabled")
 	}
+
 	if (doSave) saveAppConfig()
 }
 

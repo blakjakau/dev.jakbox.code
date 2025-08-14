@@ -16,7 +16,7 @@ export class Panel extends Block {
 		this.borderHandleSize = 8
 		this.borderHandleVisual = 4
 		this.activeBorder = `${this.borderHandleVisual}px solid var(--theme)`;
-		this.inactiveBorder = `${this.borderHandleVisual}px solid var(--dark)`;
+		this.inactiveBorder = `${this.borderHandleVisual}px solid transparent`;
 		this.active;
 		
 		this.on("pointerleave", (e)=>{

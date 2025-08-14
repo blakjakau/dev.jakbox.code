@@ -53,19 +53,18 @@
 
 /* Overall container for rendered diffs */
 .conversation-area .response-block .diff-output {
-    background-color: rgba(0,0,0,0.25); /* A neutral background, maybe slightly darker than main chat area */
+    background-color: var(--bg-code); /* A neutral background, maybe slightly darker than main chat area */
     padding: 8px;
     border-radius: var(--borderRadius);
-    /*font-family: var(--font-family-monospace);*/
     font-size: var(--font-size-sm);
     overflow-x: auto; /* Allow horizontal scrolling for wide diff lines */
     white-space: pre; /* Preserve whitespace for diff format */
     margin-top: 8px;
     margin-bottom: 8px;
-    border: 1px solid var(--theme-border-color);
+    border: 1px solid var(--border-primary);
     line-height: 1.4; /* Improve readability */
-    color: var(--theme-text-color); /* Default text color */
-    font-family: roboto mono;
+    color: var(--text-primary); /* Default text color */
+    font-family: var(--font-mono);
 }
 
 
@@ -87,9 +86,9 @@
 }
 
 .conversation-area .response-block .code-button {
-    background-color: var(--theme-block-background);
-    border: 1px solid var(--theme-border-color);
-    color: var(--theme-text-color);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    color: var(--text-primary);
     padding: 4px 8px;
     border-radius: var(--borderRadius);
     font-size: var(--font-size-xs);
@@ -97,8 +96,8 @@
 }
 
 .conversation-area .response-block .code-button:hover {
-    background-color: var(--theme-accent-hover);
-    color: var(--theme-accent-color);
+    background-color: var(--bg-tertiary);
+    color: var(--theme);
 }
 /* Ensure the pre element is positioned relatively for absolute button positioning */
 .conversation-area .response-block pre {
@@ -109,7 +108,7 @@
 
 .prompt-container {
     padding: 0px 0;
-    background-color: var(--background-color);
+    background-color: transparent;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -142,7 +141,7 @@
 .prompt-area:disabled {
     opacity: 0.7;
     cursor: not-allowed;
-    background-color: rgba(0, 0, 0, 0.15);
+    background-color: var(--bg-secondary);
 }
 
 
@@ -156,14 +155,14 @@
 
 .theme-button {
     background-color: var(--theme);
-    color: var(--light);
+    color: var(--text-inverted);
     border: 1px solid var(--theme);
     cursor: pointer;
 }
 
 .theme-button:hover {
-    background-color: var(--themeDark);
-    border-color: var(--themeDark);
+    background-color: var(--theme-dark);
+    border-color: var(--theme-dark);
 }
 
 .submit-button {
@@ -171,25 +170,25 @@
 }
 
 .clear-button, .summarize-button { 
-    align-self: flex-end;
-    background-color: var(--low);
-    color: var(--button-text-color);
-    border: 1px solid var(--border-color);
+    align-self: flex-end; /* The clear and summarize buttons should be aligned to the end of the flex container. */
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-primary);
     cursor: pointer;
 }
 
 .clear-button:hover, .summarize-button:hover {
-    background-color: var(--themeDark); 
-    border-color: var(--mid); 
+    background-color: var(--theme-dark);
+    border-color: var(--border-primary);
 }
 
 /* Spinner specifically for use inside buttons */
 .button-spinner {
     width: 16px; /* Smaller for button context */
     height: 16px;
-    border: 2px solid rgba(255, 255, 255, 0.5); /* Use a color that works on the button background */
+    border: 2px solid color-mix(in srgb, var(--text-inverted) 50%, transparent); /* Use a color that works on the button background */
     border-radius: 50%;
-    border-top-color: var(--light); /* Spinner color */
+    border-top-color: var(--text-inverted); /* Spinner color */
     animation: spin 1s linear infinite;
     /* This will help center it as our Button class uses flexbox */
     margin: auto;
@@ -201,7 +200,7 @@
 
 .response-block {
     margin-bottom: 16px;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.125), rgba(0, 0, 0, 0));
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--text-primary) 10%, transparent), transparent);
     border-radius: 16px;
     padding: 0px 16px;
     /*border: 2px solid rgba(0,0,0,0.125);*/
@@ -247,8 +246,8 @@
 }
 
 .code-button {
-    background-color: rgba(120, 120, 120, 0.5);
-    color: white;
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
     border: none;
     border-radius: 50%;
     padding: 0px 4px;
@@ -261,19 +260,19 @@
 }
 
 .code-button:hover {
-    background-color: rgba(120, 120, 120, 0.7);
+    filter: brightness(0.9);
 }
 
 /* Styles for successful diff application */
 .code-button.diff-apply-success {
-    background-color: var(--green-soft)!important;
-    border-color: var(--green);
+    background-color: var(--diff-green-soft)!important;
+    border-color: var(--diff-green);
 }
 
 /* Styles for failed diff application */
 .code-button.diff-apply-failed {
-    background-color: var(--red-soft)!important; 
-    border-color: var(--red);
+    background-color: var(--diff-red-soft)!important;
+    border-color: var(--diff-red);
 }
 
 .prompt-pill-wrapper {
@@ -285,16 +284,16 @@
 }
 
 .prompt-pill {
-    background-color: var(--themeDark);
-    color: var(--ui-pri-bg); 
+    background-color: var(--theme-dark);
+    color: var(--text-inverted);
     padding: 0px 12px; 
     border-radius: 16px;
     word-wrap: break-word;
 }
 
 .delete-history-button {
-    background-color: var(--themeDark);
-    color: var(--light);
+    background-color: var(--theme-dark);
+    color: var(--text-inverted);
     border: none;
     border-radius: 50%; 
     width: 24px;
@@ -311,7 +310,7 @@
     right: -4px;
     opacity: 0; 
     transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.5); 
+    box-shadow: 0 1px 3px var(--shadow-color);
     z-index: 1;
 }
 
@@ -319,11 +318,11 @@
 .prompt-area .ace_editor.ace_read-only {
     opacity: 0.7;
     cursor: not-allowed;
-    background-color: rgba(0, 0, 0, 0.15);
+    background-color: var(--bg-secondary);
 }
 
 .delete-history-button:hover {
-    background-color: #dc3545; 
+    background-color: var(--color-error);
 }
 
 .prompt-pill-wrapper:hover .delete-history-button,
@@ -334,12 +333,12 @@
 .settings-panel {
     flex: 1;
     padding: 16px;
-    background-color: var(--themeDark);
-    color: var(--theme-text-color);
+    background-color: var(--theme-dark);
+    color: var(--text-inverted);
     display: none;
     flex-direction: column;
     overflow-y: auto;
-    background: linear-gradient(90deg, var(--theme) 31%, var(--themeDark) 31%);
+    background: linear-gradient(90deg, var(--theme) 31%, var(--theme-dark) 31%);
 }
 
 .settings-panel.active {
@@ -367,10 +366,10 @@
 .settings-panel select {
     flex-grow: 1;
     padding: 8px;
-    border: 1px solid var(--mid);
+    border: 1px solid var(--border-primary);
     border-radius: var(--buttonBorder);
-    background-color: var(--high);
-    color: var(--text-color);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     box-sizing: border-box;
     width: auto;
 }
@@ -431,8 +430,8 @@
 .loading-spinner {
     width: 32px;
     height: 32px;
-    border: 4px solid var(--low);
-    border-top-color: var(--theme);
+    border: 4px solid var(--border-secondary);
+    border-top-color: var(--theme); /* The top border of the loading spinner should be the theme color. */
     border-radius: 50%;
     animation: spin-simple 1s linear infinite;
 }
@@ -451,15 +450,15 @@
 }
 
 .progress-bar-inner.threshold-yellow {
-    background-color: #ffd700; 
+    background-color: var(--color-warning);
 }
 
 .progress-bar-inner.threshold-orange {
-    background-color: #ffa500; 
+    background-color: var(--color-warning-dark);
 }
 
 .progress-bar-inner.threshold-red {
-    background-color: #dc3545; 
+    background-color: var(--color-error);
 }
 
 
@@ -480,10 +479,10 @@
 }
 
 .context-file-pill {
-    background-color: var(--dark);
+    background-color: var(--bg-secondary);
     border: 1px solid var(--theme);
     color: var(--theme);
-    padding: 0px 12px;
+    padding: 0px 12px; /* A pill for a context file should have 0px top and bottom padding, and 12px left and right padding. */
     border-radius: 16px;
     flex-grow: 1;
     flex-shrink: 1;
@@ -491,12 +490,12 @@
 
 .file-size {
     font-size: 0.8em;
-    color: var(--text-color-secondary);
+    color: var(--text-secondary);
 }
 
 .system-message-block {
     margin-bottom: 8px;
-    padding: 8px 16px;
+    padding: 8px 16px; /* A system message block should have 8px top and bottom padding, and 16px left and right padding. */
     background: rgba(var(--text-color-rgb), 0.05);
     border-radius: var(--borderRadius);
     color: var(--text-color-secondary);
@@ -523,7 +522,7 @@ button:disabled,
 
 .ai-info-display {
     font-size: 0.85em;
-    color: var(--text-color-secondary);
+    color: var(--text-secondary);
     align-self: center; 
     padding-left: 8px;
     white-space: nowrap; 
@@ -543,18 +542,18 @@ button:disabled,
 .ai-filebar-container {
 	position: sticky; /* Now it's sticky within the conversation-area */
 	top: 0;
-	background-color: var(--background-color);
+	background-color: var(--bg-primary);
 	z-index: 2;
-	border-bottom: 1px solid var(--themeDark);
+	border-bottom: 1px solid var(--theme-dark);
 	display: flex;
 	flex-direction: column;
 }
 
 .ai-filebar-container > .progress-bar {
-	width: calc(100% - 16px); /* Match padding of file-context-bar */
+	width: calc(100% - 16px); /* Match padding of file-context-bar, which is 8px on each side. */
 	margin: 0 8px 6px 8px; /* Give it some space */
 	height: 6px;
-	background-color: var(--themeDark);
+	background-color: var(--theme-dark);
 	border-radius: 4px;
 }
 
@@ -573,10 +572,10 @@ button:disabled,
 .ai-session-tab-container {
     display: flex;
     align-items: flex-end; 
-    background-color: var(--background-color);
+    background-color: var(--bg-primary);
     padding: 0px 4px 0 4px; 
     gap: 4px;
-    border-top: 3px solid var(--themeDark); /* Swapped from border-bottom */
+    border-top: 3px solid var(--theme-dark); /* Swapped from border-bottom */
     flex-shrink: 0;
 }
 
@@ -593,7 +592,7 @@ button:disabled,
 }
 
 .ai-session-tab-container .new-session-button:hover {
-    background-color: rgba(0,0,0,0.25);
+    background-color: var(--bg-tertiary);
 }
 
 /* ... (rest of CSS) ... */
@@ -611,11 +610,11 @@ button:disabled,
 	position: absolute;
 	bottom: 0; /* Stick to the top of the conversation-area, below the file bar */
 	z-index: 3; /* Ensure it's above other chat content */
-	border: 1px solid var(--theme);
-	background: var(--themeDark);
-	color: var(--light);
+	border: 1px solid var(--theme); /* The border should be the theme color. */
+	background: var(--theme-dark);
+	color: var(--text-inverted);
 	animation: sticky-fade-out 5s linear forwards;
-	box-shadow: 0 5px 5px rgba(0, 0, 0, 0.15); /* Add a subtle shadow to lift it off the content */
+	box-shadow: 0 5px 5px var(--shadow-color); /* Add a subtle shadow to lift it off the content */
 	padding:0px;
 
 	padding: 0px;
@@ -627,8 +626,8 @@ button:disabled,
 /*    position: sticky;*/
 /*    bottom: 130px;*/
 /*    border: 1px solid var(--theme);*/
-/*    background: var(--themeDark);*/
-/*    color: var(--light);*/
+/*    background: var(--theme-dark);*/
+/*    color: var(--text-inverted);*/
     /* animation: sticky-fade-out 10s linear forwards; */
 /*    box-shadow: 0 5px 5px rgba(0, 0, 0, 0.15);*/
 /*}*/
@@ -646,8 +645,8 @@ button:disabled,
     position: sticky;
     bottom: 0;
     z-index: 4; /* Above other messages */
-    background-color: var(--dark); /* Solid background to obscure content behind it */
-    box-shadow: 0 -5px 10px rgba(0,0,0,0.2); /* Shadow on top to lift it from the content */
+    background-color: var(--bg-primary); /* Solid background to obscure content behind it */
+    box-shadow: 0 -5px 10px var(--shadow-color); /* Shadow on top to lift it from the content */
     padding: 8px 16px; /* Ensure consistent padding */
 }
 
@@ -664,15 +663,82 @@ button:disabled,
 .context-stale-notice button {
     padding: 6px 12px;
     border-radius: var(--borderRadius);
-    cursor: pointer;
-    border: 1px solid var(--border-color);
-    background-color: var(--low);
-    color: var(--button-text-color);
+    cursor: pointer; /* The cursor should be a pointer when hovering over a button. */
+    border: 1px solid var(--border-primary);
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
     font-size: 0.9em;
 }
 .context-stale-notice .update-button {
-    background-color: var(--theme);
-    border-color: var(--theme);
-    color: var(--light);
+    background-color: var(--theme); /* The background color for the update button should be the theme color. */
+    border-color: var(--theme); /* The border color for the update button should be the theme color. */
+    color: var(--text-inverted);
+}
+.context-stale-notice button:hover { filter: brightness(1.2); }
+
+/* Overrides for highlight.js to match the current ACE editor theme */
+.conversation-area .response-block pre .hljs-comment,
+.conversation-area .response-block pre .hljs-quote {
+    color: var(--hljs-comment, #7F848E); /* Default from atom-one-dark */
+}
+
+.conversation-area .response-block pre .hljs-built_in,
+.conversation-area .response-block pre .hljs-keyword,
+.conversation-area .response-block pre .hljs-selector-tag,
+.conversation-area .response-block pre .hljs-subst {
+    color: var(--hljs-keyword, #C678DD);
+}
+
+.conversation-area .response-block pre .hljs-number,
+.conversation-area .response-block pre .hljs-literal,
+.conversation-area .response-block pre .hljs-template-variable,
+.conversation-area .response-block pre .hljs-tag {
+    color: var(--hljs-number, #D19A66);
+}
+
+
+.conversation-area .response-block pre .hljs-string,
+.conversation-area .response-block pre .hljs-doctag {
+    color: var(--hljs-string, #98C379);
+}
+
+.conversation-area .response-block pre .hljs-title,
+.conversation-area .response-block pre .hljs-section,
+.conversation-area .response-block pre .hljs-selector-id,
+.conversation-area .response-block pre .hljs-title.class_, 
+.conversation-area .response-block pre .hljs-class,
+.conversation-area .response-block pre .hljs-title {
+    color: var(--hljs-class, #E5C07B);
+}
+
+.conversation-area .response-block pre .hljs-selector-attr,
+.conversation-area .response-block pre .hljs-attribute {
+	color: var(--hljs-attribute, #0089cd)
+}
+
+.conversation-area .response-block pre .hljs-selector-pseudo,
+.conversation-area .response-block pre .hljs-selector-class,
+.conversation-area .response-block pre .hljs-attr {
+    color: var(--hljs-selector, #9aaff2);
+}
+	
+}
+
+.conversation-area .response-block pre .hljs-title.function_ {
+    color: var(--hljs-function, #61AFEF);
+}
+
+.conversation-area .response-block pre .hljs-variable {
+	color: var(--hljs-variable, #e06c75);
+}
+
+.conversation-area .response-block pre .hljs-meta,
+.conversation-area .response-block pre .hljs-tag {
+    color: var(--hljs-tag, #e06c75);
+}
+.context-stale-notice .update-button {
+    background-color: var(--theme); /* The background color for the update button should be the theme color. */
+    border-color: var(--theme); /* The border color for the update button should be the theme color. */
+    color: var(--text-inverted);
 }
 .context-stale-notice button:hover { filter: brightness(1.2); }
