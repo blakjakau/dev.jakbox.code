@@ -71,23 +71,25 @@ const uiManager = {
 			void sidebar.offsetWidth
 			const minWidth = 350
 			const maxWidth = window.innerWidth - 300; // 50% of window width
-			if(sidebar.offsetWidth > maxWidth) {
-				sidebar.style.width = maxWidth + "px"
-				mainContent.style.left = maxWidth + "px";
-			} else if(sidebar.offsetWidth < minWidth) {
-				sidebar.style.width = minWidth + "px"
-				mainContent.style.left = minWidth + "px";
-			}
 			
-			drawer.style.left = (sidebar.offsetLeft + sidebarWidth) + "px";
+			if(document.body.classList.contains("showSidebar")) {
+				if(sidebar.offsetWidth > maxWidth) {
+					sidebar.style.width = maxWidth + "px"
+					mainContent.style.left = maxWidth + "px";
+				} else if(sidebar.offsetWidth < minWidth) {
+					sidebar.style.width = minWidth + "px"
+					mainContent.style.left = minWidth + "px";
+				}
+				drawer.style.left = (sidebar.offsetLeft + sidebarWidth) + "px";
 			
-			// Call fit on the terminal manager's instance
-			if (window.terminalManager) {
-				window.terminalManager.fit();
-				// Ensure fit after sidebar transition
-				sidebar.removeEventListener("transitionend", uiManager._sidebarFitTerminalAfterTransition); // Prevent duplicate listeners
-				uiManager._sidebarFitTerminalAfterTransition = () => window.terminalManager.fit();
-				sidebar.addEventListener("transitionend", uiManager._sidebarFitTerminalAfterTransition, { once: true });
+				// Call fit on the terminal manager's instance
+				if (window.terminalManager) {
+					window.terminalManager.fit();
+					// Ensure fit after sidebar transition
+					sidebar.removeEventListener("transitionend", uiManager._sidebarFitTerminalAfterTransition); // Prevent duplicate listeners
+					uiManager._sidebarFitTerminalAfterTransition = () => window.terminalManager.fit();
+					sidebar.addEventListener("transitionend", uiManager._sidebarFitTerminalAfterTransition, { once: true });
+				}
 			}
 			saveSidepanelWidth()
 			if(!document.body.classList.contains("showSplitView")) {

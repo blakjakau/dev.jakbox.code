@@ -343,6 +343,12 @@ ui-actionbar[slim]#fileActions {
 	padding:5px 0 0 0;
 }
 
+#fileActions ui-button,
+#fileActions ui-icon {
+	height: 39px;
+	line-height:39px;
+}
+	
 ui-actionbar#menu ui-button {
 	color:var(--text-inverted);
 	-webkit-app-region: no-drag;

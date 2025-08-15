@@ -1480,8 +1480,8 @@ fileAccess.on("click", async () => {
 	}
 })
 
-fileOpen.title = "Add Folder to Workspace"
 fileOpen.icon = "create_new_folder"
+fileOpen.title = "Add Folder to Workspace"
 fileActions.append(fileOpen)
 
 fileActions.append(fileAccess)
