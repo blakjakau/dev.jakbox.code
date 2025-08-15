@@ -592,7 +592,8 @@ ui-sidebar-panel > ui-actionbar {
 }
 
 ui-sidebar-panel > ui-file-list {
-	height: calc(100% - var(--menuHeight));
+	height: 100%;
+	overflow-y:auto;
 }
 
 
@@ -678,7 +679,7 @@ ui-menu {
 	top: 0px;
 	transition: opacity 200ms ease-in-out;
 	z-index: 100;
-	background: var(--bg-primary);
+	background: var(--bg-modal);
 	color: var(--text-primary);
 	box-shadow: 0 3px 12px var(--shadow-color);
 	border-radius: 0px 2px 4px 4px;
@@ -776,7 +777,7 @@ ui-panel[type="modal"] {
 	left: 33%;
 	width: 33%;
 	height: 33%;
-	background: var(--bg-primary);
+	background: var(--bg-modal);
 	box-sizing: border-box;
 	border-radius: 8px;
 	padding: 8px;
@@ -786,7 +787,7 @@ ui-panel[type="modal"] {
 
 ui-panel[type="modal"] ui-inner {
 	padding: 16px;
-	overflow-y: auto;
+	overflow-y: auto;s
 	position: absolute;
 	top: 0px;
 	left: 0px;
@@ -800,6 +801,7 @@ ui-panel[type="modal"] ui-actionbar {
 	padding: 8px 0;
 	box-shadow: none;
 	height: var(--menuHeight);
+	background: var(--bg-modal);
 }
 ui-panel[type="modal"] ui-actionbar ui-button {
 	min-width: 64px;
@@ -880,7 +882,7 @@ ui-sidebar-panel {
 	top: 0;
 	left: 0;
 	width: 100%;
-	height: calc(100% - var(--menuHeight));
+	height: calc(100%);
 	display: none;
 }
 
