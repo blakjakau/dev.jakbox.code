@@ -1,0 +1,105 @@
+/* /code-pwa/css/settings-panel.css */
+
+/* Base container for settings panels */
+.settings-panel,
+.settings-panel-container {
+    display: none; /* Hidden by default */
+    flex: 1; /* Take up all available space in the parent */
+    flex-direction: column;
+    padding: 16px;
+    overflow-y: auto;
+    /*background: linear-gradient(to bottom, color-mix(in srgb, var(--bg-secondary) 50%, var(--bg-primary)), var(--bg-primary) 300px);*/
+    background: linear-gradient(90deg, var(--theme) 31%, var(--theme-dark) 31%);
+}
+
+/* A single setting row */
+ui-settings-panel .setting-item {
+    display: flex;
+    align-items: center; /* Vertically center label and input */
+    gap: 1em;
+    margin-bottom: 12px;
+    width: 100%;
+}
+
+/* The text label part of a setting */
+ui-settings-panel .setting-item > label:first-child {
+    flex-basis: 30%;
+    flex-shrink: 0;
+    text-align: right;
+}
+
+/* Headings for sections */
+ui-settings-panel h3 {
+    text-align: right;
+    margin-top: 16px;
+    margin-bottom: 12px;
+}
+
+/* Input fields */
+ui-settings-panel input[type="text"],
+ui-settings-panel input[type="password"],
+ui-settings-panel input[type="string"],
+ui-settings-panel input[type="number"],
+ui-settings-panel textarea,
+ui-settings-panel select {
+    flex-grow: 1;
+    padding: 8px;
+    border: 1px solid var(--border-primary);
+    border-radius: var(--buttonBorder);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    box-sizing: border-box;
+    width: auto; /* Let flexbox manage width */
+}
+
+ui-settings-panel textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+/* Handle checkbox layout which is different */
+ui-settings-panel .setting-type-checkbox {
+    align-items: flex-start; /* Align label to top of checkbox line */
+}
+
+ui-settings-panel .setting-type-checkbox > ui-block {
+    flex-grow: 1;
+    display: flex;
+    align-items: center; /* Vertically align checkbox with its own text */
+}
+
+ui-settings-panel input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+/* Handle button layout */
+ui-settings-panel .setting-type-button > ui-button {
+    flex-grow: 1;
+    text-align: left; /* Align button text to the left */
+    justify-content: flex-start; /* Align icon and text to the left */
+}
+
+/* The main save button at the bottom */
+ui-settings-panel form > ui-button.theme-button {
+    margin-left: auto; /* Align to the right */
+    display: block;
+    width: fit-content; /* Don't take full width */
+    margin-top: 20px;
+    padding: 10px 20px;
+    border-radius: var(--buttonBorder);
+    font-size: 16px;
+}
+
+/* Help text styling */
+ui-settings-panel .help-text {
+    color: var(--text-secondary);
+    font-size: 0.9em;
+    margin-top: 4px;
+    margin-left: 1em; 
+    flex-basis: 100%; /* Ensure it wraps to a new line */
+    padding-right: 1em; /* Prevent text from touching edge */
+}
+
+ui-settings-panel .setting-type-heading {
+	flex-direction: row-reverse;
+}
