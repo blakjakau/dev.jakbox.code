@@ -1,5 +1,12 @@
 /* ai-manager.css */
 @import "diff-output.css";
+@import "settings-panel.css";
+
+/* AI Manager specific layout for the settings panel */
+.settings-panel.active {
+    display: flex;
+    flex: 1;
+}
 
 #ai-panel[active] {
     display: flex; /* Ensure flexbox is used */
@@ -330,91 +337,6 @@
     opacity: 1;
 }
 
-.settings-panel {
-    flex: 1;
-    padding: 16px;
-    background-color: var(--theme-dark);
-    color: var(--text-inverted);
-    display: none;
-    flex-direction: column;
-    overflow-y: auto;
-    background: linear-gradient(90deg, var(--theme) 31%, var(--theme-dark) 31%);
-}
-
-.settings-panel.active {
-    display: flex;
-}
-
-.settings-panel h3 {
-	text-align: right;	
-}
-
-.settings-panel label {
-    display: block;
-    margin-bottom: 8px;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 1em;
-}
-
-.settings-panel input[type="text"],
-.settings-panel input[type="password"],
-.settings-panel input[type="string"],
-.settings-panel input[type="number"],
-.settings-panel textarea,
-.settings-panel select {
-    flex-grow: 1;
-    padding: 8px;
-    border: 1px solid var(--border-primary);
-    border-radius: var(--buttonBorder);
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-    box-sizing: border-box;
-    width: auto;
-}
-
-.settings-panel textarea {
-    min-height: 80px;
-    resize: vertical;
-}
-.settings-panel label > span {
-.settings-panel .input-with-button {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-grow: 1;
-}
-
-    flex-basis: 30%;
-    flex-shrink: 0;
-    text-align: right;
-}
-
-.settings-panel .input-with-button {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-grow: 1;
-}
-
-.settings-panel button.theme-button { 
-    align-self: flex-end;
-    margin-top: 20px;
-    padding: 10px 20px;
-    border-radius: var(--buttonBorder);
-    font-size: 16px;
-}
-
-.settings-panel label.save-button-wrapper {
-    margin-top: 20px; /* Adds the "blank line" space */
-    justify-content: flex-end; /* Aligns the button to the right */
-}
-
-.settings-panel input[type="checkbox"] {
-    margin-right: 4px;
-}
-
 .spinner {
     /* This class is now deprecated as ui-loader-bar is used */
 
@@ -721,8 +643,6 @@ button:disabled,
 .conversation-area .response-block pre .hljs-attr {
     color: var(--hljs-selector, #9aaff2);
 }
-	
-}
 
 .conversation-area .response-block pre .hljs-title.function_ {
     color: var(--hljs-function, #61AFEF);
@@ -736,9 +656,3 @@ button:disabled,
 .conversation-area .response-block pre .hljs-tag {
     color: var(--hljs-tag, #e06c75);
 }
-.context-stale-notice .update-button {
-    background-color: var(--theme); /* The background color for the update button should be the theme color. */
-    border-color: var(--theme); /* The border color for the update button should be the theme color. */
-    color: var(--text-inverted);
-}
-.context-stale-notice button:hover { filter: brightness(1.2); }

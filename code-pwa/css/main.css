@@ -568,7 +568,8 @@ body.showSplitView #leftTabs {
 	--bg-tertiary: #2a3235;
 	--bg-overlay: rgba(0,0,0,0.5);
 	--bg-code: rgba(0,0,0,0.25);
-	--bg-modal: #676f71;
+	--bg-modal: var(--bg-tertiary);
+	
 	--text-primary: #dadada;
 	--text-secondary: #afafaf;
 	--text-muted: #777777;

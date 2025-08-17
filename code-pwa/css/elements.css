@@ -289,6 +289,11 @@ ui-tabbar[slim] > ui-button ui-icon {
 	line-height: 40px;
 }
 
+
+ui-tabbar.tabs-inverted > ui-button ui-icon {
+	line-height: 34px;
+}
+
 ui-button[active],
 ui-button-counter[active] {
 	background: var(--bg-tertiary);
@@ -679,7 +684,7 @@ ui-menu {
 	top: 0px;
 	transition: opacity 200ms ease-in-out;
 	z-index: 100;
-	background: var(--bg-modal);
+	background: var(--bg-primary);
 	color: var(--text-primary);
 	box-shadow: 0 3px 12px var(--shadow-color);
 	border-radius: 0px 2px 4px 4px;
@@ -709,6 +714,7 @@ ui-menu ui-menu-item {
 	padding: 0 16px;
 	display: block;
 	white-space: nowrap;
+	color: var(--text-primary);
 }
 
 ui-menu[slim] ui-menu-item {
@@ -736,7 +742,7 @@ ui-menu ui-menu-item ui-icon {
 	line-height: 40px;
 	font-size: 20px;
 	vertical-align: middle;
-	color: var(--icon-color);
+	color: inherit;
 }
 
 ui-menu[slim] ui-menu-item ui-icon {

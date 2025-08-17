@@ -2,6 +2,7 @@ import { ContentFill, Block } from './element.mjs';
 import { Icon } from './icon.mjs';
 import { FileItem } from './fileitem.mjs';
 import { Button } from './button.mjs';
+import { SettingsPanel } from './settings-panel.mjs';
 import { isFunction, getIconForFileName, setIgnorePaths, getIgnorePaths, isPathIgnored } from './utils.mjs';
 import { readAndOrderDirectory, readAndOrderDirectoryRecursive, buildPath } from './utils.mjs';
 
@@ -14,7 +15,7 @@ export class FileList extends ContentFill {
 		const indexing = (this._indexing = new Icon("find_in_page"));
 		this._listContainer = new Block();
 		this._listContainer.classList.add('file-list-container');
-		this._settingsPanel = null;
+		this._settingsContainer = null;
 		indexing.setAttribute("title", "indexing files")
 		
 		indexing.classList.add("indexing")
@@ -47,8 +48,8 @@ export class FileList extends ContentFill {
 		this.append(this._indexing)
 		this.append(this._listContainer);
 		this._listContainer.append(this._inner, this._indexing);
-		this._settingsPanel = this._createSettingsPanel();
-		this.append(this._settingsPanel);
+		this._settingsContainer = this._createSettingsPanel();
+		this.append(this._settingsContainer);
 		// this.append(this._progress);
 		this._inner.setAttribute("slim", "true")
 	}
@@ -126,42 +127,43 @@ export class FileList extends ContentFill {
 		return active
 	}
 	_createSettingsPanel() {
-		const settingsPanel = new ContentFill();
-		settingsPanel.classList.add("settings-panel");
-		settingsPanel.style.display = 'none'; // Initially hidden
-		const form = document.createElement("form");
-		const ignoreLabel = document.createElement("label");
-		ignoreLabel.textContent = "Ignored Paths (comma-separated)";
-		const ignoreInput = document.createElement("textarea");
-		ignoreInput.id = "filelist-ignore-paths";
-		ignoreInput.value = this.ignorePaths.join(', ');
-		ignoreInput.rows = 5;
-		const saveButton = new Button("Save Settings");
-		saveButton.icon = "save";
-		saveButton.classList.add("theme-button");
-		saveButton.on("click", () => {
-			const newPaths = ignoreInput.value.split(',').map(p => p.trim()).filter(p => p);
+		const settingsContainer = new ContentFill();
+		settingsContainer.classList.add("settings-panel-container"); // Wrapper
+		settingsContainer.style.display = 'none'; // Initially hidden
+
+		const settingsPanel = new SettingsPanel();
+		settingsContainer.append(settingsPanel);
+
+		settingsPanel.on('settings-saved', (e) => {
+			const newPaths = e.detail['filelist-ignore-paths'].split(',').map(p => p.trim()).filter(p => p);
 			this.ignorePaths = newPaths; // This will trigger the setter which re-renders
 			this.dispatch('settings-changed', { ignorePaths: newPaths });
 			this.toggleSettingsPanel();
 		});
-		form.append(ignoreLabel, ignoreInput, saveButton);
-		settingsPanel.append(form);
-		return settingsPanel;
+
+		return settingsContainer;
 	}
+
 	toggleSettingsPanel() {
-		const isHidden = this._settingsPanel.style.display === 'none';
+		const isHidden = this._settingsContainer.style.display === 'none';
 		if (isHidden) {
 			// Show settings
 			this._listContainer.style.display = 'none';
-			this._settingsPanel.style.display = 'block';
-			// Populate textarea with current settings
-			const ignoreInput = this._settingsPanel.querySelector('#filelist-ignore-paths');
-			ignoreInput.value = this.ignorePaths.join(', ');
+
+			const schema = [
+				{ type: 'textarea', id: 'filelist-ignore-paths', label: 'Ignored Paths (comma-separated)', rows: 5 }
+			];
+			const values = {
+				'filelist-ignore-paths': this.ignorePaths.join(', ')
+			};
+
+			const panelContent = this._settingsContainer.querySelector('ui-settings-panel');
+			panelContent.render(schema, values);
+			this._settingsContainer.style.display = 'flex';
 		} else {
 			// Hide settings
 			this._listContainer.style.display = 'block';
-			this._settingsPanel.style.display = 'none';
+			this._settingsContainer.style.display = 'none';
 		}
 	}
 	byTitle(title) {
