@@ -1,6 +1,7 @@
 import { Button, Icon } from "./elements.mjs";
 import { loadScript, addStylesheet } from "./elements/utils.mjs";
 import { TabBar } from "./elements/tabbar.mjs";
+import { SettingsPanel } from "./elements/settings-panel.mjs";
 import { TabItem } from "./elements/tabitem.mjs";
 import conduitSetupGuide from './conduit-setup-guide.mjs';
 
@@ -756,55 +757,57 @@ class TerminalManager {
 	}
 
 	_createSettingsPanel() {
-		const panel = document.createElement('div');
-		panel.className = 'settings-panel';
+		const panel = document.createElement("div")
+		panel.className = "settings-panel-container" // Wrapper
 		panel.style.display = 'none'; // Initially hidden
+
+		const settingsContent = new SettingsPanel()
+		panel.append(settingsContent)
+
+		settingsContent.on("settings-saved", (e) => {
+			this.config.autoLaunch = e.detail["conduit-auto-launch"]
+			this._saveSettings()
+		})
+
+		settingsContent.on("install-conduit", (e) => this._installConduit(e.detail.element))
+		settingsContent.on("uninstall-conduit", (e) => {
+			if (
+				confirm(
+					"Are you sure you want to uninstall the Conduit helper? This will close all active terminal sessions and stop the helper process."
+				)
+			) {
+				this._uninstallConduit(e.detail.element)
+			}
+		})
+
 		return panel;
 	}
 
 	async _renderSettingsPanel() {
-		this.settingsPanel.innerHTML = ''; // Clear previous content
-
-
 		await this._checkConduitStatus(); // Get latest status
 
-		const statusLine = document.createElement('p');
-		statusLine.innerHTML = `Conduit Status: <strong class="${this.conduitStatus.isRunning ? 'success' : 'error'}">${this.conduitStatus.isRunning ? 'Running' : 'Not Running'}</strong> (v${this.conduitStatus.version})`;
-		this.settingsPanel.append(statusLine);
+		const schema = [
+			{
+				type: "info",
+				content: `Conduit Status: <strong class="${this.conduitStatus.isRunning ? "success" : "error"}">${
+					this.conduitStatus.isRunning ? "Running" : "Not Running"
+				}</strong> (v${this.conduitStatus.version})`,
+			},
+			{ type: "checkbox", id: "conduit-auto-launch", label: "Automatically try to launch Conduit helper on startup" },
+		]
 
-		// --- Auto-launch setting ---
-		const settingsContainer = document.createElement('div');
-		settingsContainer.className = 'settings-group';
-		const checkboxLabel = document.createElement('label');
-		const checkbox = document.createElement('input');
-		checkbox.type = 'checkbox';
-		checkbox.checked = this.config.autoLaunch;
-		checkbox.onchange = () => {
-			this.config.autoLaunch = checkbox.checked;
-			this._saveSettings();
-		};
-		checkboxLabel.append(checkbox, " Automatically try to launch Conduit helper on startup");
-		settingsContainer.append(checkboxLabel);
-		this.settingsPanel.append(settingsContainer);
-
-		// --- Install/Uninstall Button ---
 		if (this.conduitStatus.isInstalled) {
-			const uninstallButton = new Button('Uninstall Conduit');
-			uninstallButton.classList.add('themed', 'cancel');
-			uninstallButton.onclick = () => {
-				if (confirm("Are you sure you want to uninstall the Conduit helper? This will close all active terminal sessions and stop the helper process.")) {
-					this._uninstallConduit(uninstallButton);
-				}
-			};
-			this.settingsPanel.append(uninstallButton);
+			schema.push({ type: "button", id: "uninstall-btn", label: "Uninstall Conduit", className: "themed cancel", onClickEvent: "uninstall-conduit" })
 		} else if (this.conduitStatus.isRunning) {
-			const installButton = new Button('Install Conduit');
-			installButton.classList.add('themed');
-			installButton.onclick = () => {
-				this._installConduit(installButton);
-			}
-			this.settingsPanel.append(installButton);
+			schema.push({ type: "button", id: "install-btn", label: "Install Conduit", className: "themed", onClickEvent: "install-conduit" })
 		}
+
+		const values = {
+			"conduit-auto-launch": this.config.autoLaunch,
+		}
+
+		const panelContent = this.settingsPanel.querySelector("ui-settings-panel")
+		panelContent.render(schema, values)
 	}
 	_createLoadingStateElement() {
 		const el = document.createElement('div');
@@ -835,7 +838,7 @@ class TerminalManager {
 			this.terminalContainersWrapper.style.display = 'none';
 			if (this.setupGuideElement) this.setupGuideElement.style.display = 'none'; // Hide setup guide if visible
 			this._renderSettingsPanel(); // Populate with fresh data
-			this.settingsPanel.style.display = 'block';
+			this.settingsPanel.style.display = 'flex';
 		} else {
 			// Hide settings
 			this.settingsPanel.style.display = 'none';

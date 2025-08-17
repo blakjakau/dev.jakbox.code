@@ -1,5 +1,6 @@
 // ai-manager-settings.mjs
-import { Block, Button } from "./elements.mjs";
+import { Block, Button } from "./elements.mjs"
+import { SettingsPanel } from "./elements/settings-panel.mjs"
 
 /**
  * Manages the UI and logic for the AIManager's settings panel.
@@ -8,8 +9,7 @@ class AIManagerSettings {
     constructor(aiManager) {
         this.aiManager = aiManager; // Reference to the main AI manager
         this.panel = null;
-        this._form = null;
-        this._workspaceSettingsCheckbox = null;
+        this._settingsContentPanel = null
     }
 
     /**
@@ -20,8 +20,16 @@ class AIManagerSettings {
         this.panel = new Block();
         this.panel.classList.add("settings-panel");
 
-        this._form = document.createElement("form");
-        this.panel.append(this._form);
+        this._settingsContentPanel = new SettingsPanel()
+        this.panel.append(this._settingsContentPanel)
+
+        // Listen for events from the settings panel
+        this._settingsContentPanel.on("settings-saved", (e) => this.saveSettings(e.detail))
+        this._settingsContentPanel.on("switch-ai-provider", (e) => {
+            this.aiManager.switchAiProvider(e.detail.value)
+        })
+        this._settingsContentPanel.on("refresh-models", (e) => this._refreshModels(e.detail.element))
+
         return this.panel;
     }
 
@@ -31,8 +39,7 @@ class AIManagerSettings {
     init() {
         // The form is already created by createPanel, just need to render its content.
         this.renderForm();
-    }
-    
+    }    
     /**
      * Toggles visibility of the settings panel and refreshes its content.
      */
@@ -47,55 +54,126 @@ class AIManagerSettings {
      * Renders the complete settings form, including generic, system prompt, and provider-specific settings.
      */
     async renderForm() {
-        this._form.innerHTML = ''; // Clear previous content
-
-        // --- Workspace Settings Checkbox ---
-        const workspaceSettingsLabel = this._createWorkspaceCheckbox();
-        this._form.appendChild(workspaceSettingsLabel);
+        const { aiManager } = this
+        // Determine if workspace settings are in use
+        const useWorkspaceSettings = !!(
+            window.workspace?.aiConfig?.[aiManager.aiProvider] ||
+            (window.workspace?.systemPromptConfig &&
+                Object.keys(window.workspace.systemPromptConfig).length > 0)
+        )
+        aiManager.useWorkspaceSettings = useWorkspaceSettings
         
-        // --- Generic AI Manager Settings (Summarization, System Prompt) ---
-        this._renderGenericSettings();
+        const systemPromptConfig = aiManager.getSystemPromptConfig()
+        const providerOptions = await aiManager.ai.getOptions()
+
+        // Build the values object to populate the form
+        const values = {
+            "use-workspace-settings": useWorkspaceSettings,
+            summarizeThreshold: aiManager.config.summarizeThreshold,
+            summarizeTargetPercentage: aiManager.config.summarizeTargetPercentage,
+            systemPromptSpecialization: systemPromptConfig.specialization,
+            systemPromptTechnologies: (systemPromptConfig.technologies || []).join(", "),
+            systemPromptAvoidedTechnologies: (systemPromptConfig.avoidedTechnologies || []).join(", "),
+            systemPromptTone: (systemPromptConfig.tone || ["warm", "playful", "cheeky"]).join(", "),
+            "ai-provider": aiManager.aiProvider,
+        }
+        for (const key in providerOptions) {
+            values[`${aiManager.aiProvider}-${key}`] = providerOptions[key].value
+        }
         
-        // --- AI Provider Selection ---
-        this._renderProviderSelection();
+        // Build the schema that defines the form structure
+        const schema = [
+            { type: "checkbox", id: "use-workspace-settings", label: "Use workspace-specific settings" },
+            { type: "number", id: "summarizeThreshold", label: "Summarize History When Context Reaches (%)" },
+            { type: "number", id: "summarizeTargetPercentage", label: "Percentage of Old History to Summarize" },
+            { type: "heading", label: "Prompt Customisation" },
+            {
+                type: "select",
+                id: "systemPromptSpecialization",
+                label: "AI Focus",
+                options: [
+                    "Web Frontend (HTML, CSS, JavaScript, etc)",
+                    "Web Backend (Node.js, PHP, etc)",
+                    "Full-Stack Web Development",
+                    "Embedded Systems",
+                    "Systems Architecture",
+                ].map((v) => ({ value: v, text: v })),
+            },
+            { type: "text", id: "systemPromptTechnologies", label: "Preferred Technologies (comma-separated)" },
+            { type: "text", id: "systemPromptAvoidedTechnologies", label: "Avoid Technologies (comma-separated)" },
+            { type: "text", id: "systemPromptTone", label: "AI Tone (comma-separated)" },
+            {
+                type: "select",
+                id: "ai-provider",
+                label: "AI Provider",
+                options: Object.keys(aiManager.aiProviders).map((p) => ({
+                    value: p,
+                    text: p.charAt(0).toUpperCase() + p.slice(1),
+                })),
+                onChangeEvent: "switch-ai-provider",
+            },
+            { type: "heading", label: "AI Provider Settings" },
+        ]
 
-        // --- Provider-Specific Settings ---
-        await this._renderProviderSpecificSettings();
+        for (const key in providerOptions) {
+            const setting = providerOptions[key]
+            const id = `${aiManager.aiProvider}-${key}`
 
-        // --- Save Button ---
-        const saveButton = new Button("Save Settings");
-        saveButton.icon = "save";
-        saveButton.classList.add("theme-button");
-        saveButton.on("click", () => this.saveSettings());
+            if (setting.type === "enum") {
+                schema.push({
+                    type: "select",
+                    id: id,
+                    label: setting.label,
+                    options: (setting.enum || []).map((opt) => ({ value: opt.value, text: opt.label || opt.value })),
+                })
+                if (key === "model") {
+                    schema.push({
+                        type: "button",
+                        id: "refresh-models-btn",
+                        label: "Refresh Models",
+                        icon: "refresh",
+                        className: "theme-button",
+                        onClickEvent: "refresh-models",
+                    })
+                }
+            } else {
+                schema.push({
+                    type: setting.multiline ? "textarea" : setting.secret ? "password" : "text",
+                    id: id,
+                    label: setting.label,
+                })
+            }
+        }
         
-        const label = document.createElement("label"); // This label acts as a container for alignment
-        label.classList.add("save-button-wrapper"); // Add a class for specific styling
-        label.appendChild(saveButton);
-        this._form.appendChild(label);
+        this._settingsContentPanel.render(schema, values)
 
-        // --- Initial State ---
-        this._toggleInputs(this.aiManager.useWorkspaceSettings);
+        const checkbox = this.panel.querySelector("#use-workspace-settings")
+        checkbox.addEventListener("change", () => {
+            this.aiManager.useWorkspaceSettings = checkbox.checked
+            this._toggleInputs(checkbox.checked)
+        })
+        this._toggleInputs(useWorkspaceSettings)
     }
 
     /**
      * Saves all settings from the form, dispatching events and calling back to the AI manager.
+     * @param {object} values - An object containing the new settings from the form.
      */
-    async saveSettings() {
+    async saveSettings(values) {
         const { aiManager } = this;
-        const form = this._form;
 
         // --- Save Generic Settings (Summarization) ---
-        aiManager.config.summarizeThreshold = parseInt(form.querySelector("#summarizeThreshold").value);
-        aiManager.config.summarizeTargetPercentage = parseInt(form.querySelector("#summarizeTargetPercentage").value);
+        aiManager.config.summarizeThreshold = parseInt(values.summarizeThreshold);
+        aiManager.config.summarizeTargetPercentage = parseInt(values.summarizeTargetPercentage);
         localStorage.setItem("summarizeThreshold", aiManager.config.summarizeThreshold);
         localStorage.setItem("summarizeTargetPercentage", aiManager.config.summarizeTargetPercentage);
 
         // --- Save System Prompt Settings ---
         const systemPromptConfig = {
-            specialization: form.querySelector("#systemPromptSpecialization").value,
-            technologies: form.querySelector("#systemPromptTechnologies").value.split(',').map(t => t.trim()).filter(Boolean),
-            avoidedTechnologies: form.querySelector("#systemPromptAvoidedTechnologies").value.split(',').map(t => t.trim()).filter(Boolean),
-            tone: form.querySelector("#systemPromptTone").value.split(',').map(t => t.trim()).filter(Boolean),
+            specialization: values.systemPromptSpecialization,
+            technologies: values.systemPromptTechnologies.split(",").map((t) => t.trim()).filter(Boolean),
+            avoidedTechnologies: values.systemPromptAvoidedTechnologies.split(",").map((t) => t.trim()).filter(Boolean),
+            tone: values.systemPromptTone.split(",").map((t) => t.trim()).filter(Boolean),
         };
         aiManager.saveSystemPromptConfig(systemPromptConfig, aiManager.useWorkspaceSettings);
 
@@ -103,16 +181,17 @@ class AIManagerSettings {
         const oldModel = aiManager.ai.config.model;
         const newProviderSettings = {};
         const currentOptions = await aiManager.ai.getOptions();
+
         for (const key in currentOptions) {
-            const input = form.querySelector(`#${aiManager.aiProvider}-${key}`);
-            if (input) {
-                newProviderSettings[key] = input.value;
+            const valueKey = `${aiManager.aiProvider}-${key}`
+            if (values.hasOwnProperty(valueKey)) {
+                newProviderSettings[key] = values[valueKey];
             }
         }
 
         aiManager.ai.setOptions(
-            newProviderSettings,
-            (errorMessage) => { // onError
+            newProviderSettings, // onError
+            (errorMessage) => {
                 const errorBlock = new Block();
                 errorBlock.classList.add("response-block", "error-block");
                 errorBlock.innerHTML = `Error: ${errorMessage}`;
@@ -120,8 +199,8 @@ class AIManagerSettings {
                 aiManager.conversationArea.scrollTop = aiManager.conversationArea.scrollHeight;
                 aiManager._dispatchContextUpdate("settings_save_error");
                 aiManager._setButtonsDisabledState(aiManager._isProcessing);
-            },
-            (successMessage) => { // onSuccess
+            }, // onSuccess
+            (successMessage) => {
                 const newModel = aiManager.ai.config.model;
                 let messageContent = successMessage;
                 if (newModel && newModel !== oldModel) {
@@ -142,167 +221,29 @@ class AIManagerSettings {
         aiManager.toggleSettingsPanel(); // Hide panel after saving
     }
     
-    _createWorkspaceCheckbox() {
-        const label = document.createElement("label");
-        label.htmlFor = "use-workspace-settings";
-        label.textContent = "Use workspace-specific settings";
-        
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.id = "use-workspace-settings";
-        // Determine initial state based on whether ANY workspace config exists
-        this.aiManager.useWorkspaceSettings = !!(window.workspace?.aiConfig?.[this.aiManager.aiProvider] || window.workspace?.systemPromptConfig && Object.keys(window.workspace.systemPromptConfig).length > 0);
-        checkbox.checked = this.aiManager.useWorkspaceSettings;
-
-        checkbox.addEventListener("change", () => {
-            this.aiManager.useWorkspaceSettings = checkbox.checked;
-            this._toggleInputs(checkbox.checked);
-        });
-
-        this._workspaceSettingsCheckbox = checkbox;
-        label.prepend(checkbox);
-        return label;
-    }
-
-    _renderGenericSettings() {
-        const { aiManager, _form } = this;
-        // Summarization
-        this._createInput(_form, 'summarizeThreshold', 'Summarize History When Context Reaches (%)', aiManager.config.summarizeThreshold, 'number');
-        this._createInput(_form, 'summarizeTargetPercentage', 'Percentage of Old History to Summarize', aiManager.config.summarizeTargetPercentage, 'number');
-
-        const promptHeader = document.createElement("h3");
-        promptHeader.textContent = "Prompt Customisation";
-        _form.appendChild(promptHeader);
-
-        // System Prompt
-        const systemPromptConfig = aiManager.getSystemPromptConfig();
-        this._createSelect(_form, 'systemPromptSpecialization', 'AI Focus', systemPromptConfig.specialization, [
-            "Web Frontend (HTML, CSS, JavaScript, etc)", 
-            "Web Backend (Node.js, PHP, etc)",
-            "Full-Stack Web Development",
-            "Embedded Systems",
-            "Systems Architecture"
-        ]);
-        this._createInput(_form, 'systemPromptTechnologies', 'Preferred Technologies (comma-separated)', (systemPromptConfig.technologies || []).join(', '), 'text', true);
-        this._createInput(_form, 'systemPromptAvoidedTechnologies', 'Avoid Technologies (comma-separated)', (systemPromptConfig.avoidedTechnologies || []).join(', '), 'text', true);
-        this._createInput(_form, 'systemPromptTone', 'AI Tone (comma-separated)', (systemPromptConfig.tone || ["warm", "playful", "cheeky"]).join(', '), 'text', true);
-    }
-    
-    async _renderProviderSelection() {
-        const { aiManager, _form } = this;
-        const providerOptions = Object.keys(aiManager.aiProviders);
-        this._createSelect(_form, 'ai-provider', 'AI Provider', aiManager.aiProvider, providerOptions, (value) => {
-            aiManager.switchAiProvider(value);
-            // The switch triggers a re-render of the form, so no need to do more here.
-        });
-    }
-
-    async _renderProviderSpecificSettings() {
-        const providerHeader = document.createElement("h3");
-        providerHeader.textContent = "AI Provider Settings";
-        this._form.appendChild(providerHeader);
-
-        const { aiManager, _form } = this;
-        const options = await aiManager.ai.getOptions();
-        for (const key in options) {
-            const setting = options[key];
-            const id = `${aiManager.aiProvider}-${key}`;
-
-            if (setting.type === "enum") {
-                const enumOptions = (setting.enum || []).map(opt => ({ value: opt.value, label: opt.label || opt.value }));
-                const select = this._createSelect(_form, id, setting.label, setting.value, enumOptions);
-                if (key === "model") {
-                    const refreshButton = new Button();
-                    refreshButton.icon = "refresh";
-                    refreshButton.classList.add("theme-button");
-                    refreshButton.on("click", async () => {
-                        aiManager._setButtonsDisabledState(true);
-                        try {
-                            await aiManager.ai.refreshModels();
-                            this.renderForm(); // Re-render to show updated model list
-                        } finally {
-                            aiManager._setButtonsDisabledState(false);
-                            aiManager._updateAIInfoDisplay();
-                            aiManager._dispatchContextUpdate("settings_change");
-                            aiManager.historyManager.render();
-                        }
-                    });
-
-                    // Wrap the select and the refresh button in a container
-                    // to position the button to the left of the select.
-                    const label = select.parentElement;
-                    const inputContainer = document.createElement('div');
-                    inputContainer.classList.add('input-with-button');
-
-                    // Move the original select into the new container
-                    label.removeChild(select);
-                    inputContainer.appendChild(refreshButton);
-                    inputContainer.appendChild(select);
-                    label.appendChild(inputContainer);
-                }
-            } else {
-                this._createInput(_form, id, setting.label, setting.value, setting.type, setting.multiline, setting.secret);
-            }
+    async _refreshModels(button) {
+        const { aiManager } = this;
+        button.disabled = true;
+        aiManager._setButtonsDisabledState(true);
+        try {
+            await aiManager.ai.refreshModels();
+            this.renderForm(); // Re-render to show updated model list
+        } finally {
+            // The button is re-created by renderForm, so no need to explicitly re-enable it.
+            aiManager._setButtonsDisabledState(false);
+            aiManager._updateAIInfoDisplay();
+            aiManager._dispatchContextUpdate("settings_change");
+            aiManager.historyManager.render();
         }
     }
-    
+
     // --- UI Helper Methods ---
-    _createInput(parent, id, labelText, value, type = 'text', multiline = false, secret = false) {
-        const label = document.createElement("label");
-        const span = document.createElement("span");
-        span.textContent = `${labelText}:`;
-        label.appendChild(span);
-
-        let input;
-        if (multiline) {
-            input = document.createElement("textarea");
-        } else {
-            input = document.createElement("input");
-            input.type = secret ? 'password' : type;
-        }
-        input.id = id;
-        input.value = value;
-        label.appendChild(input);
-        parent.appendChild(label);
-        return input;
-    }
-
-    _createSelect(parent, id, labelText, value, options, onChange = null) {
-        const label = document.createElement("label");
-        const span = document.createElement("span");
-        span.textContent = `${labelText}:`;
-        label.appendChild(span);
-
-        const select = document.createElement("select");
-        select.id = id;
-
-        options.forEach(opt => {
-            const option = document.createElement("option");
-            if (typeof opt === 'string') {
-                option.value = opt;
-                option.textContent = opt.charAt(0).toUpperCase() + opt.slice(1);
-            } else { // object {value, label}
-                option.value = opt.value;
-                option.textContent = opt.label;
-            }
-            if (option.value === value) {
-                option.selected = true;
-            }
-            select.appendChild(option);
-        });
-
-        if (onChange) {
-            select.addEventListener('change', () => onChange(select.value));
-        }
-
-        label.appendChild(select);
-        parent.appendChild(label);
-        return select;
-    }
-    
     _toggleInputs(disabled) {
-        const inputs = this._form.querySelectorAll("input:not(#use-workspace-settings), textarea, select");
-        inputs.forEach(input => {
+        // The settings panel component creates a form, which we can query into.
+        const form = this._settingsContentPanel.querySelector("form")
+        if (!form) return;
+        const inputs = form.querySelectorAll("input:not(#use-workspace-settings), textarea, select, ui-button")
+        inputs.forEach((input) => {
             input.disabled = disabled;
         });
     }
