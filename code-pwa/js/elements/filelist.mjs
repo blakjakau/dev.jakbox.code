@@ -151,7 +151,7 @@ export class FileList extends ContentFill {
 			this._listContainer.style.display = 'none';
 
 			const schema = [
-				{ type: 'textarea', id: 'filelist-ignore-paths', label: 'Ignored Paths (comma-separated)', rows: 5, help: 'Changes will be applied upon saving.' }
+				{ type: 'textarea', id: 'filelist-ignore-paths', label: 'Ignored Paths (comma-separated)', rows: 5 }
 			];
 			const values = {
 				'filelist-ignore-paths': this.ignorePaths.join(', ')

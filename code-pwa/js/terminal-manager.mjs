@@ -22,8 +22,9 @@ class TerminalManager {
 		this.settingsPanel = null;
 		this.settingsButton = null;
 		this.conduitStatus = { isRunning: false, isInstalled: false, version: 'N/A' };
-		this.config = { autoLaunch: true }; // Let's default to true, it's a better experience
+		this.config = { autoLaunch: true, keepAlive: false }; // Let's default to true, it's a better experience
 		this.isPolling = false;
+		this.keepAliveIntervalId = null;
 
 		this._sessions = new Map(); // Map: sessionId -> { term, fitAddon, ws, containerElement, tabItem }
 		this._activeSessionId = null;
@@ -39,6 +40,7 @@ class TerminalManager {
      */
 	async init(panel) {
 		this._loadSettings();
+		this._updateKeepAlive();
 
 		this.panel = panel;
 		this.panel.classList.add('terminal-panel-container'); // Add a class for specific styling if needed
@@ -442,6 +444,10 @@ class TerminalManager {
 		if (storedAutoLaunch !== null) {
 			this.config.autoLaunch = storedAutoLaunch === 'true';
 		}
+		const storedKeepAlive = localStorage.getItem('conduitKeepAlive');
+		if (storedKeepAlive !== null) {
+			this.config.keepAlive = storedKeepAlive === 'true';
+		}
 	}
 
 	/**
@@ -449,6 +455,29 @@ class TerminalManager {
 	 */
 	_saveSettings() {
 		localStorage.setItem('conduitAutoLaunch', this.config.autoLaunch);
+		localStorage.setItem('conduitKeepAlive', this.config.keepAlive);
+		this._updateKeepAlive();
+	}
+
+	_updateKeepAlive() {
+		if (this.keepAliveIntervalId) {
+			clearInterval(this.keepAliveIntervalId);
+			this.keepAliveIntervalId = null;
+		}
+		if (this.config.keepAlive) {
+			this.keepAliveIntervalId = setInterval(async () => {
+				// Only ping if the panel is visible and conduit is running.
+				if (this.panel.offsetParent && this.conduitStatus.isRunning) {
+					try {
+						// Use a short timeout to prevent hanging requests
+						await fetch(CONDUIT_UP_URL, { signal: AbortSignal.timeout(500) });
+						console.debug('Conduit keep-alive ping sent.');
+					} catch (e) {
+						console.debug('Keep-alive ping failed, conduit might be down.');
+					}
+				}
+			}, 10000); // every 60 seconds
+		}
 	}
 
 	/**
@@ -766,7 +795,9 @@ class TerminalManager {
 
 		settingsContent.on("settings-saved", (e) => {
 			this.config.autoLaunch = e.detail["conduit-auto-launch"]
+			this.config.keepAlive = e.detail["conduit-keep-alive"];
 			this._saveSettings()
+			this.toggleSettingsPanel(false); // Close the settings panel after saving
 		})
 
 		settingsContent.on("install-conduit", (e) => this._installConduit(e.detail.element))
@@ -793,17 +824,27 @@ class TerminalManager {
 					this.conduitStatus.isRunning ? "Running" : "Not Running"
 				}</strong> (v${this.conduitStatus.version})`,
 			},
-			{ type: "checkbox", id: "conduit-auto-launch", label: "Automatically try to launch Conduit helper on startup" },
+			{ type: "checkbox", id: "conduit-auto-launch", label: "Auto-launch", text: "Automatically try to launch Conduit helper on startup" },
+			{ type: "checkbox", id: "conduit-keep-alive", label: "Keep-alive", text: "Send periodic pings to prevent Conduit from closing" },
 		]
 
 		if (this.conduitStatus.isInstalled) {
-			schema.push({ type: "button", id: "uninstall-btn", label: "Uninstall Conduit", className: "themed cancel", onClickEvent: "uninstall-conduit" })
+			schema.push({
+				type: "button",
+				id: "uninstall-btn",
+				label: "Uninstall",
+				text: "Uninstall Conduit",
+				className: "themed cancel",
+				onClickEvent: "uninstall-conduit",
+				help: "Remove the app and disable the protocol handler."
+			})
 		} else if (this.conduitStatus.isRunning) {
 			schema.push({ type: "button", id: "install-btn", label: "Install Conduit", className: "themed", onClickEvent: "install-conduit" })
 		}
 
 		const values = {
 			"conduit-auto-launch": this.config.autoLaunch,
+			"conduit-keep-alive": this.config.keepAlive
 		}
 
 		const panelContent = this.settingsPanel.querySelector("ui-settings-panel")
