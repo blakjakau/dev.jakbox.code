@@ -1,4 +1,4 @@
-const APP_VERSION = "0.3.9"
+const APP_VERSION = "0.4.0"
 const CACHE_PRELOAD = "preload_resources"
 const CACHE_OFFLINE = "offline_access"
 
@@ -9,14 +9,13 @@ const FILE_URL = "openFile.html"
 const deploy = true
 
 // --- List of hostnames for services that should NOT be cached ---
+// ever, under any circumstance
 const NON_CACHEABLE_HOSTS = [
     "generativelanguage.googleapis.com", // Gemini API hostname
-    "localhost:3022",
+    "localhost:3022", // conduit service
+    "localhost:11434", // ollama service
     "github.com",
     // Add other external API hostnames here, e.g.:
-    // "maps.googleapis.com",
-    // "api.stripe.com",
-    // "my-custom-external-service.com",
 ];
 
 
@@ -150,19 +149,17 @@ self.addEventListener("fetch", (event) => {
 	event.respondWith(
 		(async () => {
 			const url = new URL(event.request.url);
-
+			console.debug("[service] Handling fetch:", url.pathname);
 			// --- Priority 1: Special Handlers (that don't touch cache) ---
+			if (url.pathname === "/version.json") {
 
-			// Special handler for version request. This is top priority.
-			if (url.pathname.endsWith("/version.json")) {
 				console.debug("[service] Intercepting and responding to /version.json");
+				console.debug("[service] Handling /version.json");
+				
 				const responseBody = { appName: "code.jakbox.dev", version: APP_VERSION };
-				
 				const response = new Response(JSON.stringify(responseBody), {
-					headers: { "Content-Type": "application/json" },
+					headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
 				});
-				
-				cache.put(event.request, networkResponse.clone());
 				return response;
 			}
 
@@ -174,61 +171,62 @@ self.addEventListener("fetch", (event) => {
 
 			// --- Priority 2: Handle Navigation Requests ---
 
-			if (event.request.mode === "navigate") {
-				try {
-					// Try network first for navigation.
-					const networkResponse = await fetch(event.request);
-					// If successful, update the cache.
-					const cache = await caches.open(CACHE_PRELOAD);
-					cache.put(event.request, networkResponse.clone());
-					return networkResponse;
-				} catch (error) {
-					// Network failed, serve the offline page from the cache.
-					console.warn("[service] Navigation failed, serving offline page.", error);
-					const cache = await caches.open(CACHE_PRELOAD);
-					return await cache.match(OFFLINE_URL);
-				}
-			}
+            // Handle navigation requests with a network-first approach.
+            if (event.request.mode === "navigate") {
+                try {
+                    // Attempt to fetch from the network first.
+                    const networkResponse = await fetch(event.request);
+                    // If successful, update the CACHE_PRELOAD with the network response.
+                    const cache = await caches.open(CACHE_PRELOAD);
+                    await cache.put(event.request, networkResponse.clone());
+                    return networkResponse;
+                } catch (error) {
+                    // If network fails, serve the OFFLINE_URL from the cache.
+                    console.warn("[service] Network request for navigation failed, serving offline page.", error);
+                    const cache = await caches.open(CACHE_PRELOAD);
+                    return await cache.match(OFFLINE_URL);
+                }
+            }
 
-			// --- Priority 3: Handle All Other Requests (Assets, etc.) ---
+            // --- Priority 3: Handle All Other Requests (Assets, etc.) ---
 
-			// Development-specific substitutions
-			const isDev = self.location.hostname === "localhost";
-			if (isDev) {
-				let substituteUrl;
-				if (event.request.url.includes("manifest.json")) {
-					substituteUrl = event.request.url.replace("manifest.json", "manifest_dev.json");
-				} else if (event.request.url.includes("favicon.png")) {
-					substituteUrl = event.request.url.replace("favicon.png", "favicon_dev.png");
-				}
-				if (substituteUrl) {
-					console.log("[service] [dev-substitute]", substituteUrl);
-					return fetch(substituteUrl);
-				}
-			}
+            // Apply development-specific substitutions.
+            const isDev = self.location.hostname === "localhost";
+            if (isDev && (event.request.url.includes("manifest.json") || event.request.url.includes("favicon.png"))) {
+                let substituteUrl = event.request.url;
+                if (event.request.url.includes("manifest.json")) {
+                    substituteUrl = event.request.url.replace("manifest.json", "manifest_dev.json");
+                } else if (event.request.url.includes("favicon.png")) {
+                    substituteUrl = event.request.url.replace("favicon.png", "favicon_dev.png");
+                }
+                console.log("[service] [dev-substitute]", substituteUrl);
+                return fetch(substituteUrl);
+            }
 
-			// Cache-first strategy for assets
-			const cache = await caches.open(CACHE_OFFLINE);
-			const cachedResponse = await cache.match(event.request);
-			if (cachedResponse) {
-				console.debug("[service] [cache] Serving from cache:", event.request.url);
-				return cachedResponse;
-			}
+            // Use a cache-first strategy for all other assets.
+            const cache = await caches.open(CACHE_OFFLINE);
+            const cachedResponse = await cache.match(event.request);
 
-			// If not in cache, fetch from network, cache it, and return it.
-			try {
-				const networkResponse = await fetch(event.request);
-				// Check for valid response before caching
-				if (networkResponse && networkResponse.status === 200) {
-					console.debug("[service] [network] Caching new asset:", event.request.url);
-					await cache.put(event.request, networkResponse.clone());
-				}
-				return networkResponse;
-			} catch (error) {
-				console.error("[service] Asset fetch failed, and not in cache:", event.request.url, error);
-				return new Response("", { status: 404, statusText: "Not Found" });
-			}
-		})()
-	);
-})
+            if (cachedResponse) {
+                console.debug("[service] [cache] Serving from cache:", event.request.url);
+                return cachedResponse;
+            }
+
+            // If not found in cache, fetch from the network.
+            try {
+                const networkResponse = await fetch(event.request);
+                // Cache the response if it's successful (status 200).
+                if (networkResponse && networkResponse.status === 200) {
+                    console.debug("[service] [network] Caching new asset:", event.request.url);
+                    await cache.put(event.request, networkResponse.clone());
+                }
+                return networkResponse;
+            } catch (error) {
+                // If network fetch fails and it's not in cache, return a 404.
+                console.error("[service] Asset fetch failed, and not in cache:", event.request.url, error);
+                return new Response("", { status: 404, statusText: "Not Found" });
+            }
+        })()
+    );
+});
 
