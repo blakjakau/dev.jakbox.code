@@ -49,6 +49,9 @@ export class Input extends Element {
 	get value() {
 		return this._input.value
 	}
+	set type(v) {
+		this._input.setAttribute("type", v)
+	}
 	focus() {
 		this._input.focus()
 	}

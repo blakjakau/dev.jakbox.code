@@ -3,6 +3,7 @@ import { loadScript, addStylesheet } from "./elements/utils.mjs";
 import { TabBar } from "./elements/tabbar.mjs";
 import { SettingsPanel } from "./elements/settings-panel.mjs";
 import { TabItem } from "./elements/tabitem.mjs";
+import { Modal } from './elements/modal.mjs'; // Import Modal
 import conduitSetupGuide from './conduit-setup-guide.mjs';
 
 // The URL for the backend WebSocket server
@@ -765,21 +766,19 @@ class TerminalManager {
 			this.deleteTerminalSession(sessionId, session.tabItem);
 		}
 
-		try {
+		try { // Use Modal.notice for alerts
 			const response = await fetch(CONDUIT_UNINSTALL_URL);
 			if (!response.ok) throw new Error(`Server responded with ${response.status}`);
 			
 			localStorage.removeItem('conduitInstalled'); // Clear client-side flag
 			this.conduitStatus.isInstalled = false; // Update local state immediately
 			try { await fetch(CONDUIT_KILL_URL); } catch(e) { /* Expected to fail if server is already gone */ }
-			
-			alert("Conduit has been uninstalled and all terminal sessions have been closed.");
+			Modal.notice("Conduit has been uninstalled and all terminal sessions have been closed.", "Uninstalled");
 			this.toggleSettingsPanel(false); // Hide settings panel
 			this._showSetupGuide('download', { showLaunchButton: true }); // Show setup guide again
-
 		} catch (error) {
 			console.error("Conduit uninstallation failed:", error);
-			alert(`Uninstallation failed: ${error.message}`);
+			Modal.notice(`Uninstallation failed: <small>${error.message}</small>`, "Uninstallation Failed");
 			button.textContent = 'Uninstall Conduit';
 			button.disabled = false;
 		}
@@ -801,12 +800,12 @@ class TerminalManager {
 		})
 
 		settingsContent.on("install-conduit", (e) => this._installConduit(e.detail.element))
-		settingsContent.on("uninstall-conduit", (e) => {
-			if (
-				confirm(
+		settingsContent.on("uninstall-conduit", async (e) => { // Make this callback async
+			const confirmed = await Modal.confirm( // Use Modal.confirm
+				'Confirm Uninstall',
 					"Are you sure you want to uninstall the Conduit helper? This will close all active terminal sessions and stop the helper process."
 				)
-			) {
+			if (confirmed) {
 				this._uninstallConduit(e.detail.element)
 			}
 		})
