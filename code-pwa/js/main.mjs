@@ -4,9 +4,9 @@ import parserHtml from "https://unpkg.com/prettier@2.4.1/esm/parser-html.mjs"
 import parserCss from "https://unpkg.com/prettier@2.4.1/esm/parser-postcss.mjs"
 import { get, set, del } from "https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm" // Keep these imports
 
-import { getIconForFileName } from './elements/utils.mjs';
-import ui from './ui-main.mjs';
-import { ActionBar, Block, Button, ContentFill, CounterButton, Element, Effects, Effect, FileItem, FileList, Icon, Inline, Input, Inner, MediaView, Panel, Ripple, TabBar, TabItem, View, Menu, MenuItem, FileUploadList, actionBars, addStylesheet, buildPath, clone, isElement, isFunction, isNotNull, isset, readAndOrderDirectory, readAndOrderDirectoryRecursive, sortOnName } from './elements.mjs';
+import { getIconForFileName, addStylesheet, buildPath, clone, isElement, isFunction, isNotNull, isset, readAndOrderDirectory, readAndOrderDirectoryRecursive, sortOnName } from './elements/utils.mjs';
+import ui from './ui-main.mjs'; // Assuming ui-main.mjs handles its own import of Modal via elements.mjs
+import { Modal, ActionBar, Block, Button, ContentFill, CounterButton, Element, Effects, Effect, FileItem, FileList, Icon, Inline, Input, Inner, MediaView, Panel, Ripple, TabBar, TabItem, View, Menu, MenuItem, FileUploadList, actionBars } from './elements.mjs';
 import { observeFile, unobserveFile } from "./fileSystemObserver.mjs"
 
 const canPrettify = {
@@ -47,6 +47,7 @@ let permissionNotReloaded = true // should we re-request permission for folders 
 
 ui.create()
 window.ui = ui
+window.modal = Modal // Assign the singleton instance
 window.code = {
 	version: (()=>{
 		const last="0.4.2"
@@ -276,7 +277,7 @@ const saveFile = async (tab) => {
         tab.changed = false;
     } catch (error) {
         console.error("Error saving file:", error);
-        alert(`Failed to save ${handle.name}: ${error.message}`);
+        window.modal.notice(`Failed to save ${handle.name}:<br><small>${error.message}</small>`, 'Save Error');
     } finally {
         observeFile(handle, onFileModified); // Always resume listening
     }
@@ -547,7 +548,7 @@ const openWorkspace = (() => {
 
 				saveWorkspace()
 			} else {
-				alert(`couldn't load workspace ${name}`)
+				window.modal.notice(`Couldn't load workspace "${name}". It may have been deleted or corrupted.`, "Workspace Error");
 				app.workspaces.splice(app.workspaces.indexOf(name), 1)
 				saveAppConfig()
 				openWorkspace("default")
@@ -668,16 +669,16 @@ const execCommandEditorOptions = () => {
 }
 
 const execCommandAbout = () => {
-	setTimeout(() => {
-		const about = document.querySelector("#about")
-		const version = document.querySelector("#version")
-		if (!about) {
-			alert(`Code v${window.code.version} <code@jakbox.net>`)
-		} else {
-			version.innerHTML = `Version ${window.code.version} - `
-			about.setAttribute("active", "true")
-		}
-	})
+	const versionInfo = `Version ${window.code.version} - Copyright &copy; ${new Date().getFullYear()} jakbox.dev`;
+	const content = `<p>Simple, fast, lightweight code editing. Edit your local code files straight from your web browser, 
+			or install the web app for that sweet "native app" experience.</p>
+
+			<p>For issues &amp; bugs please see the <a href="https://github.com/blakjakau/dev.jakbox.code/issues" target="_blank">issue tracker</a></p>
+			
+			<p>Code is open source and uses other open source projects see <a href="https://github.com/blakjakau/dev.jakbox.code/blob/master/licence.md" target="_blank">here</a> for licence information</a>.</p>
+			<br/><small>${versionInfo}</small>`;
+	const title = `<img src="images/code-192-blue.svg" width="32px" style="vertical-align: middle;">&nbsp;Code`;
+	Modal.notice(content, title);
 }
 const execCommandAddFolder = () => {
 	fileOpen.click()
@@ -722,9 +723,10 @@ const execCommandRemoveAllFolders = () => {
 	setTimeout(async () => {
 		const l = workspace.folders.length
 		if (l == 0) {
-			alert("You don't have any folders in your workspace")
+			window.modal.notice("You don't have any folders in your workspace.", "No Folders");
 		} else {
-			if (confirm(`Are you sure you want to remove ${l} folder${l > 1 ? "s" : ""} from your workspace?`)) {
+			const confirmed = await window.modal.confirm(`Are you sure you want to remove ${l} folder${l > 1 ? "s" : ""} from your workspace?`);
+			if (confirmed) {
 				while (workspace.folders.length > 0) {
 					workspace.folders.pop()
 				}
@@ -829,7 +831,7 @@ const execCommandSave = async () => {
 		}
 		const newHandle = await window.showSaveFilePicker(options).catch(console.warn);
 		if (!newHandle) {
-			alert("File NOT saved");
+			window.modal.notice("File save operation was cancelled.", "Not Saved");
 			return;
 		}
 		config.handle = newHandle;
@@ -863,7 +865,7 @@ const execCommandSaveAs = async () => {
 	}
 	const newHandle = await window.showSaveFilePicker(options).catch(console.warn)
 	if (!newHandle) {
-		alert("File NOT saved")
+		window.modal.notice("File save operation was cancelled.", "Not Saved");
 		return
 	}
 
@@ -1009,7 +1011,7 @@ const reloadFile = async (tab) => {
         }
     } catch (error) {
         console.error("Error reloading file:", tab.config.name, error);
-        alert(`Error reloading file ${tab.config.name}: ${error.message}`);
+        window.modal.notice(`Error reloading file ${tab.config.name}:<br><small>${error.message}</small>`, "Reload Error");
     }
 };
 
@@ -1174,8 +1176,8 @@ const openFileHandle = async (handle, knownPath = null, targetEditor = currentEd
 	}
 
 	if (fileMode.mode == "") {
-		console.warn("Unsupported File", file)
-		alert(`Unsupported or unrecongnised file type: ${file.name.split(".").pop().toUpperCase()}`)
+		console.warn("Unsupported File", file);
+		window.modal.notice(`Unsupported or unrecognised file type: <strong>${file.name.split(".").pop().toUpperCase()}</strong>`, "Unsupported File");
 		return
 	}
 
@@ -1334,10 +1336,11 @@ rightTabs.click = async (event) => {
     }
 };
 
-const closeTab = (targetTabs, event) => {
+const closeTab = async (targetTabs, event) => {
     const tab = event.tab;
     if (tab.changed) {
-        if (!confirm("This file has unsaved changes, are you sure?")) {
+        const confirmed = await window.modal.confirm("This file has unsaved changes. Are you sure you want to close it?", "Unsaved Changes");
+        if (!confirmed) {
             return;
         }
     }
@@ -1762,7 +1765,8 @@ const keyBinds = [
 		exec: async () => {
 			await sleep(400)
 			if (workspace.name !== "default") {
-				if (confirm(`Really? Perminantly delete workspace ${workspace.name}?`)) {
+				const confirmed = await window.modal.confirm(`Are you sure you want to permanently delete the workspace "<strong>${workspace.name}</strong>"? This action cannot be undone.`, "Delete Workspace");
+				if (confirmed) {
 					// set(`workspace_${workspace.id}`console.warn("DELETE", workspace)
 					console.warn("DELETE", workspace)
 					del(`workspace_${workspace.id}`)
@@ -1798,16 +1802,17 @@ const keyBinds = [
 				if (tab._changed) unsaved = true
 			}
 			if (unsaved) {
-				if (!confirm("You have unsaved changes, are you sure?")) {
+			const confirmed = await window.modal.confirm("You have unsaved changes that will be lost. Are you sure you want to create a new workspace?", "Unsaved Changes");
+			if (!confirmed) {
 					return
 				}
 			}
 
-			let name = prompt("New workspace name")
+		let name = await window.modal.prompt("Please enter a name for the new workspace.", "New Workspace");
 			if (name) {
 				const id = safeString(name)
 				if (app.workspaces.indexOf(id) !== -1) {
-					alert("workspace name already exists")
+				window.modal.notice(`A workspace with the name "<strong>${name}</strong>" already exists. Please choose a different name.`, "Workspace Exists");
 					return
 				}
 				app.workspaces.push(id)

@@ -777,41 +777,57 @@ ui-panel img {
 
 ui-panel[type="modal"] {
 	position: fixed;
-	display: relative;
 	z-index: 101;
-	top: 33%;
-	left: 33%;
-	width: 33%;
-	height: 33%;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%) scale(0.95);
+	width: 90%;
+	max-width: 500px;
+	min-height: 150px;
+	max-height: 90vh;
 	background: var(--bg-modal);
 	box-sizing: border-box;
 	border-radius: 8px;
-	padding: 8px;
+	padding: 0;
 	box-shadow: 0 0 16px var(--shadow-color);
 	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 200ms ease-in-out, transform 200ms ease-in-out;
 }
 
 ui-panel[type="modal"] ui-inner {
 	padding: 16px;
-	overflow-y: auto;s
-	position: absolute;
-	top: 0px;
-	left: 0px;
-	right: 0px;
-	bottom: var(--menuHeight);
+	overflow-y: auto;
+	flex: 1; /* Allow inner content to expand */
 }
 
 ui-panel[type="modal"] ui-actionbar {
-	position: absolute;
+	/* Adjusted padding for consistency with other action bars */
+	padding: 8px 16px;
+	/* Ensure buttons are centered by default */
+	justify-content: center;
+	display: flex;
+	gap: 8px; /* Space between buttons */
+}
+
+/* Original ui-panel[type="modal"] ui-actionbar properties */
+ui-panel[type="modal"] ui-actionbar {
+	/*position: absolute;*/
 	bottom: 0px;
 	padding: 8px 0;
 	box-shadow: none;
-	height: var(--menuHeight);
+	min-height: var(--menuHeight);
+	height: auto;
+	text-align: center;
 	background: var(--bg-modal);
 }
 ui-panel[type="modal"] ui-actionbar ui-button {
 	min-width: 64px;
 	text-align: center;
+	float: none;
 }
 ui-panel[type="modal"][blank] + ui-blank {
 	display: none;
@@ -829,14 +845,31 @@ ui-panel[type="modal"][blank][active] + ui-blank {
 	display: block;
 }
 
+ui-panel[type="modal"][active] {
+	transform: translate(-50%, -50%) scale(1);
+	opacity: 1;
+	pointer-events: auto;
+}
+
 ui-panel[type="modal"] h1,
 ui-panel[type="modal"] h2 {
+	text-align: center;
+}
+
+/* Specific styling for h1 within modal */
+ui-panel[type="modal"] h1 {
+	font-size: 1.5em; /* Make h1 smaller */
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
 	text-align: center;
 }
 ui-panel[type="modal"] h1 small {
 	margin-top: 0.2em;
 	font-size: 0.5em;
 	/*color: var(--ui-sec-fg);*/
+}
+
+ui-panel[type="modal"] ui-input {
 }
 
 @keyframes ripple {
@@ -917,3 +950,27 @@ ui-filechip:hover {
 }
 
 ui-filechip > ui-icon[close] { font-size: 1.1em; line-height: 1; }
+
+/* --- General ui-input styles --- */
+ui-input {
+	display: block; /* Make ui-input a block-level element */
+    margin-bottom: 1em; /* Add some space below it */
+}
+
+ui-input input { /* Style the actual input element inside ui-input */
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-primary);
+    border-radius: var(--borderRadius);
+    background: var(--bg-code);
+    color: var(--text-primary);
+    font-size: 1.1em; /* Slightly larger text for readability */
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    outline: none;
+    transition: border-color 150ms ease-in-out, box-shadow 150ms ease-in-out;
+}
+
+ui-input input:focus {
+    border-color: var(--theme);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme) 30%, transparent);
+}

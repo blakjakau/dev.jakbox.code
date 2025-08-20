@@ -374,9 +374,9 @@ ui-button:hover {
 }
 
 ui-button.themed {
-    border-radius: 8px;
-    background: var(--bg-secondary);
-    color: var(--text-primary);
+    border-radius: var(--borderRadius); /* Use --borderRadius for consistency */
+    background: var(--theme);
+    color: var(--text-inverted);
 }
 ui-button.themed ui-icon {
     color: inherit;
@@ -388,30 +388,16 @@ ui-button.cancel {
     background: var(--bg-tertiary);
 }
 
-
-ui-panel.slideUp {
-    transition: margin-bottom 200ms ease-in-out, opacity 200ms ease-in-out;
-    margin-bottom: -50vh;
-    opacity:0;
-    pointer-events: none;
-}
-
-ui-panel.slideUp[active] {
-    margin-bottom: 0vh;
-    opacity:1;
-    pointer-events: initial;
-}
-
 ui-panel.slideDown {
-    transition: margin-top 200ms ease-in-out, opacity 200ms ease-in-out;
-    margin-top: -50vh;
-    opacity:0;
+    transition: transform 200ms ease-in-out, opacity 200ms ease-in-out;
+    transform: translateY(-50vh) scale(0.95);
+    opacity: 0;
     pointer-events: none;
 }
 
 ui-panel.slideDown[active] {
-    margin-top: 0vh;
-    opacity:1;
+    transform: translateY(0) scale(1);
+    opacity: 1;
     pointer-events: initial;
 }
 

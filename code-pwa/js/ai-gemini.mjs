@@ -275,18 +275,29 @@ class Gemini extends AI {
                     if (objectEndIndex !== -1) {
                         const jsonString = buffer.substring(objectStartIndex, objectEndIndex + 1);
                         
+                        let parsed;
                         try {
-                            const parsed = JSON.parse(jsonString);
-                            if (parsed.candidates && parsed.candidates[0].content && parsed.candidates[0].content.parts) {
-                                for (const part of parsed.candidates[0].content.parts) {
-                                    if (part.text) {
-                                        fullResponseAccumulator += part.text;
-                                    }
-                                }
-                                if (onUpdate) onUpdate(fullResponseAccumulator);
-                            }
+                            parsed = JSON.parse(jsonString);
                         } catch (e) {
-                            // Malformed JSON, continue trying to parse
+                            // Malformed JSON, skip this chunk and continue trying to parse from the stream.
+                            console.warn("[Gemini] Malformed JSON chunk in stream, skipping:", jsonString);
+                            processedIndex = objectEndIndex + 1;
+                            continue; // continue the `while(true)` loop
+                        }
+
+                        // Now that we have a valid JSON object, check for errors.
+                        if (parsed.error) {
+                            const errorMessage = `Gemini API Error: ${parsed.error.message} (Code: ${parsed.error.code}, Status: ${parsed.error.status})`;
+                            throw new Error(errorMessage); // This will be caught by the outer try/catch of the function.
+                        }
+
+                        if (parsed.candidates && parsed.candidates[0].content && parsed.candidates[0].content.parts) {
+                            for (const part of parsed.candidates[0].content.parts) {
+                                if (part.text) {
+                                    fullResponseAccumulator += part.text;
+                                }
+                            }
+                            if (onUpdate) onUpdate(fullResponseAccumulator);
                         }
                         
                         processedIndex = objectEndIndex + 1;
@@ -325,6 +336,13 @@ class Gemini extends AI {
                 requestBody.systemInstruction = { parts: [{ text: this.config.system }] };
             }
             requestBody.contents = [{ role: "user", parts: [{ text: userPromptContent }] }];
+
+            requestBody.safetySettings = [
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+            ];
 
             const currentTokens = await this._countTokens([{ role: "user", content: prompt }]);
             const contextRatio = currentTokens / this.MAX_CONTEXT_TOKENS;
@@ -390,6 +408,13 @@ class Gemini extends AI {
                 }
             }
             requestBody.contents = this._toGeminiContents(processedMessages);
+
+            requestBody.safetySettings = [
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+            ];
 
             const currentTokens = await this._countTokens(messages);
             const contextRatio = currentTokens / this.MAX_CONTEXT_TOKENS;
