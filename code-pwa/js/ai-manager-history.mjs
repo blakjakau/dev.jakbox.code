@@ -504,6 +504,12 @@ class AIManagerHistory {
 			}
 		});
 
+		// Also filter out any model messages that might have become empty after cleaning.
+		// This prevents sending empty model turns to the AI, which can cause issues.
+		prunableHistory = prunableHistory.filter(
+			(msg) => !(msg.role === "model" && (!msg.content || msg.content.trim() === ""))
+		);
+
 		const maxTokens = this.ai.MAX_CONTEXT_TOKENS || 4096
 		let currentTokens = this.ai.estimateTokens(prunableHistory)
 		const minimumMessagesToKeep = 1
