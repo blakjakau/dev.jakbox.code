@@ -1,5 +1,6 @@
 import { FileList, Panel, Inline, Block, Button, TabBar, MediaView, Input, MenuItem, ActionBar, EditorHolder, IconTabBar, IconTab, SidebarPanel } from './elements.mjs';
 import TerminalManager from './terminal-manager.mjs'; // Import the new TerminalManager
+import { ConduitFileList } from './elements/conduit-filelist.mjs';
 import aiManager from './ai-manager.mjs';
 import ollama from './ai-ollama.mjs';
 
@@ -25,7 +26,7 @@ var rightEdit, rightHolder, rightTabs
 
 
 var menu
-var omni, modal, installer
+var omni, modal, installer, conduitFileList
 var sidebar, fileActions, fileList
 var drawer, statusbar, statusTheme, statusMode, statusWorkspace
 var themeMenu, modeMenu, workspaceMenu
@@ -140,10 +141,12 @@ const uiManager = {
 		iconTabBar = new IconTabBar();
 
 		const filesTab = new IconTab('folder');
+		const conduitTab = new IconTab('public');
 		const aiTab = new IconTab('developer_board');
 		const scratchTab = new IconTab('edit_note');
 		const terminalTab = new IconTab('terminal');
 		iconTabBar.addTab(filesTab);
+		// iconTabBar.addTab(conduitTab);
 		iconTabBar.addTab(aiTab);
 		iconTabBar.addTab(terminalTab);
 		iconTabBar.addTab(scratchTab);
@@ -156,6 +159,10 @@ const uiManager = {
 		fileListBackground.classList.add("file-list-background-element");
 		fileListBackground.innerHTML = `<ui-icon icon="folder_open" style="font-size: 48px; opacity: 0.5;"></ui-icon><div class="caption">No folders in workspace<br/>Add a folder to begin.</div>`;
 		filesPanel.append(fileListBackground);
+
+		const conduitPanel = new SidebarPanel();
+		conduitFileList = new ConduitFileList();
+		conduitPanel.append(conduitFileList);
 
 		// The AI Panel creation is delegated to aiManager.init(aiManagerPanel)
         // Ensure aiManagerPanel exists for aiManager to append its UI
@@ -182,6 +189,7 @@ const uiManager = {
 		sidebarPanelsContainer.setAttribute("id", "sidebar-panels-container");
 		sidebarPanelsContainer.append(filesPanel);
 		sidebarPanelsContainer.append(aiManagerPanel);
+		sidebarPanelsContainer.append(conduitPanel);
 		sidebarPanelsContainer.append(scratchPanel);
 		sidebarPanelsContainer.append(terminalPanel);
 
@@ -213,6 +221,8 @@ const uiManager = {
 			let nextActivePanel;
 			if (tab === filesTab) {
 				nextActivePanel = filesPanel;
+			} else if (tab === conduitTab) {
+				nextActivePanel = conduitPanel;
 			} else if (tab === aiTab) {
 				nextActivePanel = aiManagerPanel;
 			} else if (tab === scratchTab) {

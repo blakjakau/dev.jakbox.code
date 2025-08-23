@@ -54,21 +54,20 @@ export class SettingsPanel extends ContentFill {
                     if(label) container.append(label);
                     container.append(input);
                     break;
-                case 'checkbox':
-                    if (label) container.append(label);
-
-                    // Wrapper for the right-hand side
-                    const checkboxWrapper = new Block();
-                    const innerLabel = document.createElement('label');
-                    input = document.createElement('input');
-                    input.type = 'checkbox';
-                    input.id = item.id;
-                    input.name = item.id;
-                    input.checked = !!values[item.id];
-                    innerLabel.append(input, ` ${item.text || ''}`); // Use item.text for label next to checkbox
-                    checkboxWrapper.append(innerLabel);
-                    container.append(checkboxWrapper);
-                    break;
+                case 'boolean':
+				case 'checkbox':
+					if (label) container.append(label); // Create the top label if item.label is provided
+					const checkboxDedicatedWrapper = new Block();
+					const checkboxDedicatedInnerLabel = document.createElement('label');
+					input = document.createElement('input');
+					input.type = 'checkbox';
+					input.id = item.id;
+					input.name = item.id;
+					input.checked = !!values[item.id];
+					checkboxDedicatedInnerLabel.append(input, ` ${item.text || ''}`); // Uses item.text for inline label for checkboxes
+					checkboxDedicatedWrapper.append(checkboxDedicatedInnerLabel);
+					container.append(checkboxDedicatedWrapper);
+					break;
                 case 'select':
                     input = document.createElement('select');
                     input.id = item.id;
@@ -129,10 +128,10 @@ export class SettingsPanel extends ContentFill {
     _save() {
         const values = {};
         for (const item of this._schema) {
-            if (['textarea', 'checkbox', 'select', 'text', 'number', 'password'].includes(item.type)) {
+            if (['textarea', 'checkbox', 'boolean', 'select', 'text', 'number', 'password'].includes(item.type)) {
                 const input = this._form.querySelector(`[name="${item.id}"]`);
                 if (input) {
-                    if (item.type === 'checkbox') {
+                    if (item.type === 'checkbox' || item.type === 'boolean') {
                         values[item.id] = input.checked;
                     } else {
                         values[item.id] = input.value;

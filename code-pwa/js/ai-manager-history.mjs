@@ -495,20 +495,23 @@ class AIManagerHistory {
 			(msg) => msg.type !== "system_message" && msg.role !== "temp_ai_response"
 		)
 
-		// Before estimating tokens, remove diff blocks from previous model responses to save space.
-		// This doesn't affect the displayed history, only what's sent to the AI.
-		const diffRegex = /```diff\n[\s\S]*?\n```/g;
-		prunableHistory.forEach(msg => {
-			if (msg.type === 'model' && msg.content) {
-				msg.content = msg.content.replace(diffRegex, '\n').trim();
-			}
-		});
+		// Get the setting to control code block stripping
+		const stripCodeBlocks = this.manager.ai.config.stripCodeBlocksFromContext;
 
-		// Also filter out any model messages that might have become empty after cleaning.
-		// This prevents sending empty model turns to the AI, which can cause issues.
-		prunableHistory = prunableHistory.filter(
-			(msg) => !(msg.role === "model" && (!msg.content || msg.content.trim() === ""))
-		);
+		if (stripCodeBlocks) {
+			// Regex to match any Markdown code block, optionally preceded by a Markdown header.
+			// This will remove the entire block (header + code) and replace it with a single newline.
+			const codeBlockWithHeaderRegex = /(?:^|\n)\s*(?:#{1,6}[^\n]*\n+)?\s*```(?:\w+)?\n[\s\S]*?\n\s*```/g;
+
+			prunableHistory.forEach(msg => {
+				// Apply stripping only to user and model messages. File context messages are handled differently.
+				if ((msg.type === 'model' || msg.type === 'user') && msg.content) {
+					// Replace the matched header+code block with a single newline to maintain some spacing, then trim.
+					msg.content = msg.content.replace(codeBlockWithHeaderRegex, '\n').trim();
+				}
+			});
+		}
+		// If stripCodeBlocks is false, no stripping occurs here, preserving all content.
 
 		const maxTokens = this.ai.MAX_CONTEXT_TOKENS || 4096
 		let currentTokens = this.ai.estimateTokens(prunableHistory)

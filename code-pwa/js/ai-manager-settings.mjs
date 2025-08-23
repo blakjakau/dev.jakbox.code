@@ -136,6 +136,12 @@ class AIManagerSettings {
                         onClickEvent: "refresh-models",
                     })
                 }
+            } else if (setting.type === 'boolean' || setting.type === 'checkbox') {
+                schema.push({
+                    type: setting.type,
+                    id: id,
+                    label: setting.label,
+                });
             } else {
                 schema.push({
                     type: setting.multiline ? "textarea" : setting.secret ? "password" : "text",

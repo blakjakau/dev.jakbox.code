@@ -10,6 +10,7 @@ class Gemini extends AI {
             model: "", 
             server: "https://generativelanguage.googleapis.com", 
             system: systemPrompt,
+            stripCodeBlocksFromContext: false, // New setting to control code block stripping
         };
         this.MAX_CONTEXT_TOKENS = 32768; 
 
@@ -22,6 +23,7 @@ class Gemini extends AI {
                 default: "gemini-2.5-flash", 
                 lookupCallback: this._getAvailableModels.bind(this) 
             },
+            stripCodeBlocksFromContext: { type: "boolean", label: "Strip Code Blocks from Context", default: false },
             //system: { type: "string", label: "System Prompt", default: systemPrompt, multiline: true },
         };
     }
