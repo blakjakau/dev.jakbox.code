@@ -146,7 +146,7 @@ const uiManager = {
 		const scratchTab = new IconTab('edit_note');
 		const terminalTab = new IconTab('terminal');
 		iconTabBar.addTab(filesTab);
-		iconTabBar.addTab(conduitTab);
+		// iconTabBar.addTab(conduitTab);
 		iconTabBar.addTab(aiTab);
 		iconTabBar.addTab(terminalTab);
 		iconTabBar.addTab(scratchTab);
