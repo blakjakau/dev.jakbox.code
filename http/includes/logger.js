@@ -88,6 +88,7 @@
 			var start = new Date().getTime();
 			req.startTime = start;
 			args.unshift("\033[32m"+now()+"\033[90m "+req.method+"\033[90m");
+			args.push(req.ip);
 			args.push(req.url);
 			args.push("\033[97m");
 

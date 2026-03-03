@@ -14,15 +14,18 @@
 .diff-output .add {
     color: var(--green); /* Bright green for additions */
     background-color: rgba(0, 128, 0, 0.2); /* Darken for better contrast */
+    width: fit-content;
 }
 
 /* Removed lines */
 .diff-output .remove {
     color: var(--red); /* Bright red for removals */
     background-color: rgba(128, 0, 0, 0.2); /* Darken for better contrast */
+    width: fit-content;
 }
 
 /* Context (neutral) lines */
 .diff-output .neutral {
     color: var(--theme-text-color); /* Standard text color */
+    width: fit-content;
 }
