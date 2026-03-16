@@ -337,6 +337,13 @@ class Gemini extends AI {
             } else if (this.config.system) {
                 requestBody.systemInstruction = { parts: [{ text: this.config.system }] };
             }
+
+            if (this.config.model.includes('thinking') || this.config.model.includes('pro')) {
+                requestBody.generationConfig = {
+                    thinkingConfig: { thinkingLevel: "LOW" }
+                };
+            }
+
             requestBody.contents = [{ role: "user", parts: [{ text: userPromptContent }] }];
 
             requestBody.safetySettings = [
@@ -409,6 +416,13 @@ class Gemini extends AI {
                     requestBody.systemInstruction = { parts: [{ text: effectiveSystemPrompt }] };
                 }
             }
+
+            if (this.config.model.includes('thinking') || this.config.model.includes('pro')) {
+                requestBody.generationConfig = {
+                    thinkingConfig: { thinkingLevel: "LOW" }
+                };
+            }
+
             requestBody.contents = this._toGeminiContents(processedMessages);
 
             requestBody.safetySettings = [
