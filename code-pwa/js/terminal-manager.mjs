@@ -142,46 +142,61 @@ class TerminalManager {
 	 */
 	_connectWebSocket(sessionId, term) {
 		const ws = new WebSocket(TERMINAL_WEBSOCKET_URL);
+		ws.binaryType = 'arraybuffer';
 		ws.onopen = () => {
 			term.clear();
 			term.writeln(`Connected to terminal session: ${sessionId}\r\n`);
 			this.fit(); // Fit immediately after connection is established
 		};
 		ws.onmessage = (event) => {
-			// Write data received from the server (PTY) to the terminal
-			const CWD_UPDATE_REGEX = /\x1b]9;9;([^\x1b]*)\x1b\\/g; // OSC 9;9;path followed by String Terminator (ST)
-			let messageHandled = false;
-			let rawData = event.data;
-			// First, try to parse as a JSON control message (like "terminalInfo")
-			try {
-				const msg = JSON.parse(rawData);
-				if (msg.type === "terminalInfo") {
+			if (typeof event.data === 'string') {
+				// Handle TextMessage (JSON control messages)
+				try {
+					const msg = JSON.parse(event.data);
+					if (msg.type === "terminalInfo") {
+						const session = this._sessions.get(sessionId);
+						if (session) {
+							session.hostname = msg.hostname;
+							session.cwd = msg.cwd;
+							this._updateTerminalTabName(sessionId);
+						}
+						return; // Handled
+					}
+				} catch (e) {
+					// Not JSON, write as raw text
+				}
+				term.write(event.data);
+			} else {
+				// Handle BinaryMessage (ArrayBuffer) from PTY
+				const arrayBuffer = event.data;
+				const uint8Array = new Uint8Array(arrayBuffer);
+				
+				// Quick check for CWD update escape sequence: OSC 9;9;path ST
+				// We decode to text to safely run the regex and strip it if present.
+				const textDecoder = new TextDecoder('utf-8', { fatal: false });
+				let text = textDecoder.decode(uint8Array);
+				const CWD_UPDATE_REGEX = /\x1b]9;9;([^\x1b]*)\x1b\\/g;
+				let hasMatch = false;
+				let match;
+				
+				while ((match = CWD_UPDATE_REGEX.exec(text)) !== null) {
+					hasMatch = true;
+					const newCwd = match[1];
 					const session = this._sessions.get(sessionId);
 					if (session) {
-						session.hostname = msg.hostname;
-						session.cwd = msg.cwd;
+						session.cwd = newCwd;
 						this._updateTerminalTabName(sessionId);
 					}
-					messageHandled = true;
+					text = text.replace(match[0], '');
 				}
-			} catch (e) {
-				// Not a JSON message, or parse error. Treat as raw terminal data.
-			}
-			// If not a JSON control message, check for CWD update escape sequence
-			let match;
-			while ((match = CWD_UPDATE_REGEX.exec(rawData)) !== null) {
-				const newCwd = match[1];
-				const session = this._sessions.get(sessionId);
-				if (session) {
-					session.cwd = newCwd;
-					this._updateTerminalTabName(sessionId);
-				}
-				// Remove the escape sequence from the data written to xterm.js
-				rawData = rawData.replace(match[0], '');
-			}
 
-			if (!messageHandled) {
-				term.write(rawData); // Write the (potentially modified) raw data to the terminal
+				if (hasMatch) {
+					// We modified the output, so write the text
+					term.write(text);
+				} else {
+					// Write raw binary for perfect passthrough (fixes vim encoding issues)
+					term.write(uint8Array);
+				}
 			}
 		};
 		ws.onerror = (error) => {
